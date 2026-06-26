@@ -1,0 +1,12 @@
+
+/* header overrides: bigger logo, no bg, hide header tabs */
+.nav--header{display:none!important}
+@media (min-width:768px){.top-bar__top{grid-template-columns:auto 1fr auto}}
+.top-bar{min-height:calc(7.5rem + .85rem + env(safe-area-inset-top,0px))!important}
+.top-bar__center-brand,.top-bar__brand-visual,.top-bar__logo,.brand-mark__logo--header{background:none!important;box-shadow:none!important;border-radius:0!important}
+.brand-mark__logo--header,.brand-mark__logo.brand-mark__logo--header{height:5.5rem!important;max-width:min(21rem,52vw)!important;overflow:visible!important}
+.brand-mark__logo--header img,.top-bar__logo img{max-width:min(21rem,52vw)!important;background:transparent!important;mix-blend-mode:darken!important}
+.top-bar__orbit--a{width:7rem!important;height:7rem!important}
+.top-bar__orbit--b{width:8.5rem!important;height:8.5rem!important}
+.top-bar__orbit--c{width:10rem!important;height:10rem!important}
+@media (max-width:767px){.top-bar{min-height:calc(5.5rem + .55rem + env(safe-area-inset-top,0px))!important}.brand-mark__logo--header,.brand-mark__logo.brand-mark__logo--header{height:4rem!important;max-width:min(14.8rem,72vw)!important}.brand-mark__logo--header img,.top-bar__logo img{max-width:min(14.8rem,72vw)!important}.top-bar__orbit--a{width:3.7rem!important;height:3.7rem!important}.top-bar__orbit--b{width:4.6rem!important;height:4.6rem!important}.top-bar__orbit--c{width:5.5rem!important;height:5.5rem!important}}

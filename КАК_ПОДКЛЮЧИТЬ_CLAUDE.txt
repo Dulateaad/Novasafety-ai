@@ -1,0 +1,32 @@
+Claude API в NOVA Safety
+=========================
+
+Проект: D:\gp_2026_cad26\e-ptw
+
+1. Получите ключ: https://console.anthropic.com/settings/keys
+
+2. Откройте .env (двойной щелчок open-env.bat) и заполните:
+
+   VITE_AI_PROVIDER=claude
+   VITE_ANTHROPIC_API_KEY=sk-ant-...
+
+3. Перезапустите dev-сервер или задеплойте:
+
+   npm run dev
+   npm run deploy:hosting
+
+Провайдеры
+----------
+- claude  — только Claude
+- gemini  — только Gemini
+- auto    — Claude, если есть VITE_ANTHROPIC_API_KEY, иначе Gemini
+
+Где используется Claude
+-----------------------
+- Извлечение ППР / НДПР (docx и PDF)
+- Чат-ассистент
+- Мероприятия ОТ/ТБ/ООС (HSE)
+- PDF мер контроля
+
+Cloud Functions пока используют Gemini (GEMINI_API_KEY).
+Для серверного Claude: firebase functions:secrets:set ANTHROPIC_API_KEY

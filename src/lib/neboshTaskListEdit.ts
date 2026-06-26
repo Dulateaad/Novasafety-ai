@@ -1,0 +1,49 @@
+import { emptyTask, type AsorForm, type AsorTaskBlock } from '../types/asor'
+
+function isGenericTaskTitle(title: string): boolean {
+  const t = title.trim()
+  return /^Задание\s+\d+\s*$/i.test(t) || /^Группа\s+\d+\s*$/i.test(t)
+}
+
+function renumberTasks(tasks: AsorTaskBlock[]): AsorTaskBlock[] {
+  return tasks.map((t, i) => ({
+    ...t,
+    ordinal: i + 1,
+    taskTitle: isGenericTaskTitle(t.taskTitle) ? `Задание ${i + 1}` : t.taskTitle,
+  }))
+}
+
+function newTask(order: number): AsorTaskBlock {
+  return { ...emptyTask(order), taskTitle: `Задание ${order}` }
+}
+
+export function addNeboshTask(form: AsorForm, afterIndex?: number): AsorForm {
+  if (afterIndex === undefined) {
+    return {
+      ...form,
+      tasks: renumberTasks([...form.tasks, newTask(form.tasks.length + 1)]),
+    }
+  }
+  const tasks = [...form.tasks]
+  tasks.splice(afterIndex + 1, 0, newTask(afterIndex + 2))
+  return { ...form, tasks: renumberTasks(tasks) }
+}
+
+export function removeNeboshTask(form: AsorForm, taskId: string): AsorForm {
+  return { ...form, tasks: renumberTasks(form.tasks.filter((t) => t.id !== taskId)) }
+}
+
+export function patchNeboshTask(
+  form: AsorForm,
+  taskIndex: number,
+  partial: Partial<AsorTaskBlock>,
+): AsorForm {
+  return {
+    ...form,
+    tasks: renumberTasks(
+      form.tasks.map((t, i) => (i === taskIndex ? { ...t, ...partial } : t)),
+    ),
+  }
+}
+
+export { renumberTasks }

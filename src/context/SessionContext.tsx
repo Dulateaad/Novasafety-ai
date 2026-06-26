@@ -1,0 +1,447 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
+import type {
+  DemoUser,
+  JournalEntry,
+  Permit,
+  PermitDraft,
+  PermitStatus,
+} from '../types/domain'
+import { enrichUserDirectoryWithDefaultSigners } from '../config/defaultNdprSigners'
+import { enrichUserDirectoryWithDefaultWorkers } from '../config/defaultWorkers'
+import { DEMO_USERS, resolveUserDirectoryEntry } from '../demoUsers'
+import { ensureDefaultWorkersClient, mergeEnsuredWorkersIntoDirectory } from '../lib/ensureDefaultWorkers'
+import {
+  ensureDefaultNdprSignersClient,
+  mergeEnsuredSignersIntoDirectory,
+  mergeEnsuredInspectorIntoDirectory,
+  mergeEnsuredErtIntoDirectory,
+} from '../lib/ensureDefaultNdprSigners'
+import { auth, db, firebaseConfigured } from '../lib/firebase'
+import { profileDocToDemoUser } from '../lib/userProfile'
+import { canUserDeletePermit } from '../lib/permitDelete'
+import { resetSessionUser, syncSessionUser } from '../lib/packageSession'
+import { createRepository } from '../storage/repositoryFactory'
+import type { PermitRepository } from '../storage/types'
+import {
+  requestWorkStopClient,
+  resolveWorkStopClient,
+  type WorkStopResolveAction,
+} from '../lib/workStopFunctions'
+import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
+import { disablePushOnSignOut } from '../components/PushNotificationsToggle'
+import { fetchInspectorSettings } from '../lib/inspectorSettings'
+import type { WorkStopPhoto } from '../types/workStop'
+
+export type AuthMode = 'local' | 'firebase'
+
+interface SessionValue {
+  authMode: AuthMode
+  /** Пока слушаем Firebase Auth в первый раз */
+  authReady: boolean
+  /** Текущий пользователь для действий с НД; в режиме Firebase — после входа */
+  user: DemoUser | null
+  /** Участники для выбора в формах (Firebase: коллекция users) */
+  userDirectory: DemoUser[]
+  profileError: string | null
+  resolveUser: (id: string) => DemoUser | undefined
+  setUserId: (id: string) => void
+  signInWithEmailPassword: (email: string, password: string) => Promise<void>
+  signOutSession: () => Promise<void>
+  permits: Permit[]
+  repo: PermitRepository
+  refresh: () => Promise<void>
+  createPermit: (draft: PermitDraft) => Promise<Permit>
+  updatePermit: (id: string, patch: Partial<Permit>) => Promise<void>
+  transition: (id: string, next: PermitStatus) => Promise<void>
+  deletePermit: (id: string) => Promise<void>
+  deleteAllPermits: () => Promise<void>
+  requestWorkStop: (id: string, reason: string, photo?: WorkStopPhoto) => Promise<void>
+  resolveWorkStop: (
+    id: string,
+    action: WorkStopResolveAction,
+    comment: string,
+  ) => Promise<void>
+  error: string | null
+  clearError: () => void
+}
+
+const SessionCtx = createContext<SessionValue | null>(null)
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const repo = useMemo(() => createRepository(), [])
+  const authMode: AuthMode = firebaseConfigured && auth && db ? 'firebase' : 'local'
+
+  const [authReady, setAuthReady] = useState(authMode === 'local')
+  const [firebaseActor, setFirebaseActor] = useState<DemoUser | null>(null)
+  const [userDirectory, setUserDirectory] = useState<DemoUser[]>(() =>
+    enrichUserDirectoryWithDefaultWorkers(
+      enrichUserDirectoryWithDefaultSigners(DEMO_USERS),
+    ),
+  )
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [localUserId, setLocalUserId] = useState(DEMO_USERS[0].id)
+
+  const [permits, setPermits] = useState<Permit[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  const user: DemoUser | null =
+    authMode === 'firebase'
+      ? firebaseActor
+      : (DEMO_USERS.find((u) => u.id === localUserId) ?? DEMO_USERS[0])
+
+  const resolveUser = useCallback(
+    (id: string) => resolveUserDirectoryEntry(id, userDirectory),
+    [userDirectory],
+  )
+
+  useEffect(() => {
+    if (authMode !== 'firebase' || !auth || !db) return
+    const authInstance = auth
+    const firestore = db
+
+    const unsub = onAuthStateChanged(authInstance, async (fbUser) => {
+      if (!fbUser) {
+        setFirebaseActor(null)
+        setUserDirectory([])
+        setAuthReady(true)
+        return
+      }
+
+      setProfileError(null)
+      try {
+        const ref = doc(firestore, 'users', fbUser.uid)
+        const snap = await getDoc(ref)
+        if (!snap.exists()) {
+          setFirebaseActor(null)
+          setUserDirectory([])
+          setProfileError(
+            'Нет профиля в Firestore (коллекция users). Администратор должен создать документ users/' +
+              fbUser.uid +
+              ' с полями displayName и role.',
+          )
+          setAuthReady(true)
+          await signOut(authInstance)
+          return
+        }
+        const me = profileDocToDemoUser(
+          fbUser.uid,
+          snap.data() as Record<string, unknown>,
+          fbUser.email ?? '',
+        )
+        setFirebaseActor(me)
+
+        const dirSnap = await getDocs(collection(firestore, 'users'))
+        const dir: DemoUser[] = []
+        dirSnap.forEach((d) => {
+          dir.push(
+            profileDocToDemoUser(
+              d.id,
+              d.data() as Record<string, unknown>,
+              String((d.data() as { email?: string }).email ?? ''),
+            ),
+          )
+        })
+        const enriched = enrichUserDirectoryWithDefaultWorkers(
+          enrichUserDirectoryWithDefaultSigners(dir),
+        )
+        enriched.sort((a, b) => a.displayName.localeCompare(b.displayName, 'ru'))
+        setUserDirectory(enriched)
+
+        void ensureDefaultWorkersClient()
+          .then((workers) => {
+            if (!workers?.length) return
+            setUserDirectory((prev) => {
+              const merged = mergeEnsuredWorkersIntoDirectory(prev, workers)
+              merged.sort((a, b) => a.displayName.localeCompare(b.displayName, 'ru'))
+              return merged
+            })
+          })
+          .catch(() => {})
+
+        void ensureDefaultNdprSignersClient()
+          .then((result) => {
+            if (!result?.accounts?.length) return
+            setUserDirectory((prev) => {
+              let merged = mergeEnsuredSignersIntoDirectory(prev, result.accounts)
+              if (result.inspector) {
+                merged = mergeEnsuredInspectorIntoDirectory(merged, result.inspector)
+              }
+              if (result.ert) {
+                merged = mergeEnsuredErtIntoDirectory(merged, result.ert)
+              }
+              merged.sort((a, b) => a.displayName.localeCompare(b.displayName, 'ru'))
+              return merged
+            })
+          })
+          .catch(() => {})
+      } catch (e) {
+        setFirebaseActor(null)
+        setProfileError(
+          e instanceof Error ? e.message : 'Не удалось загрузить профиль',
+        )
+        setUserDirectory([])
+        await signOut(auth!)
+      }
+      setAuthReady(true)
+    })
+
+    return () => unsub()
+  }, [authMode, auth, db])
+
+  useEffect(() => {
+    if (!authReady) return
+    syncSessionUser(user)
+  }, [authReady, user])
+
+  useEffect(() => {
+    if (!authReady) return
+    if (!user) {
+      setPermits([])
+      return
+    }
+    return repo.subscribePermits(setPermits)
+  }, [repo, authReady, user])
+
+  const refresh = useCallback(async () => {
+    setPermits(await repo.list())
+  }, [repo])
+
+  const setUserId = useCallback(
+    (id: string) => {
+      if (authMode === 'firebase') return
+      const next = DEMO_USERS.find((u) => u.id === id)
+      if (next) setLocalUserId(id)
+    },
+    [authMode],
+  )
+
+  const signInWithEmailPassword = useCallback(
+    async (email: string, password: string) => {
+      if (authMode !== 'firebase' || !auth) return
+      setError(null)
+      setProfileError(null)
+      await signInWithEmailAndPassword(auth, email.trim(), password)
+    },
+    [authMode, auth],
+  )
+
+  const signOutSession = useCallback(async () => {
+    if (authMode !== 'firebase' || !auth) return
+    setError(null)
+    const uid = user?.id
+    if (uid) {
+      try {
+        await disablePushOnSignOut(uid)
+      } catch {
+        /* не блокируем выход */
+      }
+    }
+    resetSessionUser()
+    await signOut(auth)
+  }, [authMode, auth, user?.id])
+
+  const createPermit = useCallback(
+    async (draft: PermitDraft) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        return await repo.create(draft, user)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user],
+  )
+
+  const updatePermit = useCallback(
+    async (id: string, patch: Partial<Permit>) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        await repo.updateFields(id, patch, user)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user],
+  )
+
+  const transition = useCallback(
+    async (id: string, next: PermitStatus) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        await repo.transition(id, next, user)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user],
+  )
+
+  const deletePermit = useCallback(
+    async (id: string) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      if (!canUserDeletePermit(user)) {
+        throw new Error('Недостаточно прав для удаления наряда')
+      }
+      setError(null)
+      try {
+        await repo.deletePermit(id, user)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user],
+  )
+
+  const deleteAllPermits = useCallback(async () => {
+    if (!user) throw new Error('Нет пользователя сессии')
+    if (!canUserDeletePermit(user)) {
+      throw new Error('Недостаточно прав для удаления нарядов')
+    }
+    setError(null)
+    try {
+      await repo.deleteAllPermits(user)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      throw e
+    }
+  }, [repo, user])
+
+  const requestWorkStop = useCallback(
+    async (id: string, reason: string, photo?: WorkStopPhoto) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        if (authMode === 'firebase') {
+          const res = await requestWorkStopClient(id, reason, photo)
+          if (!res) throw new Error('Firebase Functions недоступны')
+        } else {
+          const settings = await fetchInspectorSettings()
+          await repo.requestWorkStop(
+            id,
+            {
+              reason,
+              photo,
+              directory: userDirectory,
+              inspectorNotifyMode: settings.inspectorNotifyMode,
+            },
+            user,
+          )
+        }
+        notifyWorkStopAlertsRefresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [authMode, repo, user, userDirectory],
+  )
+
+  const resolveWorkStop = useCallback(
+    async (id: string, action: WorkStopResolveAction, comment: string) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        if (authMode === 'firebase') {
+          const res = await resolveWorkStopClient(id, action, comment)
+          if (!res) throw new Error('Firebase Functions недоступны')
+        } else {
+          await repo.resolveWorkStop(id, { action, comment }, user)
+        }
+        notifyWorkStopAlertsRefresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [authMode, repo, user],
+  )
+
+  const clearError = useCallback(() => setError(null), [])
+
+  const value = useMemo<SessionValue>(
+    () => ({
+      authMode,
+      authReady,
+      user,
+      userDirectory,
+      profileError,
+      resolveUser,
+      setUserId,
+      signInWithEmailPassword,
+      signOutSession,
+      permits,
+      repo,
+      refresh,
+      createPermit,
+      updatePermit,
+      transition,
+      deletePermit,
+      deleteAllPermits,
+      requestWorkStop,
+      resolveWorkStop,
+      error,
+      clearError,
+    }),
+    [
+      authMode,
+      authReady,
+      user,
+      userDirectory,
+      profileError,
+      resolveUser,
+      setUserId,
+      signInWithEmailPassword,
+      signOutSession,
+      permits,
+      repo,
+      refresh,
+      createPermit,
+      updatePermit,
+      transition,
+      error,
+      clearError,
+    ],
+  )
+
+  return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>
+}
+
+export function useSession() {
+  const v = useContext(SessionCtx)
+  if (!v) throw new Error('useSession outside SessionProvider')
+  return v
+}
+
+export function useJournal(permitId: string | undefined) {
+  const { repo } = useSession()
+  const [entries, setEntries] = useState<JournalEntry[]>([])
+  useEffect(() => {
+    if (!permitId) {
+      setEntries([])
+      return
+    }
+    return repo.journalSubscribe(permitId, setEntries)
+  }, [repo, permitId])
+  return entries
+}
