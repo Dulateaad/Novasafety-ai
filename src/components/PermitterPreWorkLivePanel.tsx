@@ -121,7 +121,7 @@ export function PermitterPreWorkLivePanel(props: {
     return (
       <section className="card work-perm-ert-panel" id="permitter-pre-work">
         <header className="work-perm-ert-panel__head">
-          <h2 style={{ margin: 0 }}>{pwc.panelTitle}</h2>
+          <h2 style={{ margin: 0 }}>3. {pwc.panelTitle}</h2>
         </header>
         <div className="alert" role="status" style={{ marginTop: '0.5rem' }}>
           {pwc.savedConfirm}
@@ -153,57 +153,73 @@ export function PermitterPreWorkLivePanel(props: {
 
   return (
     <section className="card work-perm-ert-panel" id="permitter-pre-work">
-      <header className="work-perm-ert-panel__head">
-        <h2 style={{ margin: 0 }}>{pwc.panelTitle}</h2>
-        <p className="muted small" style={{ margin: '0.25rem 0 0' }}>
-          {pwc.panelHint}
-        </p>
-      </header>
-
-      {canEdit ? (
-        <ol className="work-perm-ert-panel__steps small">
-          <li>Отметьте пункты в колонке «Имеется» (как в PDF разрешения).</li>
-          <li>{pwc.stepSave}</li>
-          <li>{pwc.stepPdf}</li>
-        </ol>
-      ) : (
-        <p className="work-perm-ert-panel__blocked small">
+      {!canEdit ? (
+        <p className="work-perm-ert-panel__blocked small" style={{ margin: 0 }}>
           {permitterPreWorkBlockedHint(permit.status)}
         </p>
-      )}
+      ) : null}
 
       {visibleDocs.map((doc) => {
         const needsFill = !preWorkChecksStarted(doc.form.preWorkChecks.items)
+        const isFire = doc.kind === 'open_flame_fire'
+        const sectionTitle = isFire ? pwc.panelTitleFire : pwc.panelTitle
         return (
           <div key={doc.kind} className="work-perm-ert-panel__doc" id={`pre-work-${doc.kind}`}>
-            <div className="work-perm-ert-panel__doc-head">
-              <WorkPermissionIcon kind={doc.kind} size={20} />
-              <span className="strong">{doc.title}</span>
-              {needsFill && canEdit ? (
-                <span className="badge status-warning work-perm-ert-panel__badge">
-                  {pwc.needsFill}
-                </span>
-              ) : null}
-              {!needsFill && !dirty ? (
+            {visibleDocs.length > 1 ? (
+              <div className="work-perm-ert-panel__doc-head">
+                <WorkPermissionIcon kind={doc.kind} size={20} />
+                <span className="strong">{doc.title}</span>
+                {needsFill && canEdit ? (
+                  <span className="badge status-warning work-perm-ert-panel__badge">
+                    {pwc.needsFill}
+                  </span>
+                ) : null}
+                {!needsFill && !dirty ? (
+                  <button
+                    type="button"
+                    className="btn ghost small work-perm-ert-panel__pdf-btn"
+                    disabled={viewingKind === doc.kind}
+                    onClick={() => void viewPdf(doc.kind)}
+                  >
+                    {viewingKind === doc.kind ? c.opening : wp.permPdf}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            <section className="work-perm-form__section">
+              <header className="work-perm-form__section-head">
+                <span className="work-perm-form__section-num">3</span>
+                <div>
+                  <h3 className="work-perm-form__section-title">{sectionTitle}</h3>
+                  {canEdit ? (
+                    <p className="work-perm-form__section-hint">{pwc.panelHint}</p>
+                  ) : null}
+                </div>
+              </header>
+              <div className="work-perm-form__section-body">
+                <PreWorkChecksTable
+                  kind={doc.kind}
+                  group={doc.form.preWorkChecks}
+                  editColumn={canEdit ? 'available' : 'none'}
+                  disabled={!canEdit}
+                  onChange={(group) =>
+                    patchLocal(doc.kind, { form: { ...doc.form, preWorkChecks: group } })
+                  }
+                />
+              </div>
+            </section>
+            {visibleDocs.length === 1 && !needsFill && !dirty ? (
+              <div className="btn-row" style={{ marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  className="btn ghost small work-perm-ert-panel__pdf-btn"
+                  className="btn ghost small"
                   disabled={viewingKind === doc.kind}
                   onClick={() => void viewPdf(doc.kind)}
                 >
                   {viewingKind === doc.kind ? c.opening : wp.permPdf}
                 </button>
-              ) : null}
-            </div>
-            <PreWorkChecksTable
-              kind={doc.kind}
-              group={doc.form.preWorkChecks}
-              editColumn={canEdit ? 'available' : 'none'}
-              disabled={!canEdit}
-              onChange={(group) =>
-                patchLocal(doc.kind, { form: { ...doc.form, preWorkChecks: group } })
-              }
-            />
+              </div>
+            ) : null}
           </div>
         )
       })}

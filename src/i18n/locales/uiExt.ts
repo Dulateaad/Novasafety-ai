@@ -352,6 +352,7 @@ export type UiExtension = {
   }
   preWorkCheck: {
     panelTitle: string
+    panelTitleFire: string
     panelHint: string
     stepFill: string
     stepSave: string
@@ -1063,10 +1064,10 @@ export const uiExtRu: UiExtension = {
     ertFillsNote: ' · заполняет ПАС (ERT)',
   },
   preWorkCheck: {
-    panelTitle: '3. Проверки на рабочем месте',
-    panelHint:
-      'Заполните чек-лист проверок — колонка «Имеется» в PDF (раздел 3). Заполняет допускающий.',
-    stepFill: 'Отметьте выполненные проверки и при необходимости укажите пояснения.',
+    panelTitle: 'Проверки, выполняемые на рабочем месте',
+    panelTitleFire: 'Проверки, выполняемые на рабочей площадке',
+    panelHint: 'Отметьте пункты в колонке «Имеется»',
+    stepFill: 'Отметьте пункты в колонке «Имеется».',
     stepSave: 'Нажмите «Сохранить проверки» — PDF разрешения обновится автоматически.',
     stepPdf: 'Откройте PDF разрешения для проверки.',
     needsFill: 'Требуется заполнение',
@@ -1872,10 +1873,10 @@ export const uiExtEn: UiExtension = {
     ertFillsNote: ' · filled by ERT',
   },
   preWorkCheck: {
-    panelTitle: 'Section 3 — workplace checks',
-    panelHint:
-      'Complete the checklist (section 3 in the permission PDF). After saving, data is written to the PDF and approval package.',
-    stepFill: 'Mark completed checks and add notes if needed.',
+    panelTitle: 'Workplace checks',
+    panelTitleFire: 'Workplace area checks',
+    panelHint: 'Mark items in the «Available» column',
+    stepFill: 'Mark items in the «Available» column.',
     stepSave: 'Click «Save checks» — the permission PDF updates automatically.',
     stepPdf: 'Open the permission PDF to verify.',
     needsFill: 'Needs completion',
