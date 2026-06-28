@@ -40,14 +40,19 @@ export function PreWorkChecksTable(props: {
   function cellCheckbox(id: string, column: 'required' | 'available') {
     const item = itemById(group.items, id)
     if (!item) return null
-    const canEdit = !disabled && editColumn === column
+    const editable = !disabled && editColumn === column
     const checked = column === 'required' ? item.required ?? false : item.checked
     return (
-      <label className="check work-perm-prework-table__check">
+      <label
+        className={`check work-perm-prework-table__check${
+          editable ? ' work-perm-prework-table__check--editable' : ' work-perm-prework-table__check--readonly'
+        }`}
+      >
         <input
           type="checkbox"
           checked={checked}
-          disabled={!canEdit}
+          disabled={!editable}
+          tabIndex={editable ? 0 : -1}
           aria-label={item.label}
           onChange={(e) =>
             patchItem(id, column === 'required' ? { required: e.target.checked } : { checked: e.target.checked })
@@ -74,11 +79,35 @@ export function PreWorkChecksTable(props: {
           {pairs.map((pair) => (
             <tr key={`${pair.leftId}-${pair.rightId}`}>
               <td>{pair.left}</td>
-              <td className="work-perm-prework-table__mark">{cellCheckbox(pair.leftId, 'required')}</td>
-              <td className="work-perm-prework-table__mark">{cellCheckbox(pair.leftId, 'available')}</td>
+              <td
+                className={`work-perm-prework-table__mark${
+                  editColumn === 'required' ? ' work-perm-prework-table__mark--editable' : ''
+                }`}
+              >
+                {cellCheckbox(pair.leftId, 'required')}
+              </td>
+              <td
+                className={`work-perm-prework-table__mark${
+                  editColumn === 'available' ? ' work-perm-prework-table__mark--editable' : ''
+                }`}
+              >
+                {cellCheckbox(pair.leftId, 'available')}
+              </td>
               <td>{pair.right}</td>
-              <td className="work-perm-prework-table__mark">{cellCheckbox(pair.rightId, 'required')}</td>
-              <td className="work-perm-prework-table__mark">{cellCheckbox(pair.rightId, 'available')}</td>
+              <td
+                className={`work-perm-prework-table__mark${
+                  editColumn === 'required' ? ' work-perm-prework-table__mark--editable' : ''
+                }`}
+              >
+                {cellCheckbox(pair.rightId, 'required')}
+              </td>
+              <td
+                className={`work-perm-prework-table__mark${
+                  editColumn === 'available' ? ' work-perm-prework-table__mark--editable' : ''
+                }`}
+              >
+                {cellCheckbox(pair.rightId, 'available')}
+              </td>
             </tr>
           ))}
           <tr className="work-perm-prework-table__footer">

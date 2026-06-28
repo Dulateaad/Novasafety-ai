@@ -92,6 +92,19 @@
   margin: 0;
 }
 
+.work-perm-prework-table__mark--editable {
+  background: color-mix(in srgb, var(--accent, #1a6fb5) 8%, transparent);
+}
+
+.work-perm-prework-table__check--readonly {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.work-perm-prework-table__check--readonly input {
+  pointer-events: none;
+}
+
 .work-perm-prework-table__footer td {
   font-weight: 600;
   background: var(--bg-elevated, #f5f9fd);

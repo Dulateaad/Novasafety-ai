@@ -76,8 +76,16 @@ export function WorkPermissionFormEditor(props: {
   variant?: 'default' | 'permissions-wizard'
   /** @deprecated используйте variant="permissions-wizard" */
   hidePreWorkSection?: boolean
+  /** Колонка п.3, доступная для редактирования (по умолчанию «Требуется»). */
+  preWorkEditColumn?: 'required' | 'available' | 'none'
 }) {
-  const { doc, onChange, variant = 'default', hidePreWorkSection = false } = props
+  const {
+    doc,
+    onChange,
+    variant = 'default',
+    hidePreWorkSection = false,
+    preWorkEditColumn = 'required',
+  } = props
   const wizard = variant === 'permissions-wizard'
   const f = doc.form
   const style = WORK_PERMISSION_BY_KIND[doc.kind].style
@@ -213,12 +221,17 @@ export function WorkPermissionFormEditor(props: {
               ? 'Проверки, выполняемые на рабочей площадке'
               : 'Проверки, выполняемые на рабочем месте'
           }
-          hint="Отметьте пункты в колонке «Требуется»"
+          hint={
+            preWorkEditColumn === 'available'
+              ? 'Отметьте пункты в колонке «Имеется»'
+              : 'Отметьте пункты в колонке «Требуется»'
+          }
         >
           <PreWorkChecksTable
             kind={doc.kind}
             group={f.preWorkChecks}
-            editColumn="required"
+            editColumn={preWorkEditColumn}
+            disabled={preWorkEditColumn === 'none'}
             onChange={(g) => patch({ preWorkChecks: g })}
           />
         </FormSection>

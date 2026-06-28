@@ -109,6 +109,9 @@ export function isNavRouteAccessibleForUser(to: string, user: DemoUser | null): 
   if (to === '/risk-assessment') {
     return isNdGatePassed()
   }
+  if (to === '/permissions') {
+    return isNavRouteAccessible(to) && canUserSubmitPermitPackage(user)
+  }
   return true
 }
 
@@ -128,6 +131,9 @@ export function navRouteLockedHintForUser(
   }
   if (to === '/admin' && user.role !== 'coordinator') {
     return 'Админ-панель доступна только координатору.'
+  }
+  if (to === '/permissions' && !canUserSubmitPermitPackage(user)) {
+    return 'Раздел «Разрешения» заполняет производитель при создании наряда. Допускающий отмечает колонку «Имеется» на карточке наряда в журнале.'
   }
   return isNavRouteAccessible(to) ? null : navRouteLockedHint(to)
 }

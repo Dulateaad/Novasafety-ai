@@ -261,6 +261,21 @@ export function PermissionsPage() {
     )
   }
 
+  if (user && !canUserSubmitPermitPackage(user)) {
+    return (
+      <div className="page narrow">
+        <h1>{p.permissionsTitle}</h1>
+        <p className="muted">
+          Раздел «Разрешения» при создании наряда заполняет производитель работ (колонка «Требуется»).
+          Допускающий отмечает колонку «Имеется» на карточке наряда в журнале после отправки на согласование.
+        </p>
+        <Link className="btn primary" to="/">
+          К журналу
+        </Link>
+      </div>
+    )
+  }
+
   if (!bundle) {
     return (
       <div className="page narrow">

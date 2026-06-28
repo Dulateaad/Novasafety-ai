@@ -17,11 +17,36 @@ export function preWorkChecksStarted(items: WorkPermissionCheckboxItem[]): boole
   return items.some((item) => item.checked || item.note.trim().length > 0)
 }
 
-/** Раздел 3 разрешений заполняет допускающий (колонка «Имеется»). */
-export function canPermitterEditPreWorkChecks(permit: Permit, actor: DemoUser): boolean {
-  if (actor.role !== 'permitter') return false
+function isAssignedPermitter(
+  permit: Permit,
+  actor: DemoUser,
+  resolveUser?: (uid: string) => DemoUser | undefined,
+): boolean {
   const assigned = permit.permitterUid?.trim()
-  if (assigned && assigned !== actor.id) return false
+  if (!assigned) return true
+  if (assigned === actor.id) return true
+
+  const actorEmail = actor.email?.trim().toLowerCase()
+  const assignedUser = resolveUser?.(assigned)
+  const assignedEmail = assignedUser?.email?.trim().toLowerCase()
+  if (actorEmail && assignedEmail && actorEmail === assignedEmail) return true
+
+  // Наряд мог сохранить demo-id (u-permitter), а вход — по Firebase UID с тем же email.
+  if (actorEmail === 'permitter@nova.local') {
+    return assigned === 'u-permitter' || assignedEmail === 'permitter@nova.local'
+  }
+
+  return false
+}
+
+/** Раздел 3 разрешений заполняет допускающий (колонка «Имеется»). */
+export function canPermitterEditPreWorkChecks(
+  permit: Permit,
+  actor: DemoUser,
+  resolveUser?: (uid: string) => DemoUser | undefined,
+): boolean {
+  if (actor.role !== 'permitter') return false
+  if (!isAssignedPermitter(permit, actor, resolveUser)) return false
   return PRE_WORK_EDIT_STATUSES.has(permit.status)
 }
 

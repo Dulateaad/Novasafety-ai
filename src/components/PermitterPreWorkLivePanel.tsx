@@ -42,7 +42,7 @@ export function PermitterPreWorkLivePanel(props: {
   const c = t.common
   const pwc = t.preWorkCheck
   const serverBundle = permit.workPermissions
-  const canEdit = canPermitterEditPreWorkChecks(permit, actor)
+  const canEdit = canPermitterEditPreWorkChecks(permit, actor, resolveUser)
   const [localBundle, setLocalBundle] = useState<WorkPermissionsBundle | null>(serverBundle ?? null)
   const [dirty, setDirty] = useState(false)
   const [dirtyKinds, setDirtyKinds] = useState<WorkPermissionKind[]>([])
