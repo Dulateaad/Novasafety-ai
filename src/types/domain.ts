@@ -222,7 +222,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   executor: 'Работник',
   coordinator: 'Координатор НД / админ',
   contractor: 'Подрядчик',
-  safety: 'Инспектор по ОТ, ТБ и ООС',
+  safety: 'Инженер по ОТ, ТБ и ООС',
   ert: 'ПАС (Пожарно-аварийная служба)',
   leadExpert: 'Утверждающий НД',
 }

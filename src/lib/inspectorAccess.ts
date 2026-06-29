@@ -1,7 +1,6 @@
 import type { DemoUser, Permit, UserRole } from '../types/domain'
 import { INSPECTOR_ROLE_TITLE } from '../types/domain'
 import type { InspectorNotifyMode } from '../types/workStop'
-import { isUserPermitParticipant } from './permitAccess'
 
 export function isInspectorRole(role: UserRole): boolean {
   return role === 'safety'
@@ -13,13 +12,15 @@ export function isInspectorUser(user: DemoUser | null | undefined): boolean {
 
 const STOP_ELIGIBLE = new Set<Permit['status']>(['issued', 'in_progress'])
 
+/** Любой вошедший пользователь может инициировать остановку выданного/активного наряда. */
 export function canUserInitiateWorkStop(
   permit: Permit,
-  userId: string,
+  user: DemoUser | null,
 ): boolean {
+  if (!user) return false
   if (!STOP_ELIGIBLE.has(permit.status)) return false
   if (permit.workStop?.status === 'pending') return false
-  return isUserPermitParticipant(permit, userId)
+  return true
 }
 
 export function canInspectorAnnulPermit(user: DemoUser | null): boolean {
@@ -31,7 +32,7 @@ export function canInspectorResolveWorkStop(
   user: DemoUser | null,
 ): boolean {
   if (!isInspectorUser(user)) return false
-  return permit.status === 'suspended' && permit.workStop?.status === 'pending'
+  return permit.workStop?.status === 'pending'
 }
 
 export function inspectorDeniedAnnulReason(user: DemoUser | null): string {

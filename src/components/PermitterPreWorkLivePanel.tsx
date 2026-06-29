@@ -8,6 +8,7 @@ import {
 } from '../lib/permitterPreWorkHints'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
+import { enrichWorkPermissionsBundle } from '../lib/workPermissions'
 import type {
   WorkPermissionKind,
   WorkPermissionsBundle,
@@ -53,8 +54,8 @@ export function PermitterPreWorkLivePanel(props: {
 
   useEffect(() => {
     if (dirty) return
-    setLocalBundle(serverBundle ?? null)
-  }, [serverBundle, permit.id, dirty])
+    setLocalBundle(serverBundle ? enrichWorkPermissionsBundle(permit, serverBundle) : null)
+  }, [serverBundle, permit.id, permit.registrationRefNo, dirty])
 
   const flush = useCallback(async () => {
     if (!localBundle || !dirty) return

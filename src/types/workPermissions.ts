@@ -149,6 +149,7 @@ export function emptyWorkPermissionForm(kind: WorkPermissionKind): WorkPermissio
     gasTestPrimaryInterval: 'каждые 2 часа',
     gasTestContinuous: false,
     bodyText: '',
+    permissionRefNo: '',
   }
 }
 

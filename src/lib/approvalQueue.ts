@@ -1,4 +1,5 @@
 import type { DemoUser, Permit } from '../types/domain'
+import { uidMatchesAccount } from './permitAccess'
 import { canUserTriggerStatus, validateTransition } from './transitions'
 import { localeMessages } from '../i18n/getLocale'
 
@@ -21,6 +22,7 @@ function pushSignItem(
   items: PendingApprovalItem[],
   p: Permit,
   user: DemoUser,
+  directory: DemoUser[],
   opts: {
     role: DemoUser['role']
     assigneeUid: string
@@ -41,7 +43,7 @@ function pushSignItem(
     })
     return
   }
-  if (user.role === opts.role && user.id === opts.assigneeUid) {
+  if (user.role === opts.role && uidMatchesAccount(opts.assigneeUid, user, directory)) {
     items.push({
       permit: p,
       action: opts.action,
@@ -56,6 +58,7 @@ export function pendingApprovalsForUser(
   permits: Permit[],
   user: DemoUser,
   resolveUser?: (uid: string) => { displayName: string } | undefined,
+  directory: DemoUser[] = [],
 ): PendingApprovalItem[] {
   void resolveUser
   const items: PendingApprovalItem[] = []
@@ -63,7 +66,7 @@ export function pendingApprovalsForUser(
   for (const p of permits) {
     if (p.status !== 'on_approval') continue
 
-    pushSignItem(items, p, user, {
+    pushSignItem(items, p, user, directory, {
       role: 'performer',
       assigneeUid: p.performerUid,
       signed: p.signatures.performerSigned,
@@ -73,7 +76,7 @@ export function pendingApprovalsForUser(
       priority: 0,
     })
 
-    pushSignItem(items, p, user, {
+    pushSignItem(items, p, user, directory, {
       role: 'permitter',
       assigneeUid: p.permitterUid,
       signed: p.signatures.permitterSigned,
@@ -83,7 +86,7 @@ export function pendingApprovalsForUser(
       priority: 1,
     })
 
-    pushSignItem(items, p, user, {
+    pushSignItem(items, p, user, directory, {
       role: 'issuer',
       assigneeUid: p.issuerUid,
       signed: p.signatures.issuerSigned,
@@ -94,7 +97,7 @@ export function pendingApprovalsForUser(
     })
 
     if (p.category === 1) {
-      pushSignItem(items, p, user, {
+      pushSignItem(items, p, user, directory, {
         role: 'leadExpert',
         assigneeUid: p.leadExpertUid,
         signed: p.signatures.leadExpertSigned,
@@ -114,7 +117,7 @@ export function pendingApprovalsForUser(
       signaturesComplete &&
       canUserTriggerStatus(p, 'issued', user.role) &&
       validateTransition(p, 'issued').ok &&
-      (user.role === 'coordinator' || user.id === p.issuerUid)
+      (user.role === 'coordinator' || uidMatchesAccount(p.issuerUid, user, directory))
     ) {
       items.push({
         permit: p,

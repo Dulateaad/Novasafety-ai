@@ -34,6 +34,7 @@ import {
 } from '../lib/permitRejectionDisplay'
 import { workStopResolutionNoticesForUser } from '../lib/workStopResolutionNotices'
 import { isInspectorUser } from '../lib/inspectorAccess'
+import { pendingWorkStopPermits } from '../lib/pendingWorkStopPermits'
 import {
   filterPermitsForUser,
   canUserCreatePermitPackage,
@@ -144,8 +145,8 @@ export function PermitListPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const permits = useMemo(
-    () => filterPermitsForUser(allPermits, user),
-    [allPermits, user],
+    () => filterPermitsForUser(allPermits, user, userDirectory),
+    [allPermits, user, userDirectory],
   )
   const livePermitIds = useMemo(
     () => new Set(allPermits.map((p) => p.id)),
@@ -189,7 +190,7 @@ export function PermitListPage() {
     return counts
   }, [permits])
 
-  const pending = user ? pendingApprovalsForUser(permits, user) : []
+  const pending = user ? pendingApprovalsForUser(permits, user, resolveUser, userDirectory) : []
   const signingInvitesRaw = useSigningInvites(user?.id)
   const signingInvites = useMemo(
     () => filterByExistingPermits(signingInvitesRaw, livePermitIds),
@@ -222,6 +223,10 @@ export function PermitListPage() {
   const workStopAlerts = useMemo(
     () => filterByExistingPermits(workStopAlertsRaw, livePermitIds),
     [workStopAlertsRaw, livePermitIds],
+  )
+  const inspectorPendingWorkStops = useMemo(
+    () => (user && isInspectorUser(user) ? pendingWorkStopPermits(allPermits) : []),
+    [allPermits, user],
   )
   const allPermitNotices = usePermitNotices(user?.id)
   const { dismissed: dismissedNotices, dismiss: dismissNotice } =
@@ -557,7 +562,12 @@ export function PermitListPage() {
         onDismiss={dismissWorkStopResolution}
       />
 
-      {isInspectorUser(user) ? <WorkStopAlertsPanel alerts={workStopAlerts} /> : null}
+      {isInspectorUser(user) ? (
+        <WorkStopAlertsPanel
+          alerts={workStopAlerts}
+          pendingPermits={inspectorPendingWorkStops}
+        />
+      ) : null}
 
       {dailyAckPending.length > 0 ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
@@ -682,7 +692,11 @@ export function PermitListPage() {
         <div className="empty-state card">
           <p className="strong">{j.emptyFilterTitle}</p>
           <p className="muted small">
-            {journalFilter === 'issued' ? j.emptyFilterIssued : j.emptyFilterOther}
+            {journalFilter === 'issued'
+              ? j.emptyFilterIssued
+              : filterCounts.on_approval > 0 && journalFilter !== 'on_approval'
+                ? `В журнале ${filterCounts.on_approval} наряд(ов) на согласовании — откройте фильтр «На согласовании» или блок выше.`
+                : j.emptyFilterOther}
           </p>
           <button
             type="button"

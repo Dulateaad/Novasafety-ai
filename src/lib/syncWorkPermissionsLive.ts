@@ -7,7 +7,6 @@ import type {
 import { renderSingleWorkPermission, renderWorkPermissionsBundle } from './buildWorkPermissionPdf'
 import { buildSigningPackagePdf } from './buildSigningPackagePdf'
 import { enrichWorkPermissionsBundle } from './workPermissions'
-import { permitToPermitDraft } from './resumePermitPackage'
 
 /** Пересборка PDF разрешений и (опционально) полного пакета после live-изменений. */
 export async function syncWorkPermissionsLive(args: {
@@ -22,10 +21,7 @@ export async function syncWorkPermissionsLive(args: {
   rebuildPackage?: boolean
 }): Promise<WorkPermissionsBundle> {
   const { permit, updatePermit, resolveUser, userDirectory, renderKinds } = args
-  let documents = enrichWorkPermissionsBundle(
-    permitToPermitDraft(permit),
-    args.bundle,
-  ).documents
+  let documents = enrichWorkPermissionsBundle(permit, args.bundle).documents
 
   const kindsToRender = renderKinds?.length ? new Set(renderKinds) : null
   const pdfOpts = {

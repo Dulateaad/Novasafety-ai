@@ -111,19 +111,29 @@ export function WorkPermissionFormEditor(props: {
       >
         <div className="work-perm-form__meta-grid">
           <label className="work-perm-field">
+            <span className="work-perm-field__label">№ разрешения</span>
+            <input
+              value={f.permissionRefNo ?? ''}
+              readOnly={wizard}
+              placeholder="Назначится автоматически"
+              onChange={(e) => patch({ permissionRefNo: e.target.value })}
+            />
+          </label>
+          <label className="work-perm-field">
+            <span className="work-perm-field__label">№ НДПР</span>
+            <input
+              value={f.pprRef}
+              readOnly={wizard}
+              placeholder="Номер наряд-допуска"
+              onChange={(e) => patch({ pprRef: e.target.value })}
+            />
+          </label>
+          <label className="work-perm-field">
             <span className="work-perm-field__label">Объект</span>
             <input
               value={f.siteObject}
               placeholder="Наименование объекта"
               onChange={(e) => patch({ siteObject: e.target.value })}
-            />
-          </label>
-          <label className="work-perm-field">
-            <span className="work-perm-field__label">№ сопутств. Н-Д</span>
-            <input
-              value={f.pprRef}
-              placeholder="Номер наряд-допуска"
-              onChange={(e) => patch({ pprRef: e.target.value })}
             />
           </label>
           {isFire ? (

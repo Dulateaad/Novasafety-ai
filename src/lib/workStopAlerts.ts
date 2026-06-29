@@ -86,13 +86,14 @@ export async function fetchWorkStopAlerts(
     const q = query(
       collection(db, 'workStopAlerts'),
       where('assigneeUid', '==', assigneeUid),
-      where('status', '==', 'pending'),
     )
     const snap = await getDocs(q)
     return sortAlerts(
-      snap.docs.map((d) =>
-        normalizeAlert(d.id, d.data() as Record<string, unknown>),
-      ),
+      snap.docs
+        .map((d) =>
+          normalizeAlert(d.id, d.data() as Record<string, unknown>),
+        )
+        .filter((a) => a.status === 'pending'),
     )
   } catch (e) {
     console.warn('[NOVA] Не удалось загрузить workStopAlerts', e)

@@ -110,10 +110,9 @@ function permissionWorkTitles(doc: WorkPermissionDocument): string[] {
   return first ? [first.replace(/^\d+[.)]\s*/, '').trim() || first] : []
 }
 
-function shortHeaderText(text: string, maxLen = 48): string {
-  const t = text.trim()
-  if (!t || t.length > maxLen) return ' '
-  return t
+function headerRef(text: string | undefined, placeholder = '_______________'): string {
+  const t = text?.trim() ?? ''
+  return t || placeholder
 }
 
 function workScopeBlock(doc: WorkPermissionDocument): PdfBlock {
@@ -172,10 +171,11 @@ function checkboxLines(group: WorkPermissionCheckboxGroup | undefined): PdfBlock
 }
 
 function titleTable(doc: WorkPermissionDocument, palette: WorkPermissionPdfPalette): PdfBlock {
+  const ref = headerRef(doc.form.permissionRefNo)
   return {
     table: {
       widths: ['*'],
-      body: [[accentHdr(`${WORK_PERMISSION_DOC_TITLE[doc.kind]}№ _______________`, palette)]],
+      body: [[accentHdr(`${WORK_PERMISSION_DOC_TITLE[doc.kind]}№ ${ref}`, palette)]],
     },
     layout: TABLE_LAYOUT,
     margin: [0, 0, 0, 6],
@@ -189,7 +189,7 @@ function metaHeaderTable(
 ): PdfBlock[] {
   const f = doc.form
   const date = new Date().toLocaleDateString('ru-RU')
-  const ndRef = shortHeaderText(f.pprRef, 32)
+  const ndRef = headerRef(f.pprRef)
   if (kind === 'open_flame_fire') {
     const cat =
       f.fireCategory === '1' ? '[X]  1          [ ]  2' : f.fireCategory === '2' ? '[ ]  1          [X]  2' : '[ ]  1          [ ]  2'
@@ -331,10 +331,8 @@ function gasTestSection(num: number, gasTests: GasTestReading[], notes: string, 
 function dualChecksTable(
   pairs: { leftId: string; rightId: string; left: string; right: string }[],
   items: WorkPermissionCheckboxItem[],
-  extraNotes: string,
   palette: WorkPermissionPdfPalette,
 ): PdfBlock {
-  void extraNotes
   const body: PdfCell[][] = [
     [
       hdr('Пункт проверки', palette),
@@ -352,7 +350,6 @@ function dualChecksTable(
       cell(requiredMark(items, p.rightId), palette, { align: 'center' }),
       cell(checkMark(items, p.rightId), palette, { align: 'center' }),
     ]),
-    [cell('Дополнительные меры защиты', palette, { colSpan: 6 }), cell(' ', palette), cell(' ', palette), cell(' ', palette), cell(' ', palette), cell(' ', palette)],
   ]
   return { table: { widths: ['*', '9%', '9%', '*', '9%', '9%'], body }, layout: TABLE_LAYOUT }
 }
@@ -510,7 +507,6 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
       dualChecksTable(
         doc.kind === 'open_flame_fire' ? FIRE_CHECK_PAIRS : GAS_HAZARD_CHECK_PAIRS,
         f.preWorkChecks.items,
-        f.additionalNotes,
         palette,
       ),
     )
@@ -523,11 +519,17 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
       content.push(...signBlock(num, palette, role, doc))
     }
     content.push(...extensionTable(nums.extension, palette))
+    if (opts?.includeClosureSection) {
+      content.push(...closureSection(nums.closure, f.closureChecks))
+    }
   } else {
     content.push(...compactExtensionTable(nums.extension, palette))
-  }
-  if (opts?.includeClosureSection) {
-    content.push(...closureSection(nums.closure, f.closureChecks))
+    content.push(
+      ...closureSection(
+        nums.closure,
+        opts?.includeClosureSection ? f.closureChecks : undefined,
+      ),
+    )
   }
 
   return content

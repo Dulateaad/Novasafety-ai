@@ -93,8 +93,8 @@ export function RiskAssessmentPage() {
   const [manualReviewConfirmed, setManualReviewConfirmed] = useState(false)
   const [abrSectionMode, setAbrSectionMode] = useState<RiskSectionMode>('manual')
   const [riskSectionMode, setRiskSectionMode] = useState<RiskSectionMode>('manual')
-  const [abrReviewOpen, setAbrReviewOpen] = useState(false)
-  const [neboshReviewOpen, setNeboshReviewOpen] = useState(false)
+  const [abrReviewOpen, setAbrReviewOpen] = useState(true)
+  const [neboshReviewOpen, setNeboshReviewOpen] = useState(true)
   const suppressAutosaveRef = useRef(false)
 
   const resolveBadge = (uid: string) => resolveUserBadgeNo(uid, userDirectory)
@@ -621,7 +621,10 @@ export function RiskAssessmentPage() {
             role="tab"
             aria-selected={abrSectionMode === 'manual'}
             className={`journal-view-tab${abrSectionMode === 'manual' ? ' journal-view-tab--active' : ''}`}
-            onClick={() => setAbrSectionMode('manual')}
+            onClick={() => {
+              setAbrSectionMode('manual')
+              setAbrReviewOpen(true)
+            }}
           >
             {rp.tabManualFill}
           </button>
@@ -717,7 +720,10 @@ export function RiskAssessmentPage() {
             role="tab"
             aria-selected={riskSectionMode === 'manual'}
             className={`journal-view-tab${riskSectionMode === 'manual' ? ' journal-view-tab--active' : ''}`}
-            onClick={() => setRiskSectionMode('manual')}
+            onClick={() => {
+              setRiskSectionMode('manual')
+              setNeboshReviewOpen(true)
+            }}
           >
             {rp.tabManualFill}
           </button>

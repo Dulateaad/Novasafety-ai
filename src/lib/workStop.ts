@@ -1,7 +1,6 @@
 import type { DemoUser, Permit, PermitStatus } from '../types/domain'
 import { INSPECTOR_ROLE_TITLE } from '../types/domain'
 import type { WorkStopPhoto, WorkStopState } from '../types/workStop'
-import { isUserPermitParticipant } from './permitAccess'
 import { isInspectorUser } from './inspectorAccess'
 
 export interface WorkStopRequestInput {
@@ -17,9 +16,6 @@ export function buildWorkStopState(
   const prev = permit.status
   if (prev !== 'issued' && prev !== 'in_progress') {
     throw new Error('Остановка работ доступна только для выданного или выполняемого наряда')
-  }
-  if (!isUserPermitParticipant(permit, actor.id)) {
-    throw new Error('Остановить работу может только участник данного наряда')
   }
   const reason = input.reason.trim()
   if (reason.length < 3) {

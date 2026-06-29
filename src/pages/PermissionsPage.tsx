@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DocumentKitSummary } from '../components/DocumentKitSummary'
 import { LoadingProgress } from '../components/LoadingProgress'
+import { AiDisclaimerNotice } from '../components/AiDisclaimerNotice'
 import { WorkPermissionIcon } from '../components/WorkPermissionIcon'
 import { WorkPermissionFormEditor } from '../components/WorkPermissionFormEditor'
 import { useLanguage } from '../context/LanguageContext'
 import { fillTemplate, workPermissionKindLabel } from '../i18n/getLocale'
+import { APP_NAME } from '../config/branding'
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { useSession } from '../context/SessionContext'
 import { useToast } from '../context/ToastContext'
@@ -18,6 +20,7 @@ import { renderSingleWorkPermission } from '../lib/buildWorkPermissionPdf'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import {
   canUserSubmitPermitPackage,
+  resolvePerformerUidForPackage,
   submitPermitPackageDeniedReason,
 } from '../lib/permitAccess'
 import { applyAsorToPermitDraft } from '../lib/asorPrefill'
@@ -27,6 +30,7 @@ import { seedApprovalNamesFromPermit } from '../lib/approvalSequence'
 import { executeNdprPackageSubmit } from '../lib/submitNdprPackageFlow'
 import {
   initializeWorkPermissionsBundle,
+  enrichWorkPermissionsBundle,
   permissionNoticesForActivities,
   requiresWorkPermissions,
   validateWorkPermissionsBundle,
@@ -39,6 +43,11 @@ import {
   saveWorkPermissionsToSession,
 } from '../lib/workPermissionsAutosave'
 import { validateNdprDraft } from '../lib/validateNdprDraft'
+import {
+  generateAllWorkPermissionsFromPpr,
+  generateWorkPermissionSectionsFromPpr,
+  isWorkPermissionAiAvailable,
+} from '../lib/generateWorkPermissionFromPpr'
 import { scrollAppToTopWithRetries } from '../lib/scrollAppToTop'
 import '../ndpr-page.css'
 import { validateAsorForm } from '../lib/validateAsorForm'
@@ -69,6 +78,7 @@ export function PermissionsPage() {
     authMode,
     authReady,
     profileError,
+    permits,
   } = useSession()
   const { t, language } = useLanguage()
   const p = t.pages
@@ -80,6 +90,7 @@ export function PermissionsPage() {
   const { showError } = useToast()
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState<string | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
   const [bundle, setBundle] = useState<WorkPermissionsBundle | null>(null)
 
   const draft = useMemo(
@@ -103,10 +114,18 @@ export function PermissionsPage() {
       if (prev) return prev
       return (
         restoreWorkPermissionsFromSession() ??
-        initializeWorkPermissionsBundle(draft, ppr ?? undefined)
+        initializeWorkPermissionsBundle(draft, ppr ?? undefined, permits)
       )
     })
-  }, [draft, ppr, permissionsRequired])
+  }, [draft, ppr, permissionsRequired, permits])
+
+  useEffect(() => {
+    if (!permissionsRequired) return
+    setBundle((prev) => {
+      if (!prev) return prev
+      return enrichWorkPermissionsBundle(draft, prev, permits)
+    })
+  }, [draft.registrationRefNo, draft.f02?.badgeNo, permissionsRequired, permits, draft, ppr])
 
   useEffect(() => {
     if (bundle) saveWorkPermissionsToSession(bundle)
@@ -135,6 +154,42 @@ export function PermissionsPage() {
     [],
   )
 
+  function clearDocPdf(doc: WorkPermissionDocument): WorkPermissionDocument {
+    return {
+      ...doc,
+      pdfBase64: undefined,
+      generatedAtIso: undefined,
+      documentHash: undefined,
+    }
+  }
+
+  async function fillViaAi(kind?: WorkPermissionDocument['kind']) {
+    if (!bundle || !ppr) return
+    setAiBusy(true)
+    setStage(fillTemplate(pb.aiFillingSections, { app: APP_NAME }))
+    try {
+      let documents = bundle.documents
+      if (kind) {
+        documents = await Promise.all(
+          documents.map(async (d) =>
+            d.kind === kind
+              ? clearDocPdf(await generateWorkPermissionSectionsFromPpr(d, ppr))
+              : d,
+          ),
+        )
+      } else {
+        const filled = await generateAllWorkPermissionsFromPpr(documents, ppr)
+        documents = filled.map(clearDocPdf)
+      }
+      setBundle({ documents, updatedAtIso: new Date().toISOString() })
+    } catch (e) {
+      showError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy(false)
+      setStage(null)
+    }
+  }
+
   async function generateSinglePermission(kind: WorkPermissionDocument['kind']) {
     if (!bundle) return
     const doc = bundle.documents.find((d) => d.kind === kind)
@@ -142,7 +197,9 @@ export function PermissionsPage() {
     setBusy(true)
     setStage(fillTemplate(pp.formingKind, { kind: workPermissionKindLabel(kind, language) }))
     try {
-      const rendered = await renderSingleWorkPermission(doc)
+      const enriched = enrichWorkPermissionsBundle(draft, { ...bundle, documents: [doc] }, permits)
+        .documents[0]!
+      const rendered = await renderSingleWorkPermission(enriched)
       setBundle((prev) => {
         if (!prev) return prev
         return {
@@ -171,7 +228,12 @@ export function PermissionsPage() {
     setBusy(true)
     setStage(pp.prepPackage)
     try {
-      const readyBundle = await ensureWorkPermissionsPdfsReady(draft, bundle, ppr ?? undefined)
+      const readyBundle = await ensureWorkPermissionsPdfsReady(
+        draft,
+        bundle,
+        ppr ?? undefined,
+        permits,
+      )
       setBundle(readyBundle)
 
       const permErr = validateWorkPermissionsBundle(readyBundle, draft)
@@ -194,9 +256,15 @@ export function PermissionsPage() {
         seedApprovalNamesFromPermit(form, draft, resolveUser, resolveBadge),
         ppr ?? undefined,
       )
+      const performerUid = resolvePerformerUidForPackage(
+        draft.performerUid,
+        user,
+        userDirectory,
+      )
       let packageDraft = applyAsorToPermitDraft(draft, asorWithApprovers)
       packageDraft = {
         ...packageDraft,
+        performerUid,
         ppr: ppr ?? undefined,
         asor: asorWithApprovers,
         workPermissions: readyBundle,
@@ -306,6 +374,30 @@ export function PermissionsPage() {
         </div>
       </div>
 
+      <section className="card">
+        <AiDisclaimerNotice />
+        <div className="btn-row">
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={aiBusy || busy || !isWorkPermissionAiAvailable()}
+            onClick={() => void fillViaAi()}
+          >
+            {aiBusy
+              ? p.permissionsAiBusy
+              : p.permissionsFillAll.replace('NOVA Safety', APP_NAME)}
+          </button>
+        </div>
+        {aiBusy && !busy ? (
+          <LoadingProgress
+            label={stage ?? `${APP_NAME}…`}
+            indeterminate
+            withTips
+            fullscreen
+          />
+        ) : null}
+      </section>
+
       <DocumentKitSummary templates={templates} />
 
       {bundle.documents.map((doc) => {
@@ -334,10 +426,10 @@ export function PermissionsPage() {
                 <button
                   type="button"
                   className="btn primary small"
-                  disabled={busy}
+                  disabled={busy || aiBusy}
                   onClick={() => void generateSinglePermission(doc.kind)}
                 >
-                  {busy ? c.forming : c.generatePermission}
+                  {busy && !aiBusy ? c.forming : c.generatePermission}
                 </button>
                 {doc.pdfBase64 || doc.generatedAtIso ? (
                   <button
@@ -365,10 +457,10 @@ export function PermissionsPage() {
           <button
             type="button"
             className="btn primary"
-            disabled={busy}
+            disabled={busy || aiBusy}
             onClick={() => void submitPackage()}
           >
-            {busy ? stage ?? p.permissionsSubmitting : p.permissionsSubmit}
+            {busy && !aiBusy ? stage ?? p.permissionsSubmitting : p.permissionsSubmit}
           </button>
         </div>
         {busy ? (

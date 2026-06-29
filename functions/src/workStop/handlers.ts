@@ -2,7 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore'
 import type { InspectorNotifyMode } from './types'
 
 const SETTINGS_DOC = 'settings/app'
-const INSPECTOR_ROLE_TITLE = 'Инспектор по ОТ, ТБ и ООС'
+const INSPECTOR_ROLE_TITLE = 'Инженер по ОТ, ТБ и ООС'
 
 export type WorkStopPhoto = {
   dataBase64: string
@@ -95,9 +95,6 @@ export function buildWorkStopState(
   const prev = String(permit.status ?? '')
   if (prev !== 'issued' && prev !== 'in_progress') {
     throw new Error('Остановка работ доступна только для выданного или выполняемого наряда')
-  }
-  if (!isPermitParticipant(permit, actorUid)) {
-    throw new Error('Остановить работу может только участник данного наряда')
   }
   const trimmed = reason.trim()
   if (trimmed.length < 3) {

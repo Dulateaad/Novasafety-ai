@@ -110,9 +110,6 @@ export function PreWorkChecksTable(props: {
               </td>
             </tr>
           ))}
-          <tr className="work-perm-prework-table__footer">
-            <td colSpan={6}>Дополнительные меры защиты</td>
-          </tr>
         </tbody>
       </table>
     </div>

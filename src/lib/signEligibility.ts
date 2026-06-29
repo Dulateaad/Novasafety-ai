@@ -1,11 +1,8 @@
 import type { DemoUser, Permit } from '../types/domain'
 import type { EgovSignRole } from '../types/egovSignature'
 import { ROLE_LABELS } from '../types/domain'
-import {
-  approvalStepLabel,
-  canSignRoleNow,
-  nextRoleToSign,
-} from './approvalSequence'
+import { approvalStepLabel, canSignRoleNow, nextRoleToSign } from './approvalSequence'
+import { uidMatchesAccount } from './permitAccess'
 import { assigneeUidForRole, isRoleSigned } from './signatureStatus'
 
 export type SignEligibility = {
@@ -18,6 +15,7 @@ export function signEligibilityForRole(
   user: DemoUser,
   role: EgovSignRole,
   resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[] = [],
 ): SignEligibility {
   if (permit.status !== 'on_approval') {
     return { canSign: false, reason: 'Наряд не на этапе «На согласовании».' }
@@ -59,7 +57,7 @@ export function signEligibilityForRole(
     }
   }
 
-  if (user.id !== assigneeUid) {
+  if (!uidMatchesAccount(assigneeUid, user, directory)) {
     return {
       canSign: false,
       reason: `В наряде указан другой ${ROLE_LABELS[role].toLowerCase()}: ${assignee?.displayName ?? assigneeUid}. Вы: ${user.displayName}.`,

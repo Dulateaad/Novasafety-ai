@@ -16,8 +16,8 @@ export function WorkStopActionCard(props: { onOpen: () => void; disabled?: boole
               Остановить работу
             </h2>
             <p className="work-stop-action__desc">
-              Любой участник наряда может немедленно приостановить работы на объекте.
-              {INSPECTOR_ROLE_TITLE} получит уведомление и примет решение.
+              Любой пользователь с учётной записью может немедленно приостановить работы,
+              указав причину. {INSPECTOR_ROLE_TITLE} получит уведомление и примет решение.
             </p>
           </div>
         </div>
@@ -25,7 +25,7 @@ export function WorkStopActionCard(props: { onOpen: () => void; disabled?: boole
         <ol className="work-stop-action__steps">
           <li>Укажите причину остановки (обязательно)</li>
           <li>При необходимости приложите фото</li>
-          <li>Ожидайте решения инспектора — без эскалации</li>
+          <li>Ожидайте решения инженера по ОТ, ТБ и ООС</li>
         </ol>
 
         <div className="work-stop-action__footer">
@@ -38,7 +38,7 @@ export function WorkStopActionCard(props: { onOpen: () => void; disabled?: boole
             Остановить работу
           </button>
           <p className="work-stop-action__note muted xsmall">
-            Доступно участникам наряда · не требует отдельной роли
+            Доступно любому вошедшему пользователю · причина обязательна
           </p>
         </div>
       </div>

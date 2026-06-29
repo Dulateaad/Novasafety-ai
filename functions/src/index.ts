@@ -927,7 +927,7 @@ export const resolveWorkStopFn = onCall(CALLABLE_OPTIONS, async (request) => {
   if (String(user.role ?? '') !== 'safety') {
     throw new HttpsError(
       'permission-denied',
-      'Аннулировать НДПР и снимать остановку может только Инспектор по ОТ, ТБ и ООС',
+      'Аннулировать НДПР и снимать остановку может только Инженер по ОТ, ТБ и ООС',
     )
   }
 

@@ -65,6 +65,12 @@ const ROLE_USERS = [
     role: 'leadExpert',
   },
   {
+    email: 'temirlan-safety@nova.local',
+    password: 'Safety523',
+    displayName: 'Уахитов Темирлан — инженер по ОТ, ТБ и ООС',
+    role: 'safety',
+  },
+  {
     email: 'worker1@nova.local',
     password: 'Worker123',
     displayName: 'Алибек Ким — слесарь-монтажник',

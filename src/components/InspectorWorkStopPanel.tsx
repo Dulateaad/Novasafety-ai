@@ -5,6 +5,7 @@ import {
   canInspectorAnnulPermit,
   canInspectorResolveWorkStop,
   inspectorDeniedAnnulReason,
+  isInspectorUser,
 } from '../lib/inspectorAccess'
 import { workStopPhotoDataUrl } from '../lib/workStopPhoto'
 import { formatStoredDateTime } from '../lib/datetimeLocal'
@@ -49,11 +50,13 @@ export function InspectorWorkStopPanel(props: {
         </h2>
         {!canResolve ? (
           <p className="work-stop-inspector__hint muted small">
-            {inspectorDeniedAnnulReason(actor)}
+            {isInspectorUser(actor)
+              ? 'Ожидается активная остановка работ по этому наряду.'
+              : inspectorDeniedAnnulReason(actor)}
           </p>
         ) : (
           <p className="work-stop-inspector__hint muted small">
-            {INSPECTOR_ROLE_TITLE}: аннулируйте НДПР или верните наряд в работу с
+            {INSPECTOR_ROLE_TITLE}: восстановите работу или аннулируйте наряд с
             комментарием.
           </p>
         )}
@@ -107,7 +110,7 @@ export function InspectorWorkStopPanel(props: {
               disabled={!canAct}
               onClick={() => onResolve('lift', trimmed)}
             >
-              {busy ? 'Сохранение…' : 'Снять остановку'}
+              {busy ? 'Сохранение…' : 'Восстановить работу'}
             </button>
             {canAnnul ? (
               <button

@@ -506,14 +506,18 @@ export class FirestorePermitRepository implements PermitRepository {
       this.permitsCol(),
       (snap) => {
         const list: Permit[] = []
-        snap.forEach((d) =>
-          list.push(
-            migratePermit({
-              ...(d.data() as Permit),
-              id: (d.data() as Permit).id || d.id,
-            }),
-          ),
-        )
+        snap.forEach((d) => {
+          try {
+            list.push(
+              migratePermit({
+                ...(d.data() as Permit),
+                id: (d.data() as Permit).id || d.id,
+              }),
+            )
+          } catch (e) {
+            console.warn('[NOVA] Firestore: пропуск наряда при загрузке', d.id, e)
+          }
+        })
         cb(list.sort((a, b) => (a.updatedAtIso < b.updatedAtIso ? 1 : -1)))
       },
       (err) => {

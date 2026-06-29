@@ -1,4 +1,5 @@
 import type { DemoUser, Permit, UserRole } from '../types/domain'
+import { DEMO_USERS } from '../demoUsers'
 import { fillTemplate, localeMessages, roleLabel } from '../i18n/getLocale'
 import { isNdGatePassed } from './ndGate'
 import { isNavRouteAccessible, navRouteLockedHint } from './navGates'
@@ -14,11 +15,67 @@ const APPROVAL_ROLES = new Set([
   'safety',
 ])
 
-export function isUserOnPermitCrew(permit: Permit, userId: string): boolean {
-  return permit.executors.some((ex) => ex.userUid.trim() === userId)
+/** Выданные и активные наряды видны всем — для экстренной остановки работ. */
+const WORK_STOP_JOURNAL_STATUSES = new Set<Permit['status']>([
+  'issued',
+  'in_progress',
+  'suspended',
+])
+
+function mergeWorkStopJournalPermits(primary: Permit[], all: Permit[]): Permit[] {
+  const ids = new Set(primary.map((p) => p.id))
+  const extra = all.filter(
+    (p) => WORK_STOP_JOURNAL_STATUSES.has(p.status) && !ids.has(p.id),
+  )
+  return extra.length ? [...primary, ...extra] : primary
 }
 
-export function isUserPermitParticipant(permit: Permit, userId: string): boolean {
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+function emailsForUid(uid: string, directory: DemoUser[]): string[] {
+  const emails: string[] = []
+  const fromDir = directory.find((u) => u.id === uid)
+  if (fromDir?.email) emails.push(normalizeEmail(fromDir.email))
+  const fromDemo = DEMO_USERS.find((u) => u.id === uid)
+  if (fromDemo?.email) emails.push(normalizeEmail(fromDemo.email))
+  return emails
+}
+
+/** Совпадение uid наряда с учётной записью (Firebase uid ↔ демо-id по email). */
+export function uidMatchesAccount(
+  assigneeUid: string,
+  user: DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
+  const uid = assigneeUid.trim()
+  if (!uid) return false
+  if (uid === user.id) return true
+  const userEmail = normalizeEmail(user.email)
+  if (!userEmail) return false
+  return emailsForUid(uid, directory).some((e) => e === userEmail)
+}
+
+export function isUserOnPermitCrew(
+  permit: Permit,
+  userId: string,
+  user?: DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
+  const onCrew = permit.executors.some((ex) => ex.userUid.trim() === userId)
+  if (onCrew) return true
+  if (!user) return false
+  return permit.executors.some((ex) => uidMatchesAccount(ex.userUid, user, directory))
+}
+
+export function isUserPermitParticipant(
+  permit: Permit,
+  userOrId: string | DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
+  const userId = typeof userOrId === 'string' ? userOrId : userOrId.id
+  const user = typeof userOrId === 'string' ? undefined : userOrId
   const uids = [
     permit.performerUid,
     permit.permitterUid,
@@ -26,25 +83,32 @@ export function isUserPermitParticipant(permit: Permit, userId: string): boolean
     permit.leadExpertUid,
     permit.ertUid,
     ...permit.executors.map((ex) => ex.userUid),
-  ].map((uid) => uid?.trim()).filter((uid): uid is string => Boolean(uid))
-  return uids.includes(userId)
+  ]
+    .map((uid) => uid?.trim())
+    .filter((uid): uid is string => Boolean(uid))
+  if (uids.includes(userId)) return true
+  if (!user) return false
+  return uids.some((uid) => uidMatchesAccount(uid, user, directory))
 }
 
 export function filterPermitsForUser(
   permits: Permit[],
   user: DemoUser | null,
+  directory: DemoUser[] = [],
 ): Permit[] {
   if (!user) return []
   if (user.role === 'executor') {
-    return permits.filter(
+    const mine = permits.filter(
       (p) =>
         p.status !== 'draft' &&
-        (isUserOnPermitCrew(p, user.id) ||
+        (isUserOnPermitCrew(p, user.id, user, directory) ||
           !!p.crewAckSignatures?.[user.id]?.cmsBase64?.trim()),
     )
+    return mergeWorkStopJournalPermits(mine, permits)
   }
   if (APPROVAL_ROLES.has(user.role)) return permits
-  return permits.filter((p) => isUserPermitParticipant(p, user.id))
+  const mine = permits.filter((p) => isUserPermitParticipant(p, user, directory))
+  return mergeWorkStopJournalPermits(mine, permits)
 }
 
 const PACKAGE_AUTHOR_ROLES: readonly UserRole[] = [

@@ -20,6 +20,50 @@ import {
   type LanguageCode,
 } from '../i18n/getLocale'
 import { renderSingleWorkPermission } from './buildWorkPermissionPdf'
+import { nextRegistrationNumber } from './registrationNumber'
+
+type WorkPermissionRefSource = Pick<PermitDraft, 'registrationRefNo' | 'f02'>
+
+const PERMISSION_KIND_SUFFIX: Record<WorkPermissionKind, string> = {
+  gas_hazard: 'Г',
+  open_flame_fire: 'О',
+  confined_space: 'З',
+}
+
+/** № наряд-допуска (НДПР) для шапки разрешения. */
+export function resolveNdprRefForWorkPermission(
+  source: WorkPermissionRefSource,
+  existingPermits: Permit[] = [],
+): string {
+  const fromDraft = source.registrationRefNo?.trim() || source.f02?.badgeNo?.trim() || ''
+  if (fromDraft) return fromDraft
+  if (existingPermits.length) return nextRegistrationNumber(existingPermits)
+  return ''
+}
+
+export function resolvePermissionRefNo(
+  ndRef: string,
+  kind: WorkPermissionKind,
+  kinds: WorkPermissionKind[],
+): string {
+  if (!ndRef) return ''
+  if (kinds.length <= 1) return ndRef
+  return `${ndRef}-${PERMISSION_KIND_SUFFIX[kind]}`
+}
+
+function applyWorkPermissionRefs(
+  form: WorkPermissionDocument['form'],
+  kind: WorkPermissionKind,
+  kinds: WorkPermissionKind[],
+  ndRef: string,
+): WorkPermissionDocument['form'] {
+  const next = { ...form }
+  if (!next.pprRef.trim()) next.pprRef = ndRef
+  if (!next.permissionRefNo?.trim()) {
+    next.permissionRefNo = resolvePermissionRefNo(ndRef, kind, kinds)
+  }
+  return next
+}
 
 export function requiredPermissionKinds(
   draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
@@ -71,24 +115,30 @@ export function buildWorkPermissionTitle(
 export function initializeWorkPermissionsBundle(
   draft: PermitDraft,
   ppr?: PprForm,
+  existingPermits: Permit[] = [],
 ): WorkPermissionsBundle {
   const kinds = requiredPermissionKinds(draft)
   const existing = draft.workPermissions?.documents ?? []
   const byKind = new Map(existing.map((d) => [d.kind, d]))
+  const ndRef = resolveNdprRefForWorkPermission(draft, existingPermits)
 
   const documents: WorkPermissionDocument[] = kinds.map((kind) => {
     const prev = byKind.get(kind)
-    if (prev) return prev
+    if (prev) {
+      return {
+        ...prev,
+        form: applyWorkPermissionRefs(prev.form, kind, kinds, ndRef),
+      }
+    }
     const form = emptyWorkPermissionForm(kind)
     form.siteObject = draft.siteName.trim() || ppr?.siteName?.trim() || ''
-    form.pprRef = ''
-    const stagesRaw =
-      draft.workStages?.trim() ||
-      draft.workDescription.trim() ||
-      ppr?.workStagesText?.trim() ||
-      ''
     form.workDescription =
-      workStagesTitlesText(stagesRaw) ||
+      workStagesTitlesText(
+        draft.workStages?.trim() ||
+          draft.workDescription.trim() ||
+          ppr?.workStagesText?.trim() ||
+          '',
+      ) ||
       draft.title.trim() ||
       ppr?.workTitle?.trim() ||
       ''
@@ -99,7 +149,7 @@ export function initializeWorkPermissionsBundle(
     return {
       kind,
       title: buildWorkPermissionTitle(kind, ppr),
-      form,
+      form: applyWorkPermissionRefs(form, kind, kinds, ndRef),
       gasTests: [],
       signatures: [],
     }
@@ -178,17 +228,27 @@ export function isWorkPermissionPdfReady(doc: WorkPermissionDocument): boolean {
   return Boolean(doc.generatedAtIso?.trim() || doc.pdfBase64?.trim())
 }
 
+function workPermissionPdfNeedsRefresh(doc: WorkPermissionDocument): boolean {
+  if (!isWorkPermissionPdfReady(doc)) return true
+  return !doc.form.permissionRefNo?.trim() || !doc.form.pprRef.trim()
+}
+
 export async function ensureWorkPermissionsPdfsReady(
   draft: PermitDraft,
   bundle: WorkPermissionsBundle,
   ppr?: PprForm,
+  existingPermits: Permit[] = [],
 ): Promise<WorkPermissionsBundle> {
-  const synced = initializeWorkPermissionsBundle({ ...draft, workPermissions: bundle }, ppr)
-  const enriched = enrichWorkPermissionsBundle(draft, synced)
+  const synced = initializeWorkPermissionsBundle(
+    { ...draft, workPermissions: bundle },
+    ppr,
+    existingPermits,
+  )
+  const enriched = enrichWorkPermissionsBundle(draft, synced, existingPermits)
   const kinds = new Set(requiredPermissionKinds(draft))
   const documents = await Promise.all(
     enriched.documents.map(async (doc) => {
-      if (!kinds.has(doc.kind) || isWorkPermissionPdfReady(doc)) return doc
+      if (!kinds.has(doc.kind) || !workPermissionPdfNeedsRefresh(doc)) return doc
       return renderSingleWorkPermission(doc)
     }),
   )
@@ -203,36 +263,40 @@ export function workPermissionsFromPermit(permit: Permit): WorkPermissionsBundle
 }
 
 export function enrichWorkPermissionsBundle(
-  draft: PermitDraft,
+  source: PermitDraft | Permit,
   bundle: WorkPermissionsBundle,
+  existingPermits: Permit[] = [],
 ): WorkPermissionsBundle {
-  const ppr = draft.ppr
+  const ppr = 'ppr' in source ? source.ppr : undefined
+  const kinds = bundle.documents.map((d) => d.kind)
+  const ndRef = resolveNdprRefForWorkPermission(source, existingPermits)
   return {
     ...bundle,
     updatedAtIso: bundle.updatedAtIso || new Date().toISOString(),
     documents: bundle.documents.map((doc) => {
-      const form = { ...doc.form }
+      let form = { ...doc.form }
       if (!form.siteObject.trim()) {
-        form.siteObject = draft.siteName.trim() || ppr?.siteName?.trim() || ''
+        form.siteObject = source.siteName.trim() || ppr?.siteName?.trim() || ''
       }
       if (!form.workDescription.trim()) {
         form.workDescription =
           workStagesTitlesText(
-            draft.workStages?.trim() ||
-              draft.workDescription.trim() ||
+            source.workStages?.trim() ||
+              source.workDescription.trim() ||
               ppr?.workStagesText?.trim() ||
               '',
           ) ||
-          draft.title.trim() ||
+          source.title.trim() ||
           ppr?.workTitle?.trim() ||
           ''
       }
       if (!form.equipmentAndDocs.trim()) {
-        form.equipmentAndDocs = draft.toolsAndEquipment.trim()
+        form.equipmentAndDocs = source.toolsAndEquipment.trim()
       }
       if (doc.kind === 'open_flame_fire' && !form.fireCategory) {
-        form.fireCategory = draft.category === 1 ? '1' : '2'
+        form.fireCategory = source.category === 1 ? '1' : '2'
       }
+      form = applyWorkPermissionRefs(form, doc.kind, kinds, ndRef)
       return { ...doc, form }
     }),
   }

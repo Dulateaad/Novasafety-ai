@@ -23,10 +23,7 @@ import { ReplacePerformerPanel } from '../components/ReplacePerformerPanel'
 import { WorkPermissionClosurePanel } from '../components/WorkPermissionClosurePanel'
 import { PermitCoordinatorOverview } from '../components/PermitCoordinatorOverview'
 import { PermitPackageBriefCard } from '../components/PermitPackageBrief'
-import type { PackagePermissionBrief } from '../components/PermitPackageBrief'
-import { DocumentKitSummary } from '../components/DocumentKitSummary'
 import { userById } from '../demoUsers'
-import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { PTW_SITE_OPTIONS } from '../config/ptwSites'
 import {
   allowedNextStatuses,
@@ -41,6 +38,7 @@ import {
   canUserSubmitPermitPackage,
   canViewPermitDetailTechnicalBlocks,
   isUserOnPermitCrew,
+  uidMatchesAccount,
 } from '../lib/permitAccess'
 import { isPermitSigningRejected } from '../lib/permitRejectionDisplay'
 import {
@@ -70,18 +68,11 @@ import {
   canUseGodMode,
   godModeSignPermitClient,
 } from '../lib/godModeSign'
-import { buildPackagePdf, viewPackagePdf, preloadPackagePdfEngine } from '../lib/buildPackagePdf'
-import type { PackagePdfPart } from '../lib/buildPackagePdf'
 import { buildPermitPackageBrief } from '../lib/permitPackageBrief'
 import { isPermitPostApproval, isPermitProducer } from '../lib/closeNdprEarly'
 import { syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
-import { permissionNoticesForActivities } from '../lib/workPermissions'
 import { GasTestResultsReadOnlyCard } from '../components/GasTestResultsReadOnlyCard'
-import { gasTestDocFilled, permitHasGasTestDocuments } from '../lib/ertGasTestHints'
-import { openPprAttachmentInBrowser } from '../lib/pprAttachment'
-import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
-import { buildPermitPackagePartPdf } from '../lib/buildPackagePdf'
-import type { WorkPermissionKind } from '../types/workPermissions'
+import { permitHasGasTestDocuments } from '../lib/ertGasTestHints'
 import {
   fillTemplate,
   formatSpecialWorkLabelsLocalized,
@@ -119,9 +110,6 @@ export function PermitDetailPage() {
   const [workStopOpen, setWorkStopOpen] = useState(false)
   const [workStopBusy, setWorkStopBusy] = useState(false)
   const [closeBusy, setCloseBusy] = useState(false)
-  const [pdfPackageBusy, setPdfPackageBusy] = useState(false)
-  const [viewingPart, setViewingPart] = useState<PackagePdfPart | null>(null)
-  const [viewingPermission, setViewingPermission] = useState<WorkPermissionKind | null>(null)
   const provisionWarning =
     (location.state as { provisionWarning?: string } | null)?.provisionWarning ?? null
 
@@ -133,36 +121,22 @@ export function PermitDetailPage() {
   const showPackageSection = Boolean(
     permit && (permit.status !== 'draft' || permit.packagePdf),
   )
-  const permissionTemplates = useMemo(
-    () => (permit ? permissionNoticesForActivities(permit) : []),
-    [permit],
-  )
-  const permissionBriefs = useMemo((): PackagePermissionBrief[] => {
-    if (!permit?.workPermissions?.documents?.length) return []
-    return permit.workPermissions.documents.map((doc) => ({
-      kind: doc.kind,
-      label: WORK_PERMISSION_BY_KIND[doc.kind].label,
-      hasPdf: Boolean(doc.pdfBase64 || doc.generatedAtIso),
-      requiresGasTests: WORK_PERMISSION_BY_KIND[doc.kind].requiresGasTests,
-      gasTestsFilled: WORK_PERMISSION_BY_KIND[doc.kind].requiresGasTests
-        ? gasTestDocFilled(doc)
-        : undefined,
-    }))
-  }, [permit])
   const showOperationalBlocks = Boolean(permit && isPermitPostApproval(permit))
 
   useEffect(() => {
-    void preloadPackagePdfEngine()
-  }, [])
-
-  useEffect(() => {
-    if (location.hash !== '#ert-gas-tests' && location.hash !== '#permitter-pre-work') return
+    if (
+      location.hash !== '#ert-gas-tests' &&
+      location.hash !== '#permitter-pre-work' &&
+      location.hash !== '#work-stop-section'
+    ) {
+      return
+    }
     const timer = window.setTimeout(() => {
-      const id = location.hash.slice(1)
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const targetId = location.hash.slice(1)
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 150)
     return () => window.clearTimeout(timer)
-  }, [location.hash, id, permit?.workPermissions?.documents?.length])
+  }, [location.hash, id, permit?.workPermissions?.documents?.length, permit?.workStop?.status])
 
   useEffect(() => {
     if (!user || !permit) return
@@ -186,39 +160,6 @@ export function PermitDetailPage() {
 
   const p = permit
 
-  async function openFullPackagePdf() {
-    setPdfPackageBusy(true)
-    try {
-      viewPackagePdf(await buildPackagePdf(p, resolveUser, userDirectory))
-    } catch {
-      window.alert(t.modals.pdfPackageFailed)
-    } finally {
-      setPdfPackageBusy(false)
-    }
-  }
-
-  async function openPackagePartPdf(part: PackagePdfPart) {
-    setViewingPart(part)
-    try {
-      viewPackagePdf(await buildPermitPackagePartPdf(part, p, resolveUser, userDirectory))
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : t.modals.pdfPackageFailed)
-    } finally {
-      setViewingPart(null)
-    }
-  }
-
-  async function openPermissionPdf(kind: WorkPermissionKind) {
-    const doc = p.workPermissions?.documents.find((d) => d.kind === kind)
-    if (!doc) return
-    setViewingPermission(kind)
-    try {
-      await openWorkPermissionPdf(doc)
-    } finally {
-      setViewingPermission(null)
-    }
-  }
-
   if (p.status === 'draft' && canUserSubmitPermitPackage(actor) && !isPermitSigningRejected(p)) {
     return (
       <div className="page">
@@ -229,7 +170,7 @@ export function PermitDetailPage() {
 
   if (
     actor.role === 'executor' &&
-    (!isUserOnPermitCrew(p, actor.id) || p.status === 'draft')
+    (!isUserOnPermitCrew(p, actor.id, actor, userDirectory) || p.status === 'draft')
   ) {
     return (
       <div className="page">
@@ -245,7 +186,7 @@ export function PermitDetailPage() {
   function canUserSignRole(role: EgovSignRole): boolean {
     if (p.status !== 'on_approval') return false
     if (actor.role === 'coordinator') return canSignRoleNow(p, role)
-    return actor.id === assigneeUidForRole(p, role) && canSignRoleNow(p, role)
+    return uidMatchesAccount(assigneeUidForRole(p, role), actor, userDirectory) && canSignRoleNow(p, role)
   }
 
   async function runGodModeSign() {
@@ -285,10 +226,24 @@ export function PermitDetailPage() {
     p.status === 'on_approval' || isPermitSigningRejected(p)
 
   const showWorkStopBtn =
-    canUserInitiateWorkStop(p, actor.id) &&
+    canUserInitiateWorkStop(p, actor) &&
     p.status !== 'closed' &&
     p.status !== 'archived' &&
     p.status !== 'annulled'
+
+  const showInspectorWorkStop = p.workStop?.status === 'pending'
+
+  const workStopInspectorBlock = (
+    <>
+      <WorkStopStatusBanner permit={p} userId={actor.id} />
+      <InspectorWorkStopPanel
+        permit={p}
+        actor={actor}
+        busy={workStopBusy}
+        onResolve={(action, comment) => void handleResolveWorkStop(action, comment)}
+      />
+    </>
+  )
 
   async function closePermitEarly() {
     if (!canUserTriggerStatus(p, 'closed', actor.role)) return
@@ -342,30 +297,7 @@ export function PermitDetailPage() {
     }
   }
 
-  function canEditIssuerSign(): boolean {
-    return (
-      actor.role === 'coordinator' ||
-      (actor.role === 'issuer' && actor.id === p.issuerUid)
-    )
-  }
-
-  function canEditPermitterSign(): boolean {
-    return (
-      actor.role === 'coordinator' ||
-      (actor.role === 'permitter' && actor.id === p.permitterUid)
-    )
-  }
-
-  function canEditSafetyApproval(): boolean {
-    return actor.role === 'coordinator' || actor.role === 'safety'
-  }
-
   const locked = p.status === 'closed' || p.status === 'archived' || p.status === 'annulled'
-
-  function canEditRetention(): boolean {
-    if (locked) return false
-    return actor.role === 'coordinator' || actor.role === 'issuer'
-  }
 
   const signingRoles = signingRoleOrder(p)
 
@@ -404,9 +336,9 @@ export function PermitDetailPage() {
   }
 
   function canRejectAs(role: EgovSignRole): boolean {
-    if (!canUserRejectPermit(p, actor)) return false
+    if (!canUserRejectPermit(p, actor, userDirectory)) return false
     if (actor.role === 'coordinator') return canSignRoleNow(p, role)
-    return actor.id === assigneeUidForRole(p, role) && canSignRoleNow(p, role)
+    return uidMatchesAccount(assigneeUidForRole(p, role), actor, userDirectory) && canSignRoleNow(p, role)
   }
 
 
@@ -511,6 +443,8 @@ export function PermitDetailPage() {
         </div>
       ) : null}
 
+      {showInspectorWorkStop ? workStopInspectorBlock : null}
+
       {p.status === 'closed' &&
       isPermitProducer(p, actor) &&
       p.workPermissions?.documents?.length ? (
@@ -547,35 +481,7 @@ export function PermitDetailPage() {
 
       {showPackageSection && packageBrief ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
-          <h2 style={{ marginTop: 0 }}>{dp.viewFullPdf}</h2>
-          {permissionTemplates.length > 0 ? (
-            <DocumentKitSummary templates={permissionTemplates} />
-          ) : null}
-          <PermitPackageBriefCard
-            brief={packageBrief}
-            permissions={permissionBriefs}
-            showDocLinks
-            onViewPart={(part) => void openPackagePartPdf(part)}
-            onViewPpr={
-              p.ppr?.attachment
-                ? () => {
-                    openPprAttachmentInBrowser(p.ppr!.attachment!)
-                  }
-                : undefined
-            }
-            onViewPermission={(kind) => void openPermissionPdf(kind)}
-            viewingPart={viewingPart}
-            viewingPermission={viewingPermission}
-          />
-          <button
-            type="button"
-            className="btn primary small"
-            style={{ marginTop: '0.75rem' }}
-            disabled={pdfPackageBusy}
-            onClick={() => void openFullPackagePdf()}
-          >
-            {pdfPackageBusy ? c.opening : dp.viewFullPdf}
-          </button>
+          <PermitPackageBriefCard brief={packageBrief} showDocLinks={false} />
         </section>
       ) : null}
 
@@ -630,13 +536,7 @@ export function PermitDetailPage() {
 
       <AbrDailyAckPanel permit={p} actor={actor} />
 
-      <WorkStopStatusBanner permit={p} userId={actor.id} />
-      <InspectorWorkStopPanel
-        permit={p}
-        actor={actor}
-        busy={workStopBusy}
-        onResolve={(action, comment) => void handleResolveWorkStop(action, comment)}
-      />
+      {!showInspectorWorkStop ? workStopInspectorBlock : null}
       {showWorkStopBtn ? (
         <WorkStopActionCard
           disabled={workStopBusy}
@@ -979,75 +879,6 @@ export function PermitDetailPage() {
 
       {actor.role !== 'executor' && (
       <>
-      <section className="card" id="signatures-section">
-        <h2>Подписи и согласования</h2>
-        <p className="small muted" style={{ marginTop: 0 }}>
-          Производитель работ (1-й) инициирует переход статусов; подпись
-          допускающего, выдающего и при необходимости утверждающего НД ставятся
-          соответствующими учётными записями.
-        </p>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={permit.signatures.issuerSigned}
-            disabled={!canEditIssuerSign()}
-            onChange={(e) =>
-              void updatePermit(permit.id, {
-                signatures: {
-                  ...permit.signatures,
-                  issuerSigned: e.target.checked,
-                },
-              })
-            }
-          />
-          Подпись выдающего (может отметить: выдающий или координатор)
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={permit.signatures.permitterSigned}
-            disabled={!canEditPermitterSign()}
-            onChange={(e) =>
-              void updatePermit(permit.id, {
-                signatures: {
-                  ...permit.signatures,
-                  permitterSigned: e.target.checked,
-                },
-              })
-            }
-          />
-          Подпись допускающего
-        </label>
-        {permit.isContractorPermit && (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={permit.contractorSafetyApproved}
-              disabled={!canEditSafetyApproval()}
-              onChange={(e) =>
-                void updatePermit(permit.id, {
-                  contractorSafetyApproved: e.target.checked,
-                })
-              }
-            />
-            Согласовано ОТ/ТБ (MVP-B)
-          </label>
-        )}
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={p.incidentLongRetention}
-            disabled={!canEditRetention()}
-            onChange={(e) =>
-              void updatePermit(p.id, {
-                incidentLongRetention: e.target.checked,
-              })
-            }
-          />
-          Длительное хранение копии (инцидент / 45 лет по процедуре)
-        </label>
-      </section>
-
       <section className="card">
         <h2>Смена статуса</h2>
         <p className="small muted">
