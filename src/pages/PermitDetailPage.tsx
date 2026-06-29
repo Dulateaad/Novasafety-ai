@@ -280,7 +280,9 @@ export function PermitDetailPage() {
       await requestWorkStop(p.id, reason, photo)
       notifyWorkStopAlertsRefresh()
       setWorkStopOpen(false)
-      if (authMode === 'firebase') await refresh()
+      await refresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
     } finally {
       setWorkStopBusy(false)
     }
@@ -291,7 +293,9 @@ export function PermitDetailPage() {
     try {
       await resolveWorkStop(p.id, action, comment)
       notifyWorkStopAlertsRefresh()
-      if (authMode === 'firebase') await refresh()
+      await refresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
     } finally {
       setWorkStopBusy(false)
     }

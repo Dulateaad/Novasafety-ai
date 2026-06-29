@@ -248,6 +248,8 @@ export function PermitListPage() {
       await resolveWorkStop(permitId, action, comment)
       notifyWorkStopAlertsRefresh()
       await refresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
     } finally {
       setWorkStopResolveBusy(false)
       setWorkStopResolvePermitId(null)
@@ -563,15 +565,31 @@ export function PermitListPage() {
       <ErtGasTestTasksPanel tasks={ertGasTasks} />
 
       {isInspectorUser(user) ? (
-        <WorkStopAlertsPanel
-          alerts={workStopAlerts}
-          pendingPermits={inspectorPendingWorkStops}
-          dismissedPermitIds={dismissedWorkStopPending}
-          busy={workStopResolveBusy}
-          busyPermitId={workStopResolvePermitId}
-          onResolve={handleResolveWorkStopFromJournal}
-          onDismiss={dismissWorkStopPending}
-        />
+        <>
+          <WorkStopAlertsPanel
+            alerts={workStopAlerts}
+            pendingPermits={inspectorPendingWorkStops}
+            dismissedPermitIds={dismissedWorkStopPending}
+            busy={workStopResolveBusy}
+            busyPermitId={workStopResolvePermitId}
+            onResolve={handleResolveWorkStopFromJournal}
+            onDismiss={dismissWorkStopPending}
+          />
+          {workStopAlerts.length === 0 &&
+          inspectorPendingWorkStops.length === 0 &&
+          user ? (
+            <section className="card muted" style={{ marginBottom: '1rem' }}>
+              <p className="small" style={{ margin: 0 }}>
+                Очередь остановок пуста. Приостановка работ доступна на{' '}
+                <strong>выданных</strong> нарядах (кнопка «Приостановить работы»). Отклонение
+                пакета на согласовании — другой процесс; инженер решает только остановку работ.
+              </p>
+              <p className="xsmall muted" style={{ margin: '0.5rem 0 0' }}>
+                Вход: temirlan-safety@nova.local · роль: {user.role}
+              </p>
+            </section>
+          ) : null}
+        </>
       ) : null}
 
       <PermitNoticesPanel notices={permitNotices} onDismiss={dismissNotice} />

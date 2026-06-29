@@ -36,14 +36,11 @@ import { canUserDeletePermit } from '../lib/permitDelete'
 import { resetSessionUser, syncSessionUser } from '../lib/packageSession'
 import { createRepository } from '../storage/repositoryFactory'
 import type { PermitRepository } from '../storage/types'
-import {
-  requestWorkStopClient,
-  resolveWorkStopClient,
-  type WorkStopResolveAction,
-} from '../lib/workStopFunctions'
+import type { WorkStopResolveAction } from '../lib/workStopFunctions'
 import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
 import { disablePushOnSignOut } from '../components/PushNotificationsToggle'
 import { fetchInspectorSettings } from '../lib/inspectorSettings'
+import { isInspectorUser } from '../lib/inspectorAccess'
 import type { WorkStopPhoto } from '../types/workStop'
 
 export type AuthMode = 'local' | 'firebase'
@@ -56,6 +53,7 @@ function applyKnownAccountProfile(me: DemoUser): DemoUser {
     ...me,
     displayName: template.displayName,
     badgeNo: me.badgeNo?.trim() || template.badgeNo,
+    role: template.role === 'safety' ? 'safety' : me.role,
   }
 }
 
@@ -345,49 +343,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Нет пользователя сессии')
       setError(null)
       try {
-        if (authMode === 'firebase') {
-          const res = await requestWorkStopClient(id, reason, photo)
-          if (!res) throw new Error('Firebase Functions недоступны')
-        } else {
-          const settings = await fetchInspectorSettings()
-          await repo.requestWorkStop(
-            id,
-            {
-              reason,
-              photo,
-              directory: userDirectory,
-              inspectorNotifyMode: settings.inspectorNotifyMode,
-            },
-            user,
-          )
-        }
+        const settings = await fetchInspectorSettings()
+        await repo.requestWorkStop(
+          id,
+          {
+            reason,
+            photo,
+            directory: userDirectory,
+            inspectorNotifyMode: settings.inspectorNotifyMode,
+          },
+          user,
+        )
         notifyWorkStopAlertsRefresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
       }
     },
-    [authMode, repo, user, userDirectory],
+    [repo, user, userDirectory],
   )
 
   const resolveWorkStop = useCallback(
     async (id: string, action: WorkStopResolveAction, comment: string) => {
       if (!user) throw new Error('Нет пользователя сессии')
+      if (!isInspectorUser(user)) {
+        throw new Error(
+          'Решение по остановке работ доступно только инженеру по ОТ, ТБ и ООС (temirlan-safety@nova.local).',
+        )
+      }
       setError(null)
       try {
-        if (authMode === 'firebase') {
-          const res = await resolveWorkStopClient(id, action, comment)
-          if (!res) throw new Error('Firebase Functions недоступны')
-        } else {
-          await repo.resolveWorkStop(id, { action, comment }, user)
-        }
+        await repo.resolveWorkStop(id, { action, comment }, user)
         notifyWorkStopAlertsRefresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
       }
     },
-    [authMode, repo, user],
+    [repo, user],
   )
 
   const clearError = useCallback(() => setError(null), [])

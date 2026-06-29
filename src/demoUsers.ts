@@ -52,9 +52,9 @@ export const DEMO_USERS: DemoUser[] = [
   },
   {
     id: 'u-performer-5',
-    displayName: 'Уахитов Темирлан — Старший инженер по ОТ, ТБ и ООС',
+    displayName: 'Уахитов Темирлан — инженер по ОТ, ТБ и ООС',
     email: 'temirlan-safety@nova.local',
-    role: 'performer',
+    role: 'safety',
     badgeNo: '008',
   },
   {
