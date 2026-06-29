@@ -20,6 +20,9 @@ import { useDismissedRejectionNotices } from '../hooks/useDismissedRejectionNoti
 import { useSigningInvites } from '../hooks/useSigningInvites'
 import { useWorkStopAlerts } from '../hooks/useWorkStopAlerts'
 import { useWorkStopResolutionDismissal } from '../hooks/useWorkStopResolutionDismissal'
+import { useDismissedWorkStopPendingAlerts } from '../hooks/useDismissedWorkStopPendingAlerts'
+import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
+import type { WorkStopResolveAction } from '../lib/workStopFunctions'
 import {
   approvalActionHint,
   pendingApprovalsForUser,
@@ -136,9 +139,12 @@ export function PermitListPage() {
     updatePermit,
     refresh,
     userDirectory,
+    resolveWorkStop,
   } = useSession()
 
   const [busy, setBusy] = useState(false)
+  const [workStopResolveBusy, setWorkStopResolveBusy] = useState(false)
+  const [workStopResolvePermitId, setWorkStopResolvePermitId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [journalFilter, setJournalFilter] = useState<JournalFilter>('all')
   const [journalViewTab, setJournalViewTab] = useState<JournalViewTab>('search')
@@ -209,6 +215,8 @@ export function PermitListPage() {
     useDismissedRejectionNotices(user?.id)
   const { dismissed: dismissedWorkStopResolutions, dismiss: dismissWorkStopResolution } =
     useWorkStopResolutionDismissal(user?.id)
+  const { dismissed: dismissedWorkStopPending, dismiss: dismissWorkStopPending } =
+    useDismissedWorkStopPendingAlerts(user?.id)
   const rejectedPermits = user
     ? rejectedPermitsForUser(permits, user, dismissedRejections)
     : []
@@ -228,6 +236,23 @@ export function PermitListPage() {
     () => (user && isInspectorUser(user) ? pendingWorkStopPermits(allPermits) : []),
     [allPermits, user],
   )
+
+  async function handleResolveWorkStopFromJournal(
+    permitId: string,
+    action: WorkStopResolveAction,
+    comment: string,
+  ) {
+    setWorkStopResolveBusy(true)
+    setWorkStopResolvePermitId(permitId)
+    try {
+      await resolveWorkStop(permitId, action, comment)
+      notifyWorkStopAlertsRefresh()
+      await refresh()
+    } finally {
+      setWorkStopResolveBusy(false)
+      setWorkStopResolvePermitId(null)
+    }
+  }
   const allPermitNotices = usePermitNotices(user?.id)
   const { dismissed: dismissedNotices, dismiss: dismissNotice } =
     useDismissedPermitNotices(user?.id)
@@ -537,6 +562,18 @@ export function PermitListPage() {
 
       <ErtGasTestTasksPanel tasks={ertGasTasks} />
 
+      {isInspectorUser(user) ? (
+        <WorkStopAlertsPanel
+          alerts={workStopAlerts}
+          pendingPermits={inspectorPendingWorkStops}
+          dismissedPermitIds={dismissedWorkStopPending}
+          busy={workStopResolveBusy}
+          busyPermitId={workStopResolvePermitId}
+          onResolve={handleResolveWorkStopFromJournal}
+          onDismiss={dismissWorkStopPending}
+        />
+      ) : null}
+
       <PermitNoticesPanel notices={permitNotices} onDismiss={dismissNotice} />
 
       {!isErt ? (
@@ -561,13 +598,6 @@ export function PermitListPage() {
         permits={workStopResolutionNotices}
         onDismiss={dismissWorkStopResolution}
       />
-
-      {isInspectorUser(user) ? (
-        <WorkStopAlertsPanel
-          alerts={workStopAlerts}
-          pendingPermits={inspectorPendingWorkStops}
-        />
-      ) : null}
 
       {dailyAckPending.length > 0 ? (
         <section className="card" style={{ marginBottom: '1rem' }}>

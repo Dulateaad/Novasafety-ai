@@ -1,88 +1,202 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Permit } from '../types/domain'
+import { INSPECTOR_ROLE_TITLE, ROLE_LABELS } from '../types/domain'
 import type { WorkStopAlert } from '../types/workStop'
-import { INSPECTOR_ROLE_TITLE } from '../types/domain'
 import { formatStoredDateTime } from '../lib/datetimeLocal'
+import type { WorkStopResolveAction } from '../lib/workStopFunctions'
+
+type QueueItem = {
+  permitId: string
+  title: string
+  siteName: string
+  atIso: string
+  reason: string
+  initiatedByName: string
+  initiatedByRole: string
+}
+
+function toQueueItem(permit: Permit): QueueItem {
+  const ws = permit.workStop!
+  return {
+    permitId: permit.id,
+    title: permit.title,
+    siteName: permit.siteName,
+    atIso: ws.atIso,
+    reason: ws.reason,
+    initiatedByName: ws.initiatedByName,
+    initiatedByRole: ws.initiatedByRole,
+  }
+}
+
+function alertToQueueItem(alert: WorkStopAlert, permit?: Permit): QueueItem {
+  const ws = permit?.workStop
+  return {
+    permitId: alert.permitId,
+    title: alert.permitTitle || permit?.title || 'Наряд',
+    siteName: alert.siteName || permit?.siteName || '',
+    atIso: alert.atIso,
+    reason: alert.reason,
+    initiatedByName: alert.initiatedByName,
+    initiatedByRole: ws?.initiatedByRole ?? '',
+  }
+}
+
+function roleLabel(role: string): string {
+  if (role in ROLE_LABELS) {
+    return ROLE_LABELS[role as keyof typeof ROLE_LABELS]
+  }
+  return role || '—'
+}
+
+function WorkStopAlertItem(props: {
+  item: QueueItem
+  busy: boolean
+  onResolve: (action: WorkStopResolveAction, comment: string) => Promise<void>
+  onDismiss: () => void
+}) {
+  const { item, busy, onResolve, onDismiss } = props
+  const [comment, setComment] = useState('')
+  const trimmed = comment.trim()
+  const canAct = trimmed.length >= 3 && !busy
+
+  return (
+    <li className="rejected-permits-panel__item work-stop-alerts__item">
+      <div className="rejected-permits-panel__item-head">
+        <div className="rejected-permits-panel__item-meta">
+          <span className="small" style={{ fontWeight: 600, color: '#b45309' }}>
+            ● Требует решения
+          </span>
+          <span className="strong">{item.title}</span>
+          {item.siteName ? <span className="small muted">· {item.siteName}</span> : null}
+          <span className="small muted">· {formatStoredDateTime(item.atIso)}</span>
+        </div>
+        <button
+          type="button"
+          className="rejected-permits-panel__dismiss"
+          aria-label="Скрыть уведомление"
+          title="Скрыть уведомление"
+          onClick={onDismiss}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="permit-rejection-card" role="status">
+        <div className="permit-rejection-card__who">
+          <span className="permit-rejection-card__who-label">Остановка работ</span>
+          <strong className="permit-rejection-card__who-name">{item.initiatedByName}</strong>
+          <span className="permit-rejection-card__who-role">{roleLabel(item.initiatedByRole)}</span>
+        </div>
+        <blockquote className="permit-rejection-card__comment">{item.reason}</blockquote>
+      </div>
+
+      <label className="field" style={{ marginTop: '0.75rem' }}>
+        <span className="field-label">Комментарий {INSPECTOR_ROLE_TITLE} *</span>
+        <textarea
+          rows={2}
+          value={comment}
+          disabled={busy}
+          placeholder="Обоснуйте решение: восстановить работу или аннулировать наряд…"
+          onChange={(e) => setComment(e.target.value)}
+        />
+      </label>
+
+      <div className="row-inline" style={{ flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.65rem' }}>
+        <button
+          type="button"
+          className="btn primary small"
+          disabled={!canAct}
+          onClick={() => void onResolve('lift', trimmed)}
+        >
+          {busy ? 'Сохранение…' : 'Восстановить'}
+        </button>
+        <button
+          type="button"
+          className="btn small work-stop-inspector__annul"
+          disabled={!canAct}
+          onClick={() => {
+            if (
+              !window.confirm('Аннулировать НДПР? Это формальное закрытие наряда в системе.')
+            ) {
+              return
+            }
+            void onResolve('annul', trimmed)
+          }}
+        >
+          Аннулировать
+        </button>
+        <Link className="btn ghost small" to={`/p/${item.permitId}#work-stop-section`}>
+          Открыть наряд
+        </Link>
+      </div>
+    </li>
+  )
+}
 
 export function WorkStopAlertsPanel(props: {
   alerts: WorkStopAlert[]
   pendingPermits?: Permit[]
+  dismissedPermitIds?: ReadonlySet<string>
+  busy?: boolean
+  busyPermitId?: string | null
+  onResolve: (permitId: string, action: WorkStopResolveAction, comment: string) => Promise<void>
+  onDismiss?: (permitId: string) => void
   title?: string
 }) {
-  const { alerts, pendingPermits = [], title = 'Требует решения — остановка работ' } = props
+  const {
+    alerts,
+    pendingPermits = [],
+    dismissedPermitIds = new Set(),
+    busy = false,
+    busyPermitId = null,
+    onResolve,
+    onDismiss,
+    title = 'Требует решения — остановка работ',
+  } = props
 
-  const alertPermitIds = new Set(alerts.map((a) => a.permitId))
-  const extraPermits = pendingPermits.filter((p) => !alertPermitIds.has(p.id))
+  const permitById = new Map(pendingPermits.map((p) => [p.id, p]))
+  const seen = new Set<string>()
+  const items: QueueItem[] = []
 
-  if (alerts.length === 0 && extraPermits.length === 0) return null
+  for (const alert of alerts) {
+    if (dismissedPermitIds.has(alert.permitId)) continue
+    seen.add(alert.permitId)
+    items.push(alertToQueueItem(alert, permitById.get(alert.permitId)))
+  }
+
+  for (const permit of pendingPermits) {
+    if (dismissedPermitIds.has(permit.id) || seen.has(permit.id)) continue
+    if (permit.workStop?.status !== 'pending') continue
+    items.push(toQueueItem(permit))
+  }
+
+  items.sort((a, b) => (a.atIso < b.atIso ? 1 : -1))
+
+  if (items.length === 0) return null
 
   return (
-    <section className="card alert work-stop-alerts" role="status" style={{ marginBottom: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
-      <p className="muted small" style={{ marginTop: 0 }}>
-        {INSPECTOR_ROLE_TITLE}: восстановите работу или аннулируйте наряд с комментарием на
-        карточке наряда.
-      </p>
-      <ul className="compact-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {alerts.map((alert) => (
-          <li
-            key={alert.id}
-            className="card"
-            style={{ marginBottom: '0.65rem', padding: '0.85rem' }}
-          >
-            <div className="row-inline" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-              <span className="small" style={{ fontWeight: 600, color: '#b45309' }}>
-                ● Требует решения
-              </span>
-              <span className="strong">{alert.permitTitle}</span>
-              {alert.siteName ? (
-                <span className="small muted">· {alert.siteName}</span>
-              ) : null}
-              <span className="small muted">
-                · {formatStoredDateTime(alert.atIso)}
-              </span>
-            </div>
-            <p className="small" style={{ margin: '0.5rem 0 0.35rem' }}>
-              Причина: {alert.reason}
-            </p>
-            <p className="muted xsmall" style={{ margin: '0 0 0.5rem' }}>
-              Инициатор: {alert.initiatedByName}
-            </p>
-            <Link className="btn primary small" to={`/p/${alert.permitId}#work-stop-section`}>
-              Восстановить или аннулировать
-            </Link>
-          </li>
+    <section className="rejected-permits-panel work-stop-alerts" role="status">
+      <header className="rejected-permits-panel__header">
+        <div>
+          <h2 className="rejected-permits-panel__title">{title}</h2>
+          <p className="rejected-permits-panel__lead">
+            {INSPECTOR_ROLE_TITLE}: восстановите работу или аннулируйте наряд. Все наряды доступны
+            в журнале.
+          </p>
+        </div>
+      </header>
+
+      <ul className="rejected-permits-panel__list">
+        {items.map((item) => (
+          <WorkStopAlertItem
+            key={item.permitId}
+            item={item}
+            busy={busy && busyPermitId === item.permitId}
+            onResolve={(action, comment) => onResolve(item.permitId, action, comment)}
+            onDismiss={() => onDismiss?.(item.permitId)}
+          />
         ))}
-        {extraPermits.map((permit) => {
-          const ws = permit.workStop!
-          return (
-            <li
-              key={permit.id}
-              className="card"
-              style={{ marginBottom: '0.65rem', padding: '0.85rem' }}
-            >
-              <div className="row-inline" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-                <span className="small" style={{ fontWeight: 600, color: '#b45309' }}>
-                  ● Требует решения
-                </span>
-                <span className="strong">{permit.title}</span>
-                {permit.siteName ? (
-                  <span className="small muted">· {permit.siteName}</span>
-                ) : null}
-                <span className="small muted">· {formatStoredDateTime(ws.atIso)}</span>
-              </div>
-              <p className="small" style={{ margin: '0.5rem 0 0.35rem' }}>
-                Причина: {ws.reason}
-              </p>
-              <p className="muted xsmall" style={{ margin: '0 0 0.5rem' }}>
-                Инициатор: {ws.initiatedByName}
-              </p>
-              <Link className="btn primary small" to={`/p/${permit.id}#work-stop-section`}>
-                Восстановить или аннулировать
-              </Link>
-            </li>
-          )
-        })}
       </ul>
     </section>
   )
