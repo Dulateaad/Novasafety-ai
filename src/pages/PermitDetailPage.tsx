@@ -45,7 +45,9 @@ import {
   restorePackageSessionFromPermit,
   resolvePackageResumeRoute,
 } from '../lib/resumePermitPackage'
-import { canUserInitiateWorkStop } from '../lib/inspectorAccess'
+import { canUserInitiateWorkStop, isInspectorUser } from '../lib/inspectorAccess'
+import { InspectorRejectedPermitPanel } from '../components/InspectorRejectedPermitPanel'
+import type { InspectorRejectedAction } from '../lib/inspectorRejectedPermit'
 import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
 import {
   signingRoleOrder,
@@ -99,6 +101,7 @@ export function PermitDetailPage() {
     refresh,
     requestWorkStop,
     resolveWorkStop,
+    resolveRejectedPermit,
   } = useSession()
   const { t, language } = useLanguage()
   const dp = t.detailPage
@@ -127,7 +130,8 @@ export function PermitDetailPage() {
     if (
       location.hash !== '#ert-gas-tests' &&
       location.hash !== '#permitter-pre-work' &&
-      location.hash !== '#work-stop-section'
+      location.hash !== '#work-stop-section' &&
+      location.hash !== '#inspector-rejected-section'
     ) {
       return
     }
@@ -232,6 +236,8 @@ export function PermitDetailPage() {
     p.status !== 'annulled'
 
   const showInspectorWorkStop = p.workStop?.status === 'pending'
+  const showInspectorRejected =
+    isInspectorUser(actor) && isPermitSigningRejected(p) && Boolean(p.lastRejection)
 
   const workStopInspectorBlock = (
     <>
@@ -244,6 +250,21 @@ export function PermitDetailPage() {
       />
     </>
   )
+
+  async function handleResolveRejectedPermit(
+    action: InspectorRejectedAction,
+    comment: string,
+  ) {
+    setWorkStopBusy(true)
+    try {
+      await resolveRejectedPermit(p.id, action, comment)
+      await refresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setWorkStopBusy(false)
+    }
+  }
 
   async function closePermitEarly() {
     if (!canUserTriggerStatus(p, 'closed', actor.role)) return
@@ -445,6 +466,16 @@ export function PermitDetailPage() {
             {provisionWarning}
           </p>
         </div>
+      ) : null}
+
+      {showInspectorRejected ? (
+        <InspectorRejectedPermitPanel
+          permit={p}
+          actor={actor}
+          resolveUser={resolveUser}
+          busy={workStopBusy}
+          onResolve={(action, comment) => void handleResolveRejectedPermit(action, comment)}
+        />
       ) : null}
 
       {showInspectorWorkStop ? workStopInspectorBlock : null}

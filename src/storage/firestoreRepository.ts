@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -39,6 +40,11 @@ import {
 import { fetchInspectorSettingsAdmin } from '../lib/inspectorSettings'
 import { inspectorAssigneesForPermit } from '../lib/inspectorAccess'
 import { createWorkStopAlerts, resolveWorkStopAlertsFs } from '../lib/workStopAlertStore'
+import {
+  canInspectorResolveRejectedPermit,
+  inspectorRejectedJournalMessage,
+  type InspectorRejectedAction,
+} from '../lib/inspectorRejectedPermit'
 function nowIso() {
   return new Date().toISOString()
 }
@@ -457,6 +463,48 @@ export class FirestorePermitRepository implements PermitRepository {
       }),
     )
     await resolveWorkStopAlertsFs(this.fs, id)
+    return updated
+  }
+
+  async resolveRejectedPermit(
+    id: string,
+    params: { action: InspectorRejectedAction; comment: string },
+    actor: DemoUser,
+  ): Promise<Permit> {
+    const permit = await this.getById(id)
+    if (!permit) throw new Error('Permit not found')
+    if (!canInspectorResolveRejectedPermit(permit, actor)) {
+      throw new Error('Решение по отклонённому пакету принимает инженер по ОТ, ТБ и ООС')
+    }
+    const note = params.comment.trim()
+    if (note.length < 3) {
+      throw new Error('Укажите комментарий (не менее 3 символов)')
+    }
+    const atIso = nowIso()
+    const nextStatus = params.action === 'annul' ? 'annulled' : 'on_approval'
+    const ref = doc(this.fs, 'permits', id)
+    const payload: Record<string, unknown> = {
+      status: nextStatus,
+      updatedAtIso: atIso,
+    }
+    if (params.action === 'restore') {
+      payload.lastRejection = deleteField()
+    }
+    await setDoc(ref, payload, { merge: true })
+    await addDoc(
+      this.journalCol(id),
+      forFirestore({
+        permitId: id,
+        atIso,
+        actorUid: actor.id,
+        actorRole: actor.role,
+        kind: 'status_change',
+        message: inspectorRejectedJournalMessage(params.action, note),
+        meta: { from: permit.status, to: nextStatus, inspectorDecision: params.action },
+      }),
+    )
+    const updated = await this.getById(id)
+    if (!updated) throw new Error('Permit not found')
     return updated
   }
 

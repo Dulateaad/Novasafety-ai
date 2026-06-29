@@ -7,6 +7,7 @@ import type {
 } from '../types/domain'
 import type { WorkStopPhoto } from '../types/workStop'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
+import type { InspectorRejectedAction } from '../lib/inspectorRejectedPermit'
 
 export type Unsubscribe = () => void
 
@@ -20,6 +21,11 @@ export interface WorkStopRequestParams {
 
 export interface WorkStopResolveParams {
   action: WorkStopResolveAction
+  comment: string
+}
+
+export interface RejectedPermitResolveParams {
+  action: InspectorRejectedAction
   comment: string
 }
 
@@ -45,6 +51,11 @@ export interface PermitRepository {
   resolveWorkStop(
     id: string,
     params: WorkStopResolveParams,
+    actor: DemoUser,
+  ): Promise<Permit>
+  resolveRejectedPermit(
+    id: string,
+    params: RejectedPermitResolveParams,
     actor: DemoUser,
   ): Promise<Permit>
   deletePermit(id: string, actor: DemoUser): Promise<void>

@@ -5,7 +5,7 @@ import { allRequiredSignaturesComplete } from './signatureStatus'
 const EDGES: Record<PermitStatus, PermitStatus[]> = {
   draft: ['on_approval'],
   on_approval: ['issued', 'rejected'],
-  rejected: ['draft'],
+  rejected: ['draft', 'on_approval', 'annulled'],
   issued: ['in_progress', 'suspended'],
   in_progress: ['suspended', 'closed'],
   suspended: ['in_progress', 'issued', 'closed', 'annulled'],
@@ -54,8 +54,13 @@ export function canUserTriggerStatus(
       role === 'performer' ||
       role === 'coordinator' ||
       role === 'contractor' ||
-      role === 'issuer'
+      role === 'issuer' ||
+      role === 'safety'
     )
+  }
+
+  if (next === 'on_approval' && permit.status === 'rejected') {
+    return role === 'safety' || role === 'coordinator'
   }
 
   if (next === 'in_progress' && permit.status === 'issued') {
@@ -72,7 +77,7 @@ export function canUserTriggerStatus(
   }
 
   if (next === 'annulled') {
-    return role === 'safety'
+    return role === 'safety' || role === 'coordinator'
   }
 
   if (next === 'in_progress' && permit.status === 'suspended') {

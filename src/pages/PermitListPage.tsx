@@ -10,6 +10,7 @@ import { PermitOnApprovalSummary } from '../components/PermitOnApprovalSummary'
 import { SigningInvitesPanel } from '../components/SigningInvitesPanel'
 import { RejectedPermitsPanel } from '../components/RejectedPermitsPanel'
 import { WorkStopAlertsPanel } from '../components/WorkStopAlertsPanel'
+import { InspectorRejectedPermitsPanel } from '../components/InspectorRejectedPermitsPanel'
 import { WorkStopResolutionNoticesPanel } from '../components/WorkStopResolutionNoticesPanel'
 import { PermitNoticesPanel } from '../components/PermitNoticesPanel'
 import { ErtGasTestTasksPanel } from '../components/ErtGasTestTasksPanel'
@@ -38,6 +39,10 @@ import {
 import { workStopResolutionNoticesForUser } from '../lib/workStopResolutionNotices'
 import { isInspectorUser } from '../lib/inspectorAccess'
 import { pendingWorkStopPermits } from '../lib/pendingWorkStopPermits'
+import {
+  inspectorRejectedPermitQueue,
+  type InspectorRejectedAction,
+} from '../lib/inspectorRejectedPermit'
 import {
   filterPermitsForUser,
   canUserCreatePermitPackage,
@@ -140,11 +145,14 @@ export function PermitListPage() {
     refresh,
     userDirectory,
     resolveWorkStop,
+    resolveRejectedPermit,
   } = useSession()
 
   const [busy, setBusy] = useState(false)
   const [workStopResolveBusy, setWorkStopResolveBusy] = useState(false)
   const [workStopResolvePermitId, setWorkStopResolvePermitId] = useState<string | null>(null)
+  const [rejectedResolveBusy, setRejectedResolveBusy] = useState(false)
+  const [rejectedResolvePermitId, setRejectedResolvePermitId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [journalFilter, setJournalFilter] = useState<JournalFilter>('all')
   const [journalViewTab, setJournalViewTab] = useState<JournalViewTab>('search')
@@ -236,6 +244,28 @@ export function PermitListPage() {
     () => (user && isInspectorUser(user) ? pendingWorkStopPermits(allPermits) : []),
     [allPermits, user],
   )
+  const inspectorRejectedQueue = useMemo(
+    () => (user && isInspectorUser(user) ? inspectorRejectedPermitQueue(allPermits) : []),
+    [allPermits, user],
+  )
+
+  async function handleResolveRejectedFromJournal(
+    permitId: string,
+    action: InspectorRejectedAction,
+    comment: string,
+  ) {
+    setRejectedResolveBusy(true)
+    setRejectedResolvePermitId(permitId)
+    try {
+      await resolveRejectedPermit(permitId, action, comment)
+      await refresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setRejectedResolveBusy(false)
+      setRejectedResolvePermitId(null)
+    }
+  }
 
   async function handleResolveWorkStopFromJournal(
     permitId: string,
@@ -566,6 +596,13 @@ export function PermitListPage() {
 
       {isInspectorUser(user) ? (
         <>
+          <InspectorRejectedPermitsPanel
+            permits={inspectorRejectedQueue}
+            resolveUser={resolveUser}
+            busy={rejectedResolveBusy}
+            busyPermitId={rejectedResolvePermitId}
+            onResolve={handleResolveRejectedFromJournal}
+          />
           <WorkStopAlertsPanel
             alerts={workStopAlerts}
             pendingPermits={inspectorPendingWorkStops}
@@ -594,7 +631,7 @@ export function PermitListPage() {
 
       <PermitNoticesPanel notices={permitNotices} onDismiss={dismissNotice} />
 
-      {!isErt ? (
+      {!isErt && !isInspectorUser(user) ? (
         <RejectedPermitsPanel
           permits={rejectedPermits}
           resolveUser={resolveUser}

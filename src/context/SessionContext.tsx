@@ -37,6 +37,7 @@ import { resetSessionUser, syncSessionUser } from '../lib/packageSession'
 import { createRepository } from '../storage/repositoryFactory'
 import type { PermitRepository } from '../storage/types'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
+import type { InspectorRejectedAction } from '../lib/inspectorRejectedPermit'
 import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
 import { disablePushOnSignOut } from '../components/PushNotificationsToggle'
 import { fetchInspectorSettings } from '../lib/inspectorSettings'
@@ -82,6 +83,11 @@ interface SessionValue {
   resolveWorkStop: (
     id: string,
     action: WorkStopResolveAction,
+    comment: string,
+  ) => Promise<void>
+  resolveRejectedPermit: (
+    id: string,
+    action: InspectorRejectedAction,
     comment: string,
   ) => Promise<void>
   error: string | null
@@ -383,6 +389,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [repo, user],
   )
 
+  const resolveRejectedPermit = useCallback(
+    async (id: string, action: InspectorRejectedAction, comment: string) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      if (!isInspectorUser(user)) {
+        throw new Error(
+          'Решение по отклонённому пакету доступно только инженеру по ОТ, ТБ и ООС.',
+        )
+      }
+      setError(null)
+      try {
+        await repo.resolveRejectedPermit(id, { action, comment }, user)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user],
+  )
+
   const clearError = useCallback(() => setError(null), [])
 
   const value = useMemo<SessionValue>(
@@ -406,6 +431,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       deleteAllPermits,
       requestWorkStop,
       resolveWorkStop,
+      resolveRejectedPermit,
       error,
       clearError,
     }),

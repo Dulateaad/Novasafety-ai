@@ -13,7 +13,7 @@ import {
   primarySpecialWorkActivity,
 } from '../types/domain'
 import { ASOR_EDITION_META } from '../types/asor'
-import type { PermitRepository, Unsubscribe, WorkStopRequestParams, WorkStopResolveParams } from './types'
+import type { PermitRepository, Unsubscribe, WorkStopRequestParams, WorkStopResolveParams, RejectedPermitResolveParams } from './types'
 import { validateTransition, canUserTriggerStatus, issueStatusPatchIfApprovalsComplete } from '../lib/transitions'
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
@@ -30,6 +30,10 @@ import {
 } from '../lib/workStop'
 import { buildWorkStopAlertRecords } from '../lib/workStopAlertStore'
 import { inspectorAssigneesForPermit } from '../lib/inspectorAccess'
+import {
+  canInspectorResolveRejectedPermit,
+  inspectorRejectedJournalMessage,
+} from '../lib/inspectorRejectedPermit'
 import { DEFAULT_INSPECTOR_SETTINGS } from '../lib/inspectorSettings'
 import {
   resolveLocalWorkStopAlerts,
@@ -477,6 +481,46 @@ export class LocalPermitRepository implements PermitRepository {
       },
     })
     resolveLocalWorkStopAlerts(id)
+    saveShape(s)
+    notify()
+    return updated
+  }
+
+  async resolveRejectedPermit(
+    id: string,
+    params: RejectedPermitResolveParams,
+    actor: DemoUser,
+  ): Promise<Permit> {
+    const s = loadShape()
+    const idx = s.permits.findIndex((p) => p.id === id)
+    if (idx === -1) throw new Error('Permit not found')
+    const permit = s.permits[idx]
+    if (!canInspectorResolveRejectedPermit(permit, actor)) {
+      throw new Error('Решение по отклонённому пакету принимает инженер по ОТ, ТБ и ООС')
+    }
+    const note = params.comment.trim()
+    if (note.length < 3) {
+      throw new Error('Укажите комментарий (не менее 3 символов)')
+    }
+    const atIso = nowIso()
+    const nextStatus = params.action === 'annul' ? 'annulled' : 'on_approval'
+    const updated: Permit = {
+      ...permit,
+      status: nextStatus,
+      updatedAtIso: atIso,
+      ...(params.action === 'restore' ? { lastRejection: undefined } : {}),
+    }
+    s.permits[idx] = updated
+    s.journal.push({
+      id: uid(),
+      permitId: id,
+      atIso,
+      actorUid: actor.id,
+      actorRole: actor.role,
+      kind: 'status_change',
+      message: inspectorRejectedJournalMessage(params.action, note),
+      meta: { from: permit.status, to: nextStatus, inspectorDecision: params.action },
+    })
     saveShape(s)
     notify()
     return updated
