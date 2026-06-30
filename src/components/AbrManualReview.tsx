@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AddPlusButton } from './AddPlusButton'
 import { addAbrStage, removeAbrStage } from '../lib/abrStageListEdit'
 import { useSession } from '../context/SessionContext'
@@ -32,6 +33,45 @@ export function AbrManualReview(props: {
   const mrf = t.manualReviewForm
   const b = t.branding
   const generateAbrLabel = fillTemplate(t.riskPage.generateAbr, { abr: b.abr })
+  const [numDrafts, setNumDrafts] = useState<
+    Record<string, { hazard?: string; control?: string }>
+  >({})
+
+  function getNumDraft(
+    stageId: string,
+    field: 'hazard' | 'control',
+    nums: number[],
+  ): string {
+    const draft = numDrafts[stageId]?.[field]
+    return draft !== undefined ? draft : formatNumList(nums)
+  }
+
+  function setNumDraft(stageId: string, field: 'hazard' | 'control', value: string) {
+    setNumDrafts((prev) => ({
+      ...prev,
+      [stageId]: { ...prev[stageId], [field]: value },
+    }))
+  }
+
+  function commitNumDraft(
+    index: number,
+    stage: AbrStageRow,
+    field: 'hazard' | 'control',
+  ) {
+    const nums = field === 'hazard' ? stage.hazardNumbers : stage.controlNumbers
+    const raw = numDrafts[stage.id]?.[field] ?? formatNumList(nums)
+    patchStage(index, {
+      [field === 'hazard' ? 'hazardNumbers' : 'controlNumbers']: parseNumList(raw),
+    })
+    setNumDrafts((prev) => {
+      const entry = { ...prev[stage.id] }
+      delete entry[field]
+      const next = { ...prev }
+      if (Object.keys(entry).length === 0) delete next[stage.id]
+      else next[stage.id] = entry
+      return next
+    })
+  }
 
   function patch(partial: Partial<AbrForm>) {
     onChange({ ...abr, ...partial })
@@ -140,21 +180,23 @@ export function AbrManualReview(props: {
             <label>
               {mrf.hazardNumbers}
               <input
-                value={formatNumList(stage.hazardNumbers)}
-                onChange={(e) =>
-                  patchStage(index, { hazardNumbers: parseNumList(e.target.value) })
-                }
+                value={getNumDraft(stage.id, 'hazard', stage.hazardNumbers)}
+                onChange={(e) => setNumDraft(stage.id, 'hazard', e.target.value)}
+                onBlur={() => commitNumDraft(index, stage, 'hazard')}
                 placeholder="7, 19, 46"
+                inputMode="text"
+                autoComplete="off"
               />
             </label>
             <label>
               {mrf.controlNumbers}
               <input
-                value={formatNumList(stage.controlNumbers)}
-                onChange={(e) =>
-                  patchStage(index, { controlNumbers: parseNumList(e.target.value) })
-                }
+                value={getNumDraft(stage.id, 'control', stage.controlNumbers)}
+                onChange={(e) => setNumDraft(stage.id, 'control', e.target.value)}
+                onBlur={() => commitNumDraft(index, stage, 'control')}
                 placeholder="18, 27, 46"
+                inputMode="text"
+                autoComplete="off"
               />
             </label>
             <button
