@@ -3,6 +3,7 @@ import { AddPlusButton } from './AddPlusButton'
 import { addAbrStage, removeAbrStage } from '../lib/abrStageListEdit'
 import { useSession } from '../context/SessionContext'
 import { useLanguage } from '../context/LanguageContext'
+import { APP_NAME } from '../config/branding'
 import { fillTemplate } from '../i18n/getLocale'
 import type { AbrForm, AbrStageRow } from '../types/abr'
 
@@ -32,7 +33,7 @@ export function AbrManualReview(props: {
   const mr = t.manualReview
   const mrf = t.manualReviewForm
   const b = t.branding
-  const generateAbrLabel = fillTemplate(t.riskPage.generateAbr, { abr: b.abr })
+  const generateAbrLabel = fillTemplate(t.riskPage.generateAbr, { app: APP_NAME })
   const [numDrafts, setNumDrafts] = useState<
     Record<string, { hazard?: string; control?: string }>
   >({})

@@ -43,6 +43,7 @@ import { LoadingProgress } from '../components/LoadingProgress'
 import { NeboshManualReview } from '../components/NeboshManualReview'
 import { ABR_LABEL, APP_NAME, SOURCE_DOCUMENT_LABEL } from '../config/branding'
 import { useLanguage } from '../context/LanguageContext'
+import { fillTemplate } from '../i18n/getLocale'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
 import { enrichParticipantDirectory } from '../lib/resolveDirectoryPerson'
 import { validateAsorForm, isRiskAssessmentReady, isAbrReady } from '../lib/validateAsorForm'
@@ -629,7 +630,7 @@ export function RiskAssessmentPage() {
               >
                 {abrGenBusy
                   ? `${APP_NAME} составляет анализ…`
-                  : `Сформировать ${ABR_LABEL}`}
+                  : fillTemplate(rp.generateAbr, { app: APP_NAME })}
               </button>
               <button
                 type="button"
@@ -726,7 +727,9 @@ export function RiskAssessmentPage() {
                 disabled={neboshGenBusy || !isNeboshAiAvailable()}
                 onClick={() => void generateNeboshFromPpr()}
               >
-                {neboshGenBusy ? `${APP_NAME} формирует…` : 'Сформировать оценку риска'}
+                {neboshGenBusy
+                  ? `${APP_NAME} формирует…`
+                  : fillTemplate(rp.generateRisk, { app: APP_NAME })}
               </button>
               <button
                 type="button"

@@ -1,4 +1,4 @@
-import { ABR_LABEL } from '../config/branding'
+import { ABR_LABEL, APP_NAME } from '../config/branding'
 import type { AsorForm } from '../types/asor'
 import type { DemoUser, PermitDraft } from '../types/domain'
 import { isAiClientReady } from './aiClient'
@@ -60,7 +60,7 @@ export function getPackageSubmitRequirements(args: {
       ok: aiOk,
       hint: aiOk
         ? undefined
-        : 'Ключ Claude не задан — кнопки «Сформировать» недоступны',
+        : 'Ключ Claude не задан — кнопки «Сформировать через NOVA Safety» недоступны',
     },
     {
       id: 'abr',
@@ -68,7 +68,7 @@ export function getPackageSubmitRequirements(args: {
       ok: abrReady,
       hint: abrReady
         ? undefined
-        : `Заполните ${ABR_LABEL} вручную или нажмите «Сформировать ${ABR_LABEL}»`,
+        : `Заполните ${ABR_LABEL} вручную или нажмите «Сформировать через ${APP_NAME}»`,
     },
     {
       id: 'nebosh',
@@ -76,7 +76,7 @@ export function getPackageSubmitRequirements(args: {
       ok: neboshReady,
       hint: neboshReady
         ? undefined
-        : 'Заполните оценку риска вручную или нажмите «Сформировать оценку риска»',
+        : `Заполните оценку риска вручную или нажмите «Сформировать через ${APP_NAME}»`,
     },
     {
       id: 'review',
