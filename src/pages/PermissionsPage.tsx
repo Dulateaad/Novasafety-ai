@@ -2,12 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DocumentKitSummary } from '../components/DocumentKitSummary'
 import { LoadingProgress } from '../components/LoadingProgress'
-import { AiDisclaimerNotice } from '../components/AiDisclaimerNotice'
 import { WorkPermissionIcon } from '../components/WorkPermissionIcon'
 import { WorkPermissionFormEditor } from '../components/WorkPermissionFormEditor'
 import { useLanguage } from '../context/LanguageContext'
 import { fillTemplate, workPermissionKindLabel } from '../i18n/getLocale'
-import { APP_NAME } from '../config/branding'
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { useSession } from '../context/SessionContext'
 import { useToast } from '../context/ToastContext'
@@ -43,11 +41,6 @@ import {
   saveWorkPermissionsToSession,
 } from '../lib/workPermissionsAutosave'
 import { validateNdprDraft } from '../lib/validateNdprDraft'
-import {
-  generateAllWorkPermissionsFromPpr,
-  generateWorkPermissionSectionsFromPpr,
-  isWorkPermissionAiAvailable,
-} from '../lib/generateWorkPermissionFromPpr'
 import { scrollAppToTopWithRetries } from '../lib/scrollAppToTop'
 import '../ndpr-page.css'
 import { validateAsorForm } from '../lib/validateAsorForm'
@@ -90,7 +83,6 @@ export function PermissionsPage() {
   const { showError } = useToast()
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState<string | null>(null)
-  const [aiBusy, setAiBusy] = useState(false)
   const [bundle, setBundle] = useState<WorkPermissionsBundle | null>(null)
 
   const draft = useMemo(
@@ -153,42 +145,6 @@ export function PermissionsPage() {
     },
     [],
   )
-
-  function clearDocPdf(doc: WorkPermissionDocument): WorkPermissionDocument {
-    return {
-      ...doc,
-      pdfBase64: undefined,
-      generatedAtIso: undefined,
-      documentHash: undefined,
-    }
-  }
-
-  async function fillViaAi(kind?: WorkPermissionDocument['kind']) {
-    if (!bundle || !ppr) return
-    setAiBusy(true)
-    setStage(fillTemplate(pb.aiFillingSections, { app: APP_NAME }))
-    try {
-      let documents = bundle.documents
-      if (kind) {
-        documents = await Promise.all(
-          documents.map(async (d) =>
-            d.kind === kind
-              ? clearDocPdf(await generateWorkPermissionSectionsFromPpr(d, ppr))
-              : d,
-          ),
-        )
-      } else {
-        const filled = await generateAllWorkPermissionsFromPpr(documents, ppr)
-        documents = filled.map(clearDocPdf)
-      }
-      setBundle({ documents, updatedAtIso: new Date().toISOString() })
-    } catch (e) {
-      showError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setAiBusy(false)
-      setStage(null)
-    }
-  }
 
   async function generateSinglePermission(kind: WorkPermissionDocument['kind']) {
     if (!bundle) return
@@ -374,30 +330,6 @@ export function PermissionsPage() {
         </div>
       </div>
 
-      <section className="card">
-        <AiDisclaimerNotice />
-        <div className="btn-row">
-          <button
-            type="button"
-            className="btn ghost"
-            disabled={aiBusy || busy || !isWorkPermissionAiAvailable()}
-            onClick={() => void fillViaAi()}
-          >
-            {aiBusy
-              ? p.permissionsAiBusy
-              : p.permissionsFillAll.replace('NOVA Safety', APP_NAME)}
-          </button>
-        </div>
-        {aiBusy && !busy ? (
-          <LoadingProgress
-            label={stage ?? `${APP_NAME}…`}
-            indeterminate
-            withTips
-            fullscreen
-          />
-        ) : null}
-      </section>
-
       <DocumentKitSummary templates={templates} />
 
       {bundle.documents.map((doc) => {
@@ -426,10 +358,10 @@ export function PermissionsPage() {
                 <button
                   type="button"
                   className="btn primary small"
-                  disabled={busy || aiBusy}
+                  disabled={busy}
                   onClick={() => void generateSinglePermission(doc.kind)}
                 >
-                  {busy && !aiBusy ? c.forming : c.generatePermission}
+                  {busy ? c.forming : c.generatePermission}
                 </button>
                 {doc.pdfBase64 || doc.generatedAtIso ? (
                   <button
@@ -457,10 +389,10 @@ export function PermissionsPage() {
           <button
             type="button"
             className="btn primary"
-            disabled={busy || aiBusy}
+            disabled={busy}
             onClick={() => void submitPackage()}
           >
-            {busy && !aiBusy ? stage ?? p.permissionsSubmitting : p.permissionsSubmit}
+            {busy ? stage ?? p.permissionsSubmitting : p.permissionsSubmit}
           </button>
         </div>
         {busy ? (

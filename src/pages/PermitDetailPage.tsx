@@ -23,7 +23,10 @@ import { ReplacePerformerPanel } from '../components/ReplacePerformerPanel'
 import { WorkPermissionClosurePanel } from '../components/WorkPermissionClosurePanel'
 import { PermitCoordinatorOverview } from '../components/PermitCoordinatorOverview'
 import { PermitPackageBriefCard } from '../components/PermitPackageBrief'
+import type { PackagePermissionBrief } from '../components/PermitPackageBrief'
+import { DocumentKitSummary } from '../components/DocumentKitSummary'
 import { userById } from '../demoUsers'
+import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { PTW_SITE_OPTIONS } from '../config/ptwSites'
 import {
   allowedNextStatuses,
@@ -70,11 +73,22 @@ import {
   canUseGodMode,
   godModeSignPermitClient,
 } from '../lib/godModeSign'
+import {
+  buildPackagePdf,
+  buildPermitPackagePartPdf,
+  preloadPackagePdfEngine,
+  viewPackagePdf,
+} from '../lib/buildPackagePdf'
+import type { PackagePdfPart } from '../lib/buildPackagePdf'
 import { buildPermitPackageBrief } from '../lib/permitPackageBrief'
 import { isPermitPostApproval, isPermitProducer } from '../lib/closeNdprEarly'
 import { syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
+import { permissionNoticesForActivities } from '../lib/workPermissions'
 import { GasTestResultsReadOnlyCard } from '../components/GasTestResultsReadOnlyCard'
-import { permitHasGasTestDocuments } from '../lib/ertGasTestHints'
+import { gasTestDocFilled, permitHasGasTestDocuments } from '../lib/ertGasTestHints'
+import { openPprAttachmentInBrowser } from '../lib/pprAttachment'
+import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
+import type { WorkPermissionKind } from '../types/workPermissions'
 import {
   fillTemplate,
   formatSpecialWorkLabelsLocalized,
@@ -113,6 +127,9 @@ export function PermitDetailPage() {
   const [workStopOpen, setWorkStopOpen] = useState(false)
   const [workStopBusy, setWorkStopBusy] = useState(false)
   const [closeBusy, setCloseBusy] = useState(false)
+  const [pdfPackageBusy, setPdfPackageBusy] = useState(false)
+  const [viewingPart, setViewingPart] = useState<PackagePdfPart | null>(null)
+  const [viewingPermission, setViewingPermission] = useState<WorkPermissionKind | null>(null)
   const provisionWarning =
     (location.state as { provisionWarning?: string } | null)?.provisionWarning ?? null
 
@@ -124,7 +141,27 @@ export function PermitDetailPage() {
   const showPackageSection = Boolean(
     permit && (permit.status !== 'draft' || permit.packagePdf),
   )
+  const permissionTemplates = useMemo(
+    () => (permit ? permissionNoticesForActivities(permit) : []),
+    [permit],
+  )
+  const permissionBriefs = useMemo((): PackagePermissionBrief[] => {
+    if (!permit?.workPermissions?.documents?.length) return []
+    return permit.workPermissions.documents.map((doc) => ({
+      kind: doc.kind,
+      label: WORK_PERMISSION_BY_KIND[doc.kind].label,
+      hasPdf: Boolean(doc.pdfBase64 || doc.generatedAtIso),
+      requiresGasTests: WORK_PERMISSION_BY_KIND[doc.kind].requiresGasTests,
+      gasTestsFilled: WORK_PERMISSION_BY_KIND[doc.kind].requiresGasTests
+        ? gasTestDocFilled(doc)
+        : undefined,
+    }))
+  }, [permit])
   const showOperationalBlocks = Boolean(permit && isPermitPostApproval(permit))
+
+  useEffect(() => {
+    void preloadPackagePdfEngine()
+  }, [])
 
   useEffect(() => {
     if (
@@ -163,6 +200,39 @@ export function PermitDetailPage() {
   }
 
   const p = permit
+
+  async function openFullPackagePdf() {
+    setPdfPackageBusy(true)
+    try {
+      viewPackagePdf(await buildPackagePdf(p, resolveUser, userDirectory))
+    } catch {
+      window.alert(t.modals.pdfPackageFailed)
+    } finally {
+      setPdfPackageBusy(false)
+    }
+  }
+
+  async function openPackagePartPdf(part: PackagePdfPart) {
+    setViewingPart(part)
+    try {
+      viewPackagePdf(await buildPermitPackagePartPdf(part, p, resolveUser, userDirectory))
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : t.modals.pdfPackageFailed)
+    } finally {
+      setViewingPart(null)
+    }
+  }
+
+  async function openPermissionPdf(kind: WorkPermissionKind) {
+    const doc = p.workPermissions?.documents.find((d) => d.kind === kind)
+    if (!doc) return
+    setViewingPermission(kind)
+    try {
+      await openWorkPermissionPdf(doc)
+    } finally {
+      setViewingPermission(null)
+    }
+  }
 
   if (p.status === 'draft' && canUserSubmitPermitPackage(actor) && !isPermitSigningRejected(p)) {
     return (
@@ -516,7 +586,35 @@ export function PermitDetailPage() {
 
       {showPackageSection && packageBrief ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
-          <PermitPackageBriefCard brief={packageBrief} showDocLinks={false} />
+          <h2 style={{ marginTop: 0 }}>{dp.viewFullPdf}</h2>
+          {permissionTemplates.length > 0 ? (
+            <DocumentKitSummary templates={permissionTemplates} />
+          ) : null}
+          <PermitPackageBriefCard
+            brief={packageBrief}
+            permissions={permissionBriefs}
+            showDocLinks
+            onViewPart={(part) => void openPackagePartPdf(part)}
+            onViewPpr={
+              p.ppr?.attachment
+                ? () => {
+                    openPprAttachmentInBrowser(p.ppr!.attachment!)
+                  }
+                : undefined
+            }
+            onViewPermission={(kind) => void openPermissionPdf(kind)}
+            viewingPart={viewingPart}
+            viewingPermission={viewingPermission}
+          />
+          <button
+            type="button"
+            className="btn primary small"
+            style={{ marginTop: '0.75rem' }}
+            disabled={pdfPackageBusy}
+            onClick={() => void openFullPackagePdf()}
+          >
+            {pdfPackageBusy ? c.opening : dp.viewFullPdf}
+          </button>
         </section>
       ) : null}
 
