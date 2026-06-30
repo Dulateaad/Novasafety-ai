@@ -46,9 +46,11 @@ type Props = {
   onViewPart?: (part: PackagePdfPart) => void
   onViewPpr?: () => void
   onViewPermission?: (kind: WorkPermissionKind) => void
+  onViewFullPackage?: () => void
   onGasTestTask?: (kind: WorkPermissionKind) => void
   viewingPart?: PackagePdfPart | null
   viewingPermission?: WorkPermissionKind | null
+  viewingFullPackage?: boolean
 }
 
 export function PermitPackageBriefCard(props: Props) {
@@ -61,9 +63,11 @@ export function PermitPackageBriefCard(props: Props) {
     onViewPart,
     onViewPpr,
     onViewPermission,
+    onViewFullPackage,
     onGasTestTask,
     viewingPart,
     viewingPermission,
+    viewingFullPackage,
   } = props
   const { t } = useLanguage()
   const dk = t.docKit
@@ -171,6 +175,17 @@ export function PermitPackageBriefCard(props: Props) {
                 {viewingPermission === perm.kind ? c.opening : perm.label}
               </button>
             ))}
+            {onViewFullPackage ? (
+              <button
+                type="button"
+                className="package-brief__doc-link package-brief__doc-link--full"
+                disabled={viewingFullPackage}
+                onClick={onViewFullPackage}
+                title={dk.fullPackage}
+              >
+                {viewingFullPackage ? c.opening : dk.fullPackage}
+              </button>
+            ) : null}
             {showGasTestTasks ? (
               <div className="package-brief__gas-summary">
                 <p className="package-brief__docs-label muted xsmall">{t.gasTest.summaryTitle}</p>

@@ -127,7 +127,7 @@ export function PprDocumentUpload(props: {
               {new Date(attachment.uploadedAtIso).toLocaleString()}
             </p>
             <p className="muted xsmall" style={{ margin: '0 0 0.5rem' }}>
-              Перетащите другой файл сюда, чтобы заменить
+              {u.replaceDropHint}
             </p>
             <div className="btn-row">
               <button
@@ -165,7 +165,7 @@ export function PprDocumentUpload(props: {
         ) : (
           <>
             <p className="ppr-upload__dropzone-title">
-              {dragOver ? 'Отпустите файл' : 'Перетащите файл сюда'}
+              {dragOver ? u.release : u.dropHere}
             </p>
             <p className="muted xsmall ppr-upload__dropzone-hint">
               {u.fileTypesHint}

@@ -62,7 +62,7 @@ import {
 import { assigneeUidForRole } from '../lib/signatureStatus'
 import { canUserRejectPermit, rejectionPatch } from '../lib/approvalActions'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
-import { scrollAppToTopWithRetries } from '../lib/scrollAppToTop'
+import { scrollAppToTopWithRetries, scrollToElementWithRetries } from '../lib/scrollAppToTop'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { notifyPermitNoticesRefresh } from '../lib/refreshPermitNotices'
 import { allCrewAcknowledged } from '../lib/crewAckComplete'
@@ -175,7 +175,10 @@ export function PermitDetailPage() {
     ])
     if (!hash || !scrollTargets.has(hash)) return
     if (hash === 'pdf-package' && !showPackageSection) return
-    const cancel = scrollAppToTopWithRetries(document.getElementById(hash))
+    const cancel =
+      hash === 'pdf-package'
+        ? scrollToElementWithRetries(document.getElementById(hash))
+        : scrollAppToTopWithRetries(document.getElementById(hash))
     return cancel
   }, [
     location.hash,
@@ -545,6 +548,35 @@ export function PermitDetailPage() {
         </div>
       ) : null}
 
+      {showPackageSection && packageBrief ? (
+        <section className="card" style={{ marginBottom: '1rem' }}>
+          <h2 id="pdf-package" className="pdf-package-heading" style={{ marginTop: 0 }}>
+            {dp.viewFullPdf}
+          </h2>
+          {permissionTemplates.length > 0 ? (
+            <DocumentKitSummary templates={permissionTemplates} />
+          ) : null}
+          <PermitPackageBriefCard
+            brief={packageBrief}
+            permissions={permissionBriefs}
+            showDocLinks
+            onViewPart={(part) => void openPackagePartPdf(part)}
+            onViewPpr={
+              p.ppr?.attachment
+                ? () => {
+                    openPprAttachmentInBrowser(p.ppr!.attachment!)
+                  }
+                : undefined
+            }
+            onViewPermission={(kind) => void openPermissionPdf(kind)}
+            onViewFullPackage={() => void openFullPackagePdf()}
+            viewingPart={viewingPart}
+            viewingPermission={viewingPermission}
+            viewingFullPackage={pdfPackageBusy}
+          />
+        </section>
+      ) : null}
+
       {showInspectorRejected ? (
         <InspectorRejectedPermitPanel
           permit={p}
@@ -589,40 +621,6 @@ export function PermitDetailPage() {
           userDirectory={userDirectory}
           refresh={refresh}
         />
-      ) : null}
-
-      {showPackageSection && packageBrief ? (
-        <section id="pdf-package" className="card" style={{ marginBottom: '1rem' }}>
-          <h2 style={{ marginTop: 0 }}>{dp.viewFullPdf}</h2>
-          {permissionTemplates.length > 0 ? (
-            <DocumentKitSummary templates={permissionTemplates} />
-          ) : null}
-          <PermitPackageBriefCard
-            brief={packageBrief}
-            permissions={permissionBriefs}
-            showDocLinks
-            onViewPart={(part) => void openPackagePartPdf(part)}
-            onViewPpr={
-              p.ppr?.attachment
-                ? () => {
-                    openPprAttachmentInBrowser(p.ppr!.attachment!)
-                  }
-                : undefined
-            }
-            onViewPermission={(kind) => void openPermissionPdf(kind)}
-            viewingPart={viewingPart}
-            viewingPermission={viewingPermission}
-          />
-          <button
-            type="button"
-            className="btn primary small"
-            style={{ marginTop: '0.75rem' }}
-            disabled={pdfPackageBusy}
-            onClick={() => void openFullPackagePdf()}
-          >
-            {pdfPackageBusy ? c.opening : dp.viewFullPdf}
-          </button>
-        </section>
       ) : null}
 
       {showOperationalBlocks ? (

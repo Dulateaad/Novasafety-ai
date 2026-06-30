@@ -30,3 +30,5 @@
 .journal-permit-link{display:block;color:inherit;text-decoration:none;border-radius:var(--radius-sm);padding:.15rem 0}
 .journal-permit-link:hover .strong{color:var(--brand-blue)}
 .journal-permit-link:focus-visible{outline:2px solid var(--brand-blue);outline-offset:2px}
+.pdf-package-heading{scroll-margin-top:.75rem}
+.package-brief__doc-link--full{font-weight:700}
