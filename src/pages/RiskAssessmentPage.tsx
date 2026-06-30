@@ -93,8 +93,8 @@ export function RiskAssessmentPage() {
   const [manualReviewConfirmed, setManualReviewConfirmed] = useState(false)
   const [abrSectionMode, setAbrSectionMode] = useState<RiskSectionMode>('manual')
   const [riskSectionMode, setRiskSectionMode] = useState<RiskSectionMode>('manual')
-  const [abrReviewOpen, setAbrReviewOpen] = useState(true)
-  const [neboshReviewOpen, setNeboshReviewOpen] = useState(true)
+  const [abrReviewOpen, setAbrReviewOpen] = useState(false)
+  const [neboshReviewOpen, setNeboshReviewOpen] = useState(false)
   const suppressAutosaveRef = useRef(false)
 
   const resolveBadge = (uid: string) => resolveUserBadgeNo(uid, userDirectory)
@@ -187,26 +187,6 @@ export function RiskAssessmentPage() {
     } else {
       setNdGatePassed()
     }
-    const nd = prepared
-    const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
-    setForm((current) => {
-      let next = current
-      if (current.abr?.stages.length) {
-        next = {
-          ...next,
-          abr: mergeAbrPeopleFromNd(
-            current.abr,
-            nd,
-            resolveName,
-            resolveBadge,
-          ),
-        }
-      }
-      if (isRiskAssessmentReady(current) || current.tasks.length > 0) {
-        next = mergeNeboshApprovalPeopleFromNd(next, nd, resolveName, resolveBadge)
-      }
-      return next
-    })
   }, [boot, participantDirectory, user?.id, user?.role])
 
   useEffect(() => {
