@@ -82,7 +82,7 @@ export function CrewAckSignModal(props: {
         }
 
         const session = await startSigexQrSigning({
-          description: `NOVA Safety — ${crew.label}`,
+          description: `NOVA SAFETY AI — ${crew.label}`,
           documentTitle: `${m.wpTitle} ${permit.registrationRefNo || permit.id.slice(0, 8)}`,
           dataBase64: pkg.base64,
           isPdf: true,

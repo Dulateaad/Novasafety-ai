@@ -50,12 +50,6 @@ import {
 } from '../lib/permitAccess'
 import { canUserDeletePermit } from '../lib/permitDelete'
 import {
-  applyGodModeToPermit,
-  canUseGodMode,
-  findLatestPermit,
-  godModeSignPermitClient,
-} from '../lib/godModeSign'
-import {
   cleanupOrphanSigningInvitesClient,
   renumberPermitsClient,
 } from '../lib/renumberPermits'
@@ -127,7 +121,6 @@ function journalFilterLabel(
 export function PermitListPage() {
   const { t, language } = useLanguage()
   const j = t.journal
-  const gm = t.godMode
   const c = t.common
   const approval = t.approval
   const abrDaily = t.abrDailyAck
@@ -141,7 +134,6 @@ export function PermitListPage() {
     authMode,
     deletePermit,
     deleteAllPermits,
-    updatePermit,
     refresh,
     userDirectory,
     resolveWorkStop,
@@ -301,8 +293,8 @@ export function PermitListPage() {
     [permits, user],
   )
   const permitterPreWorkTasks = useMemo(
-    () => permitterPreWorkTasksForUser(permits, user),
-    [permits, user],
+    () => permitterPreWorkTasksForUser(permits, user, resolveUser, userDirectory),
+    [permits, user, resolveUser, userDirectory],
   )
 
   const canCreate = canUserCreatePermitPackage(user)
@@ -312,69 +304,8 @@ export function PermitListPage() {
   const isCoordinator = user?.role === 'coordinator'
   const isErt = user?.role === 'ert'
 
-  const godModeTarget = useMemo(() => {
-    const candidates = allPermits.filter((p) => p.status === 'on_approval')
-    return findLatestPermit(candidates)
-  }, [allPermits])
-
-  const canGodMode = canUseGodMode(user) && Boolean(godModeTarget)
-
   const permitCreatedAtIso = (permitId: string) =>
     allPermits.find((p) => p.id === permitId)?.createdAtIso
-
-  async function runGodModeOnLatest() {
-    if (!canGodMode || !godModeTarget) return
-    const label = godModeTarget.registrationRefNo || godModeTarget.title || godModeTarget.id
-    if (
-      !window.confirm(
-        fillTemplate(gm.confirm, { label }),
-      )
-    ) {
-      return
-    }
-    setBusy(true)
-    try {
-      if (authMode === 'firebase') {
-        const result = await godModeSignPermitClient(godModeTarget.id)
-        if (!result) throw new Error(t.alerts.firebaseFunctionsUnavailable)
-        await refresh()
-        notifySigningInvitesRefresh()
-        if (result.issued) notifyPermitNoticesRefresh()
-        window.alert(
-          fillTemplate(gm.done, {
-            crewSigned: result.crewSigned,
-            approversSigned: result.approversSigned,
-            skippedErt: result.skippedErt,
-          }),
-        )
-      } else {
-        const { patch, summary } = applyGodModeToPermit(
-          godModeTarget,
-          resolveUser,
-          userDirectory,
-        )
-        await updatePermit(godModeTarget.id, patch)
-        await refresh()
-        if (summary.issued) {
-          void import('../lib/permitNotices').then((m) => {
-            m.upsertLocalPermitNotices({ ...godModeTarget, ...patch }, 'issued')
-            notifyPermitNoticesRefresh()
-          })
-        }
-        notifySigningInvitesRefresh()
-        window.alert(
-          fillTemplate(gm.doneDemo, {
-            crewSigned: summary.crewSigned,
-            approversSigned: summary.approversSigned,
-          }),
-        )
-      }
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : gm.failed)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function cleanupStaleInvites() {
     if (!canCleanupInvites || busy) return
@@ -553,43 +484,6 @@ export function PermitListPage() {
             </button>
           ) : null}
         </div>
-      ) : null}
-
-      {canUseGodMode(user) ? (
-        <section
-          className="card"
-          style={{ marginBottom: '1rem', borderColor: '#7c3aed' }}
-        >
-          <h2 className="small" style={{ marginTop: 0 }}>
-            {gm.title}
-          </h2>
-          <p className="muted small" style={{ marginBottom: '0.75rem' }}>
-            {gm.descriptionIntro}{' '}
-            <strong>{gm.descriptionWorkers}</strong> {gm.descriptionAck}{' '}
-            <strong>{gm.descriptionApprovers}</strong> {gm.descriptionApproversList}{' '}
-            {gm.descriptionExcluded}
-          </p>
-          {godModeTarget ? (
-            <p className="small" style={{ marginBottom: '0.75rem' }}>
-              {gm.latestPermit}{' '}
-              <Link to={`/p/${godModeTarget.id}`}>
-                {godModeTarget.registrationRefNo || godModeTarget.title || '—'}
-              </Link>{' '}
-              · <StatusBadge status={godModeTarget.status} />
-            </p>
-          ) : (
-            <p className="muted small">{t.admin.godModeNeedPermit}</p>
-          )}
-          <button
-            type="button"
-            className="btn primary small"
-            disabled={busy || !canGodMode}
-            onClick={() => void runGodModeOnLatest()}
-            title={canGodMode ? undefined : t.admin.godModeNeedPermit}
-          >
-            {busy ? gm.busy : gm.signLatest}
-          </button>
-        </section>
       ) : null}
 
       <ErtGasTestTasksPanel tasks={ertGasTasks} />

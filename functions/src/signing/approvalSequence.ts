@@ -29,8 +29,25 @@ export function requiredSignRoles(permit: DocumentData): EgovSignRole[] {
   return signingRoleOrder(permit)
 }
 
+function allRequiredSignaturesComplete(permit: DocumentData): boolean {
+  return requiredSignRoles(permit).every((role) => isRoleSigned(permit, role))
+}
+
+/** Этап подписания: on_approval или наряд ошибочно выдан без всех подписей. */
+export function permitSigningPhaseActive(permit: DocumentData): boolean {
+  const status = String(permit.status ?? '')
+  if (status === 'on_approval') return true
+  if (
+    (status === 'issued' || status === 'in_progress' || status === 'suspended') &&
+    !allRequiredSignaturesComplete(permit)
+  ) {
+    return true
+  }
+  return false
+}
+
 export function nextRoleToSign(permit: DocumentData): EgovSignRole | null {
-  if (String(permit.status ?? '') !== 'on_approval') return null
+  if (!permitSigningPhaseActive(permit)) return null
   if (!isRoleSigned(permit, 'performer')) return 'performer'
   if (!allCrewAcknowledged(permit)) return null
   for (const role of requiredSignRoles(permit)) {
@@ -83,7 +100,7 @@ export function approvalStepLabel(
 }
 
 export function canSignRoleNow(permit: DocumentData, role: EgovSignRole): boolean {
-  if (String(permit.status ?? '') !== 'on_approval') return false
+  if (!permitSigningPhaseActive(permit)) return false
   if (isRoleSigned(permit, role)) return false
   if (!requiredSignRoles(permit).includes(role)) return false
   return nextRoleToSign(permit) === role

@@ -43,6 +43,7 @@ import {
   isUserOnPermitCrew,
   uidMatchesAccount,
 } from '../lib/permitAccess'
+import { isCrewAckPeriodActive } from '../lib/crewAckEligibility'
 import { isPermitSigningRejected } from '../lib/permitRejectionDisplay'
 import {
   restorePackageSessionFromPermit,
@@ -58,22 +59,19 @@ import {
   canSignRoleNow,
   approvalStepLabel,
   waitingHint,
+  nextRoleToSign,
+  permitSigningPhaseActive,
 } from '../lib/approvalSequence'
-import { assigneeUidForRole } from '../lib/signatureStatus'
+import { permitterPreWorkComplete } from '../lib/permitterPreWorkHints'
+import { assigneeUidForRole, isRoleSigned } from '../lib/signatureStatus'
 import { canUserRejectPermit, rejectionPatch } from '../lib/approvalActions'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
 import { scrollAppToTopWithRetries, scrollToElementWithRetries } from '../lib/scrollAppToTop'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
-import { notifyPermitNoticesRefresh } from '../lib/refreshPermitNotices'
 import { allCrewAcknowledged } from '../lib/crewAckComplete'
 import { canUserSignCrewAck } from '../lib/crewAckEligibility'
 import { provisionPermitSignersClient } from '../lib/provisionSigners'
 import { canUserDeletePermit } from '../lib/permitDelete'
-import {
-  applyGodModeToPermit,
-  canUseGodMode,
-  godModeSignPermitClient,
-} from '../lib/godModeSign'
 import {
   buildPackagePdf,
   buildPermitPackagePartPdf,
@@ -86,7 +84,11 @@ import { isPermitPostApproval, isPermitProducer } from '../lib/closeNdprEarly'
 import { syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import { permissionNoticesForActivities } from '../lib/workPermissions'
 import { GasTestResultsReadOnlyCard } from '../components/GasTestResultsReadOnlyCard'
-import { gasTestDocFilled, permitHasGasTestDocuments } from '../lib/ertGasTestHints'
+import {
+  canErtEditGasTests,
+  gasTestDocFilled,
+  permitHasGasTestDocuments,
+} from '../lib/ertGasTestHints'
 import { openPprAttachmentInBrowser } from '../lib/pprAttachment'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import type { WorkPermissionKind } from '../types/workPermissions'
@@ -268,46 +270,22 @@ export function PermitDetailPage() {
   const matrixInfo = showTechnicalBlocks ? matrixRow(p.category) : null
 
   function canUserSignRole(role: EgovSignRole): boolean {
-    if (p.status !== 'on_approval') return false
+    if (!permitSigningPhaseActive(p) || isPermitSigningRejected(p)) return false
+    if (role === 'permitter' && !permitterPreWorkComplete(p)) return false
     if (actor.role === 'coordinator') return canSignRoleNow(p, role)
     return uidMatchesAccount(assigneeUidForRole(p, role), actor, userDirectory) && canSignRoleNow(p, role)
   }
 
-  async function runGodModeSign() {
-    const label = p.registrationRefNo || p.title
-    if (!window.confirm(fillTemplate(t.godMode.confirm, { label }))) return
-    try {
-      if (authMode === 'firebase') {
-        const summary = await godModeSignPermitClient(p.id)
-        if (!summary) throw new Error(t.godMode.failed)
-        await refresh()
-        if (summary.issued) notifyPermitNoticesRefresh()
-        window.alert(
-          fillTemplate(t.godMode.done, {
-            crewSigned: summary.crewSigned,
-            approversSigned: summary.approversSigned,
-            skippedErt: summary.skippedErt,
-          }),
-        )
-        await refresh()
-      } else {
-        const { patch, summary } = applyGodModeToPermit(p, resolveUser, userDirectory)
-        await updatePermit(p.id, patch)
-        window.alert(
-          fillTemplate(t.godMode.doneDemo, {
-            crewSigned: summary.crewSigned,
-            approversSigned: summary.approversSigned,
-          }),
-        )
-      }
-      notifySigningInvitesRefresh()
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : t.godMode.failed)
+  function approvalSignWaitingMessage(role: EgovSignRole): string | null {
+    if (role === 'permitter' && nextRoleToSign(p) === 'permitter' && !permitterPreWorkComplete(p)) {
+      return t.preWorkCheck.signBlockedHint
     }
+    return waitingHint(p, role, resolveUser)
   }
 
-  const showApprovalFlow =
-    p.status === 'on_approval' || isPermitSigningRejected(p)
+  const showApprovalFlow = permitSigningPhaseActive(p)
+
+  const showInteractiveApproval = actor.role !== 'executor' && showApprovalFlow
 
   const showWorkStopBtn =
     canUserInitiateWorkStop(p, actor) &&
@@ -406,6 +384,12 @@ export function PermitDetailPage() {
 
   const signingRoles = signingRoleOrder(p)
 
+  const showApprovalHistory =
+    actor.role !== 'executor' &&
+    !showApprovalFlow &&
+    ['issued', 'in_progress', 'suspended', 'closed', 'archived'].includes(p.status) &&
+    signingRoles.some((role) => isRoleSigned(p, role))
+
   function canEditWorkFields(): boolean {
     if (locked) return false
     return (
@@ -416,7 +400,12 @@ export function PermitDetailPage() {
     )
   }
 
-  const actorInCrew = p.executors.some((ex) => ex.userUid === actor.id)
+  const actorOnCrew = isUserOnPermitCrew(p, actor.id, actor, userDirectory)
+
+  const showCrewAckSection =
+    (actor.role === 'executor' || actor.role === 'coordinator') &&
+    actorOnCrew &&
+    isCrewAckPeriodActive(p.status)
 
   const nextStatuses = allowedNextStatuses(p.status).filter((next) => {
     if (!canUserTriggerStatus(p, next, actor.role)) return false
@@ -496,7 +485,7 @@ export function PermitDetailPage() {
   }
 
   function canSignCrewAck(): boolean {
-    return canUserSignCrewAck(p, actor.id, actor.role)
+    return canUserSignCrewAck(p, actor.id, actor.role, actor, userDirectory)
   }
 
   async function removePermit() {
@@ -577,6 +566,68 @@ export function PermitDetailPage() {
         </section>
       ) : null}
 
+      {showCrewAckSection ? (
+        <section className="card" id="crew-ack-section">
+          <h2 style={{ marginTop: 0 }}>{t.approval.crewSection}</h2>
+          <CrewAckSignRow
+            permit={p}
+            actor={actor}
+            canSign={canSignCrewAck()}
+            onSigned={saveCrewAck}
+          />
+        </section>
+      ) : null}
+
+      {showInteractiveApproval || showApprovalHistory ? (
+        <>
+          <PermitOnApprovalSummary
+            permit={p}
+            resolveUser={resolveUser}
+            crewAckAction={
+              showInteractiveApproval && canSignCrewAck() ? (
+                <CrewAckSignRow
+                  permit={p}
+                  actor={actor}
+                  canSign={canSignCrewAck()}
+                  onSigned={saveCrewAck}
+                />
+              ) : undefined
+            }
+          />
+
+          <section className="card" id="signatures-section">
+            <h2 style={{ marginTop: 0 }}>
+              {showInteractiveApproval
+                ? t.signing.signaturesTitle
+                : t.signing.signaturesHistoryTitle}
+            </h2>
+            <p className="small muted" style={{ marginTop: 0 }}>
+              {showInteractiveApproval
+                ? t.detail.signViaEgov
+                : t.signing.signaturesHistoryHint}
+            </p>
+            <div className="egov-sign-list">
+              {signingRoles.map((role) => (
+                <EgovSignatureRoleRow
+                  key={role}
+                  permit={p}
+                  role={role}
+                  actor={actor}
+                  canSign={showInteractiveApproval && canUserSignRole(role)}
+                  stepTitle={approvalStepLabel(role, p, resolveUser)}
+                  waitingMessage={approvalSignWaitingMessage(role)}
+                  canReject={showInteractiveApproval && canRejectAs(role)}
+                  onReject={() => void rejectPermit()}
+                  onSaveSignature={(sig) => saveEgovSignature(role, sig)}
+                  resolveUser={resolveUser}
+                />
+              ))}
+            </div>
+          </section>
+
+        </>
+      ) : null}
+
       {showInspectorRejected ? (
         <InspectorRejectedPermitPanel
           permit={p}
@@ -611,6 +662,7 @@ export function PermitDetailPage() {
       ) : null}
 
       {actor.role === 'ert' &&
+      canErtEditGasTests(p) &&
       permitHasGasTestDocuments(p) &&
       p.workPermissions?.documents?.length ? (
         <ErtGasTestLivePanel
@@ -690,75 +742,6 @@ export function PermitDetailPage() {
 
       {actor.role === 'coordinator' && p.status !== 'draft' ? (
         <PermitCoordinatorOverview permit={p} resolveUser={resolveUser} />
-      ) : null}
-
-      {actor.role === 'executor' && actorInCrew && showApprovalFlow ? (
-        <section className="card" id="crew-ack-section">
-          <h2 style={{ marginTop: 0 }}>{t.approval.crewSection}</h2>
-          <CrewAckSignRow
-            permit={p}
-            actor={actor}
-            canSign={canSignCrewAck()}
-            onSigned={saveCrewAck}
-          />
-        </section>
-      ) : null}
-
-      {actor.role !== 'executor' && showApprovalFlow ? (
-        <>
-          <PermitOnApprovalSummary
-            permit={p}
-            resolveUser={resolveUser}
-            crewAckAction={
-              canSignCrewAck() ? (
-                <CrewAckSignRow
-                  permit={p}
-                  actor={actor}
-                  canSign={canSignCrewAck()}
-                  onSigned={saveCrewAck}
-                />
-              ) : undefined
-            }
-          />
-
-          <section className="card" id="signatures-section">
-            <h2 style={{ marginTop: 0 }}>{t.signing.signaturesTitle}</h2>
-            <p className="small muted" style={{ marginTop: 0 }}>
-              {t.detail.signViaEgov}
-            </p>
-            <div className="egov-sign-list">
-              {signingRoles.map((role) => (
-                <EgovSignatureRoleRow
-                  key={role}
-                  permit={p}
-                  role={role}
-                  actor={actor}
-                  canSign={canUserSignRole(role)}
-                  stepTitle={approvalStepLabel(role, p, resolveUser)}
-                  waitingMessage={waitingHint(p, role, resolveUser)}
-                  canReject={canRejectAs(role)}
-                  onReject={() => void rejectPermit()}
-                  onSaveSignature={(sig) => saveEgovSignature(role, sig)}
-                  resolveUser={resolveUser}
-                />
-              ))}
-            </div>
-          </section>
-
-          {canUseGodMode(actor) && p.status === 'on_approval' ? (
-            <section className="card">
-              <h2 style={{ marginTop: 0 }}>{t.godMode.title}</h2>
-              <p className="small muted" style={{ marginTop: 0 }}>
-                {t.godMode.descriptionIntro} {t.godMode.descriptionWorkers}{' '}
-                {t.godMode.descriptionAck} {t.godMode.descriptionApprovers}{' '}
-                {t.godMode.descriptionApproversList} {t.godMode.descriptionExcluded}
-              </p>
-              <button type="button" className="btn ghost small" onClick={() => void runGodModeSign()}>
-                {t.godMode.signLatest}
-              </button>
-            </section>
-          ) : null}
-        </>
       ) : null}
 
       {showTechnicalBlocks ? (

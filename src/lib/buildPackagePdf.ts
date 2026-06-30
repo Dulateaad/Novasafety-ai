@@ -10,7 +10,7 @@ export { preloadPdfMakeEngine as preloadPackagePdfEngine }
 export type { PackagePdfPart } from './buildSigningPackagePdf'
 export { buildPermitPackagePartPdf }
 
-/** Официальный PDF-пакет: НДПР + АБР + оценка риска (единый файл). */
+/** Официальный PDF-пакет: НДПР + АБР + Оценка Риска (единый файл). */
 export async function buildPackagePdf(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,

@@ -45,7 +45,7 @@ export const en: Locale = {
     analytics: 'Analytics',
     settings: 'Settings',
     help: 'Help & support',
-    footerCopyright: '© 2026 Nova Safety. All rights reserved.',
+    footerCopyright: '© 2026 NOVA SAFETY AI. All rights reserved.',
     footerPrivacy: 'Privacy policy',
     footerTerms: 'Terms of use',
   },
@@ -110,6 +110,8 @@ export const en: Locale = {
     },
     crewBlocked: 'Crew must acknowledge JSA and risk assessment before approvers can sign.',
     signaturesTitle: 'Signatures & approvals (e-signature)',
+    signaturesHistoryTitle: 'Approvals & signatures (complete)',
+    signaturesHistoryHint: 'Who signed the permit during the approval stage.',
     demoMode: 'Demo mode: checkboxes without legal e-signature.',
     rejectPackage: 'Reject package',
     waitingFirst: 'Complete {step} first',
@@ -207,7 +209,7 @@ export const en: Locale = {
   ert: {
     panelTitle: 'Task: gas test journal (ERT)',
     panelHint:
-      'Fill gas test tables in work permission PDFs below. Data is saved to the permission and package.',
+      'Fill gas test tables in permission PDFs for issued permits below. Data is saved to the permission and package.',
     needsReading: '● Reading required',
     gasTestOptional: '○ Gas test',
     openGasTest: 'Open gas test',
@@ -265,10 +267,10 @@ export const en: Locale = {
   pages: {
     pprHowFill: 'How to fill the work permit?',
     pprChooseMode:
-      'Choose: fill with NOVA Safety from the source document, or start with a blank form.',
-    pprWithAi: 'With NOVA Safety',
+      'Choose: fill with NOVA SAFETY AI from the source document, or start with a blank form.',
+    pprWithAi: 'With NOVA SAFETY AI',
     pprNextNdpr: 'Next — Work permit',
-    pprAnalyzing: 'NOVA Safety is analyzing the document… the WP form opens when done.',
+    pprAnalyzing: 'NOVA SAFETY AI is analyzing the document… the WP form opens when done.',
     ndprTitle: 'Work permit',
     ndprStep2: 'Permit to work — step 2 of 3',
     ndprGatePpr:
@@ -281,7 +283,7 @@ export const en: Locale = {
     permissionsGoRisk: 'Risk assessment',
     permissionsSubmit: 'Submit for approval',
     permissionsSubmitting: 'Submitting…',
-    permissionsFillAll: 'Fill all with NOVA Safety',
+    permissionsFillAll: 'Fill all with NOVA SAFETY AI',
     permissionsAiBusy: 'AI filling…',
   },
   matrix: {

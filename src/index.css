@@ -31,4 +31,5 @@
 .journal-permit-link:hover .strong{color:var(--brand-blue)}
 .journal-permit-link:focus-visible{outline:2px solid var(--brand-blue);outline-offset:2px}
 .pdf-package-heading{scroll-margin-top:.75rem}
-.package-brief__doc-link--full{font-weight:700}
+.package-brief__doc-links>.package-brief__doc-link{color:var(--brand-blue-deep);background:#e3f2fd;border:1px solid #90caf9;font-weight:600}
+.package-brief__doc-links>.package-brief__doc-link:hover:not(:disabled){color:var(--brand-blue-deep);background:#bbdefb;border-color:var(--brand-blue)}

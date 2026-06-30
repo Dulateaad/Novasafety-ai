@@ -64,7 +64,7 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-page__stack">
-        <section className="login-brand" aria-label="NOVA Safety">
+        <section className="login-brand" aria-label="NOVA SAFETY AI">
           <AppLogo className="login-brand__logo" variant="header" size="lg" />
         </section>
 

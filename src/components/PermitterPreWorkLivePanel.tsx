@@ -4,7 +4,7 @@ import type { DemoUser } from '../types/domain'
 import {
   canPermitterEditPreWorkChecks,
   permitterPreWorkBlockedHint,
-  preWorkChecksStarted,
+  preWorkAvailableColumnComplete,
 } from '../lib/permitterPreWorkHints'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
@@ -43,7 +43,7 @@ export function PermitterPreWorkLivePanel(props: {
   const c = t.common
   const pwc = t.preWorkCheck
   const serverBundle = permit.workPermissions
-  const canEdit = canPermitterEditPreWorkChecks(permit, actor, resolveUser)
+  const canEdit = canPermitterEditPreWorkChecks(permit, actor, resolveUser, userDirectory)
   const [localBundle, setLocalBundle] = useState<WorkPermissionsBundle | null>(serverBundle ?? null)
   const [dirty, setDirty] = useState(false)
   const [dirtyKinds, setDirtyKinds] = useState<WorkPermissionKind[]>([])
@@ -161,7 +161,7 @@ export function PermitterPreWorkLivePanel(props: {
       ) : null}
 
       {visibleDocs.map((doc) => {
-        const needsFill = !preWorkChecksStarted(doc.form.preWorkChecks.items)
+        const needsFill = !preWorkAvailableColumnComplete(doc.form.preWorkChecks.items)
         const isFire = doc.kind === 'open_flame_fire'
         const sectionTitle = isFire ? pwc.panelTitleFire : pwc.panelTitle
         return (

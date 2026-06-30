@@ -15,10 +15,10 @@ export const SIGNER_ACCOUNT_TEMPLATES: Record<EgovSignRole, SignerAccountTemplat
   performer: {
     email: 'abylay2@nova.local',
     password: 'Abylay2523',
-    displayName: 'Абылай Аманжол',
+    displayName: 'Абылай Акмалиев',
     role: 'performer',
     badgeNo: '020',
-    stepLabel: 'Шаг 1: Заполнение НДПР — Абылай Аманжол — Производитель работ',
+    stepLabel: 'Шаг 1: Заполнение НДПР — Абылай Акмалиев — Производитель работ',
   },
   permitter: {
     email: 'permitter@nova.local',

@@ -10,7 +10,7 @@ export function isAbrReady(form: AsorForm): boolean {
   )
 }
 
-/** Оценка риска сформирована: есть задания с описанными опасностями. */
+/** Оценка Риска сформирована: есть задания с описанными опасностями. */
 export function isRiskAssessmentReady(form: AsorForm): boolean {
   if (form.tasks.length === 0) return false
   return form.tasks.some((t) => t.hazards.some(hazardRowHasContent))

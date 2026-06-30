@@ -28,7 +28,7 @@ export type PersistPermitAfterRiskDeps = {
   userDirectory: DemoUser[]
 }
 
-/** Сохраняет наряд после шага «Оценка риска» и переводит на согласование для доступа ERT. */
+/** Сохраняет наряд после шага «Оценка Риска» и переводит на согласование для доступа ERT. */
 export async function persistPermitAfterRiskAssessment(
   deps: PersistPermitAfterRiskDeps,
 ): Promise<{ permitId: string; bundle: WorkPermissionsBundle }> {

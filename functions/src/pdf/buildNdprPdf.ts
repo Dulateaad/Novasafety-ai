@@ -62,7 +62,7 @@ export async function buildNdprSigningPdf(input: {
       return
     }
 
-    doc.font('DejaVu-Bold').fontSize(14).text('NOVA Safety — НДПР / пакет согласования', {
+    doc.font('DejaVu-Bold').fontSize(14).text('NOVA SAFETY AI — НДПР / пакет согласования', {
       align: 'center',
     })
     doc.moveDown(0.5)

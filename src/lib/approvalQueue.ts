@@ -2,6 +2,9 @@ import type { DemoUser, Permit } from '../types/domain'
 import { uidMatchesAccount } from './permitAccess'
 import { canUserTriggerStatus, validateTransition } from './transitions'
 import { localeMessages } from '../i18n/getLocale'
+import { permitSigningPhaseActive } from './approvalSequence'
+import { isRoleSigned } from './signatureStatus'
+import { allCrewAcknowledged } from './crewAckComplete'
 
 export type ApprovalAction =
   | 'sign_performer'
@@ -64,12 +67,12 @@ export function pendingApprovalsForUser(
   const items: PendingApprovalItem[] = []
 
   for (const p of permits) {
-    if (p.status !== 'on_approval') continue
+    if (!permitSigningPhaseActive(p)) continue
 
     pushSignItem(items, p, user, directory, {
       role: 'performer',
       assigneeUid: p.performerUid,
-      signed: p.signatures.performerSigned,
+      signed: isRoleSigned(p, 'performer'),
       action: 'sign_performer',
       labelSelf: 'Подписать ЭЦП (производитель / составитель)',
       labelCoord: 'Ожидает ЭЦП производителя работ',
@@ -79,7 +82,7 @@ export function pendingApprovalsForUser(
     pushSignItem(items, p, user, directory, {
       role: 'permitter',
       assigneeUid: p.permitterUid,
-      signed: p.signatures.permitterSigned,
+      signed: isRoleSigned(p, 'permitter'),
       action: 'sign_permitter',
       labelSelf: 'Поставить подпись допускающего',
       labelCoord: 'Ожидает подпись допускающего',
@@ -89,7 +92,7 @@ export function pendingApprovalsForUser(
     pushSignItem(items, p, user, directory, {
       role: 'issuer',
       assigneeUid: p.issuerUid,
-      signed: p.signatures.issuerSigned,
+      signed: isRoleSigned(p, 'issuer'),
       action: 'sign_issuer',
       labelSelf: 'Поставить подпись выдающего',
       labelCoord: 'Ожидает подпись выдающего',
@@ -100,7 +103,7 @@ export function pendingApprovalsForUser(
       pushSignItem(items, p, user, directory, {
         role: 'leadExpert',
         assigneeUid: p.leadExpertUid,
-        signed: p.signatures.leadExpertSigned,
+        signed: isRoleSigned(p, 'leadExpert'),
         action: 'sign_lead_expert',
         labelSelf: 'Поставить подпись утверждающего НД',
         labelCoord: 'Ожидает подпись утверждающего НД',
@@ -109,9 +112,11 @@ export function pendingApprovalsForUser(
     }
 
     const signaturesComplete =
-      p.signatures.permitterSigned &&
-      p.signatures.issuerSigned &&
-      (p.category !== 1 || p.signatures.leadExpertSigned)
+      isRoleSigned(p, 'performer') &&
+      allCrewAcknowledged(p) &&
+      isRoleSigned(p, 'permitter') &&
+      isRoleSigned(p, 'issuer') &&
+      (p.category !== 1 || isRoleSigned(p, 'leadExpert'))
 
     if (
       signaturesComplete &&

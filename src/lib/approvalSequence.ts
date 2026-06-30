@@ -12,9 +12,10 @@ import {
   pdfSignaturePlainText,
 } from './pdfEgovSignatureCell'
 import { allCrewAcknowledged, crewAckGateMessage } from './crewAckComplete'
-import { isRoleSigned } from './signatureStatus'
+import { allRequiredSignaturesComplete, isRoleSigned } from './signatureStatus'
 import { permitRequiresErtApproval } from './fireWorkApproval'
 import { localeMessages, fillTemplate } from '../i18n/getLocale'
+import { isPermitSigningRejected } from './permitRejectionDisplay'
 
 const CORE_SIGNING_ORDER: EgovSignRole[] = [
   'performer',
@@ -80,9 +81,24 @@ export function requiredSignRoles(permit: Permit): EgovSignRole[] {
   return signingRoleOrder(permit)
 }
 
+/** Этап подписания активен: on_approval или наряд ошибочно выдан без всех подписей. */
+export function permitSigningPhaseActive(permit: Permit): boolean {
+  if (isPermitSigningRejected(permit)) return true
+  if (permit.status === 'on_approval') return true
+  if (
+    (permit.status === 'issued' ||
+      permit.status === 'in_progress' ||
+      permit.status === 'suspended') &&
+    !allRequiredSignaturesComplete(permit)
+  ) {
+    return true
+  }
+  return false
+}
+
 /** Производитель подписал, но бригада ещё не ознакомилась — блокируем согласующих. */
 export function isCrewAckPhaseActive(permit: Permit): boolean {
-  if (permit.status !== 'on_approval') return false
+  if (!permitSigningPhaseActive(permit)) return false
   if (!isRoleSigned(permit, 'performer')) return false
   return !allCrewAcknowledged(permit)
 }
@@ -93,7 +109,8 @@ export function signingQueueBlockedReason(permit: Permit): string | null {
 }
 
 export function nextRoleToSign(permit: Permit): EgovSignRole | null {
-  if (permit.status !== 'on_approval') return null
+  if (!permitSigningPhaseActive(permit)) return null
+  if (isPermitSigningRejected(permit)) return null
   if (!isRoleSigned(permit, 'performer')) return 'performer'
   if (!allCrewAcknowledged(permit)) return null
   for (const role of requiredSignRoles(permit)) {
@@ -104,7 +121,8 @@ export function nextRoleToSign(permit: Permit): EgovSignRole | null {
 }
 
 export function canSignRoleNow(permit: Permit, role: EgovSignRole): boolean {
-  if (permit.status !== 'on_approval') return false
+  if (!permitSigningPhaseActive(permit)) return false
+  if (isPermitSigningRejected(permit)) return false
   if (isRoleSigned(permit, role)) return false
   if (!requiredSignRoles(permit).includes(role)) return false
   return nextRoleToSign(permit) === role

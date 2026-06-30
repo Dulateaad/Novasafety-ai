@@ -35,7 +35,7 @@ export function buildSigningCanonicalText(
   signerName: string,
 ): string {
   const lines: string[] = [
-    'NOVA Safety — НДПР / согласование',
+    'NOVA SAFETY AI — НДПР / согласование',
     '═'.repeat(40),
     `Рег. №: ${permit.registrationRefNo || '—'}`,
     `Наименование: ${permit.title}`,

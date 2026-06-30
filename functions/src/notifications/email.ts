@@ -91,7 +91,7 @@ function buildHtml(payload: PushPayload): string {
   return `<!DOCTYPE html><html><body style="font-family:Segoe UI,Arial,sans-serif;line-height:1.5;color:#0b2147">
 <p style="margin:0 0 12px"><strong>${escapeHtml(payload.title)}</strong></p>
 <p style="margin:0 0 16px">${escapeHtml(body)}</p>
-<p style="margin:0"><a href="${link}">Открыть в NOVA Safety</a></p>
+<p style="margin:0"><a href="${link}">Открыть в NOVA SAFETY AI</a></p>
 <p style="margin:16px 0 0;font-size:12px;color:#666">Автоматическое письмо — не отвечайте на него.</p>
 </body></html>`
 }
@@ -111,7 +111,7 @@ export async function sendEmailToUid(
   const to = await getUserNotificationEmail(db, uid)
   if (!to) return false
 
-  const from = process.env.EMAIL_FROM?.trim() || 'NOVA Safety <noreply@nova.local>'
+  const from = process.env.EMAIL_FROM?.trim() || 'NOVA SAFETY AI <noreply@nova.local>'
 
   try {
     await transport.sendMail({

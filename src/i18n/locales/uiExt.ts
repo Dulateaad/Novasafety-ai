@@ -114,23 +114,6 @@ export type UiExtension = {
     firebaseOnlyHint: string
     navLabel: string
   }
-  godMode: {
-    title: string
-    descriptionIntro: string
-    descriptionWorkers: string
-    descriptionAck: string
-    descriptionApprovers: string
-    descriptionApproversList: string
-    descriptionExcluded: string
-    latestPermit: string
-    noPermits: string
-    signLatest: string
-    busy: string
-    confirm: string
-    done: string
-    doneDemo: string
-    failed: string
-  }
   journalTable: {
     siteTopic: string
     regNo: string
@@ -208,7 +191,6 @@ export type UiExtension = {
     inspectorScopeZone: string
     enableZoneScope: string
     enableGlobalScope: string
-    godModeNeedPermit: string
     fioVerifyLabel: string
     disableFioVerify: string
     enableFioVerify: string
@@ -372,6 +354,7 @@ export type UiExtension = {
     openChecks: string
     savedConfirm: string
     editAgain: string
+    signBlockedHint: string
   }
   closure: {
     closeBusy: string
@@ -792,7 +775,7 @@ export const uiExtRu: UiExtension = {
   },
   adminPage: {
     title: 'Админ-панель',
-    subtitle: 'Пользователи, уведомления и настройки NOVA Safety',
+    subtitle: 'Пользователи, уведомления и настройки NOVA SAFETY AI',
     backJournal: 'Журнал НД',
     adminLabel: 'Администратор',
     activeBadge: 'Активен',
@@ -810,24 +793,6 @@ export const uiExtRu: UiExtension = {
     firebaseOnlyHint: 'Расширенные настройки доступны при входе через Firebase.',
     navLabel: 'Админ-панель',
   },
-  godMode: {
-    title: 'Админка · GOD MODE',
-    descriptionIntro: 'По последнему наряду в журнале: автоподпись',
-    descriptionWorkers: 'работников',
-    descriptionAck: '(ознакомление) и',
-    descriptionApprovers: 'трёх согласующих',
-    descriptionApproversList: '(выдающий, допускающий, утверждающий).',
-    descriptionExcluded: 'Производитель работ и роль ERT не подписываются.',
-    latestPermit: 'Последний наряд:',
-    noPermits: 'Нарядов пока нет.',
-    signLatest: 'GOD MODE · подписать последний наряд',
-    busy: 'GOD MODE…',
-    confirm:
-      'GOD MODE: подписать работников бригады и трёх согласующих (выдающий, допускающий, утверждающий) для наряда «{label}»?\n\nПроизводитель работ, ERT и инспектор ТБ не затрагиваются.',
-    done: 'GOD MODE выполнен.\nРаботников: {crewSigned}\nСогласующих: {approversSigned}\nПропущено ERT: {skippedErt}',
-    doneDemo: 'GOD MODE (демо).\nРаботников: {crewSigned}\nСогласующих: {approversSigned}',
-    failed: 'GOD MODE не выполнен',
-  },
   journalTable: {
     siteTopic: 'Объект / тема',
     regNo: 'Рег. номер',
@@ -843,7 +808,7 @@ export const uiExtRu: UiExtension = {
     pdfReady: 'PDF сформирован',
     pdfPending: 'Требуется формирование PDF',
     footerHint:
-      'Заполните форму и нажмите «Сформировать разрешение» для каждого вида работ. Раздел 3 заполняет производитель; газотест (раздел 2) — ПАС (ERT) только для огневых работ.',
+      'Заполните форму для каждого вида работ — PDF сформируется при отправке пакета. Раздел 3 заполняет производитель; газотест (раздел 2) — ПАС (ERT) только для огневых работ.',
   },
   pprPage: {
     backToChoice: '← Назад к выбору',
@@ -879,7 +844,7 @@ export const uiExtRu: UiExtension = {
     fullName: 'Ф.И.О.',
     badgeNo: '№ пропуска',
     approvalLegend: 'Участники согласования (4 роли из НДПР)',
-    riskTitle: 'Оценка риска — редактирование вручную',
+    riskTitle: 'Оценка Риска — редактирование вручную',
     riskHint:
       'Сверьте реестр опасностей с PDF. Исправьте формулировки, меры и ответственных при необходимости.',
     siteObject: 'Объект',
@@ -908,7 +873,6 @@ export const uiExtRu: UiExtension = {
     inspectorScopeZone: 'по зоне ответственности (поле inspectorSites в профиле)',
     enableZoneScope: 'Включить привязку по зоне',
     enableGlobalScope: 'Включить глобальный доступ инспектора',
-    godModeNeedPermit: 'Нужен наряд в статусе «На согласовании»',
     fioVerifyLabel: 'Проверка ФИО при подписи eGov',
     disableFioVerify: 'Выключить проверку ФИО',
     enableFioVerify: 'Включить проверку ФИО',
@@ -918,9 +882,9 @@ export const uiExtRu: UiExtension = {
     submitDenied: 'Отправить пакет на согласование могут производитель работ, координатор, подрядчик или выдающий НД. Вы вошли как {role}.',
     executorNavLocked: 'Работникам доступен только журнал и подписание ознакомления по назначенным нарядам.',
     gateNdpr: 'Сначала заполните и сохраните «НДПР».',
-    gateRisk: 'Сначала завершите шаг «Оценка риска».',
+    gateRisk: 'Сначала завершите шаг «Оценка Риска».',
     gatePermissionsNotNeeded: 'Для текущих видов работ разрешения не требуются.',
-    gatePermissions: 'Сначала завершите шаг «Оценка риска».',
+    gatePermissions: 'Сначала завершите шаг «Оценка Риска».',
     gateUnavailable: 'Раздел пока недоступен.',
   },
   crew: {
@@ -930,7 +894,7 @@ export const uiExtRu: UiExtension = {
     notOnApproval: 'Ознакомление доступно на этапе согласования наряда.',
     needProducer: 'Сначала производитель работ подписывает НДПР (шаг 1).',
     demoSuffix: 'демо',
-    documentAbrRisk: 'АБР + оценка риска',
+    documentAbrRisk: 'АБР + Оценка Риска',
     inviteApproval: 'Согласование НДПР',
   },
   abrDailyAck: {
@@ -1028,17 +992,17 @@ export const uiExtRu: UiExtension = {
     gasZonePlaceholder: 'Рабочая зона',
   },
   gasTest: {
-    onApprovalHint: 'Наряд на согласовании. Таблицу газотеста можно заполнить сейчас — результаты сохранятся в PDF разрешений.',
-    draftHint: 'Наряд в черновике. Газотест доступен после отправки на согласование и выдачи наряда.',
+    onApprovalHint: 'Наряд на согласовании. Газотест станет доступен после выдачи наряда (когда все подписи собраны).',
+    draftHint: 'Наряд в черновике. Газотест доступен после выдачи наряда.',
     closedHint: 'Наряд завершён ({status}). Редактирование газотеста недоступно.',
     rejectedHint: 'Наряд отклонён. Дождитесь повторной выдачи после исправлений.',
-    editHint: 'Редактирование доступно для наряда на согласовании, выданного, выполняемого или приостановленного (сейчас: {status}).',
+    editHint: 'Редактирование доступно для выданного, выполняемого или приостановленного наряда (сейчас: {status}).',
     noPermissions: 'Разрешения на особые работы ещё не сформированы — дождитесь PDF от производителя работ.',
     fillTable: 'Заполните таблицу газотеста (раздел 2 в PDF): нажмите «+ Добавить», укажите LEL, H2S, O₂, CO и № прибора. Осталось разрешений без замеров: {empty}.',
     tableFilled: 'Таблица газотеста заполнена. При необходимости добавьте повторный замер кнопкой «+ Добавить».',
     panelTitle: '2. Результаты отбора проб воздушной среды',
     panelHint:
-      'Заполните таблицу газотеста (раздел 2 в PDF разрешения). После сохранения данные попадут в PDF и пакет согласования.',
+      'Заполните таблицу газотеста (раздел 2 в PDF разрешения) после выдачи наряда. После сохранения данные попадут в PDF.',
     stepFill: 'Нажмите «+ Добавить», укажите дату оформления, рабочую зону, LEL, H₂S, O₂, CO и № прибора.',
     stepSave: 'Нажмите «Сохранить газотест» — PDF разрешения обновится автоматически.',
     stepPdf: 'Откройте PDF разрешения и проверьте таблицу в разделе 2.',
@@ -1088,6 +1052,8 @@ export const uiExtRu: UiExtension = {
     openChecks: 'Открыть проверки',
     savedConfirm: 'Раздел 3 сохранён. Проверки на рабочем месте заполнены.',
     editAgain: 'Изменить проверки',
+    signBlockedHint:
+      'Сначала заполните раздел 3 в разрешениях (колонка «Имеется»), сохраните PDF — затем можно подписать.',
   },
   closure: {
     closeBusy: 'Закрытие…',
@@ -1096,7 +1062,7 @@ export const uiExtRu: UiExtension = {
   docKit: {
     ndpr: 'НДПР',
     abr: 'АБР',
-    risk: 'Оценка риска',
+    risk: 'Оценка Риска',
     viewPdf: 'Посмотреть PDF: {label}',
     fillGasTest: 'Заполнить газотест: {label}',
     fullPackage: 'Посмотреть полный пакет PDF',
@@ -1105,7 +1071,7 @@ export const uiExtRu: UiExtension = {
   },
   riskPage: {
     uploadSourceFirst: 'Сначала загрузите {source} и дождитесь извлечения данных.',
-    riskReady: 'Оценка риска готова ({app}): {groups} заданий, {hazards} опасностей. Нажмите «Посмотреть».',
+    riskReady: 'Оценка Риска готова ({app}): {groups} заданий, {hazards} опасностей. Нажмите «Посмотреть».',
     generateAbrFirst: 'Сформируйте {abr} из исходного документа.',
     generateRiskFirst: 'Сформируйте оценку риска из исходного документа.',
     riskAssessmentTitle: 'Оценка рисков',
@@ -1125,7 +1091,7 @@ export const uiExtRu: UiExtension = {
     submitRequirementsAria: 'Условия отправки на согласование',
     waitAnalysis: 'Дождитесь анализа или нажмите «Далее — НДПР».',
     tabManualFill: 'Заполнить вручную',
-    tabGenerate: 'Сформировать через NOVA Safety',
+    tabGenerate: 'Сформировать через NOVA SAFETY AI',
   },
   ndprPage: {
     duplicateWorker: 'Один и тот же работник не может быть указан в двух строках.',
@@ -1157,7 +1123,7 @@ export const uiExtRu: UiExtension = {
     pprTasksCount: 'Заданий в форме',
     viewSource: 'Посмотреть {source}',
     noSourceFile: 'Файл исходного документа не приложен — только поля формы.',
-    riskFile: 'Оценка риска',
+    riskFile: 'Оценка Риска',
     blocks: 'блок(ов)',
     downloadPdf: 'Скачать PDF',
     downloadMd: 'Скачать .md',
@@ -1365,10 +1331,10 @@ export const uiExtRu: UiExtension = {
     demoSuffix: '({demo})',
   },
   validation: {
-    generatePermissions: 'Сформируйте разрешения для выбранных видов работ.',
+    generatePermissions: 'Заполните формы разрешений для выбранных видов работ.',
     missingDoc: 'Отсутствует документ: {kind}',
     workDescriptionMin: '{kind}: укажите описание работ (мин. 3 символа).',
-    generatePermission: '{kind}: нажмите «Сформировать разрешение».',
+    generatePermission: '{kind}: заполните форму — PDF сформируется при отправке пакета.',
     abrNotGenerated: 'Сформируйте «{abr}» из исходного документа перед отправкой.',
     abrEmptyStages:
       'Сформируйте «{abr}» из исходного документа — этапы без опасностей и мер защиты.',
@@ -1381,10 +1347,10 @@ export const uiExtRu: UiExtension = {
     pprExtractFailed: 'Не удалось извлечь текст из документа — файл пуст или повреждён.',
   },
   helpPage: {
-    brand: 'NOVA Safety',
+    brand: 'NOVA SAFETY AI',
     title: 'Справка и поддержка',
     lead: 'Всё о работе с платформой управления нарядами-допусками',
-    whatIsTitle: 'Что такое NOVA Safety?',
+    whatIsTitle: 'Что такое NOVA SAFETY AI?',
     whatIsBody:
       'Цифровая платформа управления нарядами-допусками (НДПР) на промышленных объектах. Система автоматизирует полный цикл — от заполнения и оценки риска до согласования и закрытия — и объединяет все роли в одном приложении.',
     rolesTitle: 'Роли в системе',
@@ -1433,7 +1399,7 @@ export const uiExtRu: UiExtension = {
         desc: 'Производитель работ заполняет НДПР вручную или с помощью ИИ-ассистента.',
       },
       {
-        title: 'АБР и оценка риска',
+        title: 'АБР и Оценка Риска',
         desc: 'Система переводит наряд в раздел анализа безопасности. Производитель подтверждает данные и ставит первую подпись.',
       },
       {
@@ -1495,7 +1461,7 @@ export const uiExtRu: UiExtension = {
       },
     ],
     ctaTitle: 'Остались вопросы?',
-    ctaSubtitle: 'Команда NOVA Safety готова помочь с любыми вопросами по платформе',
+    ctaSubtitle: 'Команда NOVA SAFETY AI готова помочь с любыми вопросами по платформе',
     ctaButton: 'Написать в поддержку',
     supportEmail: 'support@nova-safety.kz',
     liveBadge: 'Авто-обновление',
@@ -1601,7 +1567,7 @@ export const uiExtEn: UiExtension = {
   },
   adminPage: {
     title: 'Admin panel',
-    subtitle: 'Users, notifications and NOVA Safety settings',
+    subtitle: 'Users, notifications and NOVA SAFETY AI settings',
     backJournal: 'PTW journal',
     adminLabel: 'Administrator',
     activeBadge: 'Active',
@@ -1619,24 +1585,6 @@ export const uiExtEn: UiExtension = {
     firebaseOnlyHint: 'Advanced settings are available with Firebase sign-in.',
     navLabel: 'Admin panel',
   },
-  godMode: {
-    title: 'Admin · GOD MODE',
-    descriptionIntro: 'For the latest journal permit: auto-sign',
-    descriptionWorkers: 'workers',
-    descriptionAck: '(acknowledgment) and',
-    descriptionApprovers: 'three approvers',
-    descriptionApproversList: '(issuer, area authority, lead expert).',
-    descriptionExcluded: 'Work supervisor and ERT role are not signed.',
-    latestPermit: 'Latest permit:',
-    noPermits: 'No permits yet.',
-    signLatest: 'GOD MODE · sign latest permit',
-    busy: 'GOD MODE…',
-    confirm:
-      'GOD MODE: sign crew workers and three approvers (issuer, area authority, lead expert) for permit «{label}»?\n\nWork supervisor, ERT and safety inspector are not affected.',
-    done: 'GOD MODE complete.\nWorkers: {crewSigned}\nApprovers: {approversSigned}\nERT skipped: {skippedErt}',
-    doneDemo: 'GOD MODE (demo).\nWorkers: {crewSigned}\nApprovers: {approversSigned}',
-    failed: 'GOD MODE failed',
-  },
   journalTable: {
     siteTopic: 'Site / topic',
     regNo: 'Reg. number',
@@ -1652,7 +1600,7 @@ export const uiExtEn: UiExtension = {
     pdfReady: 'PDF generated',
     pdfPending: 'PDF generation required',
     footerHint:
-      'Complete the form and click «Generate permission» for each work type. PAS (ERT) enters gas tests on the permit card (after «Risk assessment») — data goes directly into permission PDFs and the full package.',
+      'Complete each form — PDFs are generated when you submit the package. PAS (ERT) enters gas tests on the permit card (after «Risk assessment») — data goes directly into permission PDFs and the full package.',
   },
   pprPage: {
     backToChoice: '← Back to choice',
@@ -1717,7 +1665,6 @@ export const uiExtEn: UiExtension = {
     inspectorScopeZone: 'by responsibility zone (inspectorSites in profile)',
     enableZoneScope: 'Enable zone-based access',
     enableGlobalScope: 'Enable global inspector access',
-    godModeNeedPermit: 'Requires a permit with status «On approval»',
     fioVerifyLabel: 'eGov name verification',
     disableFioVerify: 'Disable name verification',
     enableFioVerify: 'Enable name verification',
@@ -1837,17 +1784,17 @@ export const uiExtEn: UiExtension = {
     gasZonePlaceholder: 'Work zone',
   },
   gasTest: {
-    onApprovalHint: 'Permit on approval. You can fill the gas test table now — results save to permission PDFs.',
-    draftHint: 'Draft permit. Gas test is available after submission and issuance.',
+    onApprovalHint: 'Permit on approval. Gas test becomes available after the permit is issued (all signatures collected).',
+    draftHint: 'Draft permit. Gas test is available after issuance.',
     closedHint: 'Permit finished ({status}). Gas test editing is unavailable.',
     rejectedHint: 'Permit rejected. Wait for re-issue after corrections.',
-    editHint: 'Editing available for on approval, issued, in progress or suspended permits (now: {status}).',
+    editHint: 'Editing available for issued, in progress or suspended permits (now: {status}).',
     noPermissions: 'Special work permissions not generated yet — wait for PDF from supervisor.',
     fillTable: 'Fill gas test table (section 2 in PDF): click «+ Add», enter LEL, H₂S, O₂, CO and instrument No. Permissions without readings: {empty}.',
     tableFilled: 'Gas test table complete. Add repeat readings with «+ Add» if needed.',
     panelTitle: 'Section 2 — air sampling results',
     panelHint:
-      'Fill the gas test table (section 2 in the permission PDF). After saving, data is written to the PDF and approval package.',
+      'Fill the gas test table (section 2 in the permission PDF) after the permit is issued. Saved data updates the PDF.',
     stepFill: 'Click «+ Add», enter issue date, work zone, LEL, H₂S, O₂, CO and instrument No.',
     stepSave: 'Click «Save gas test» — the permission PDF updates automatically.',
     stepPdf: 'Open the permission PDF and verify section 2.',
@@ -1897,6 +1844,8 @@ export const uiExtEn: UiExtension = {
     openChecks: 'Open checks',
     savedConfirm: 'Section 3 saved. Workplace checks are complete.',
     editAgain: 'Edit checks',
+    signBlockedHint:
+      'Complete section 3 in permissions (the «Available» column), save the PDF — then you can sign.',
   },
   closure: {
     closeBusy: 'Closing…',
@@ -1934,7 +1883,7 @@ export const uiExtEn: UiExtension = {
     submitRequirementsAria: 'Submission requirements',
     waitAnalysis: 'Wait for analysis or click «Next — Work permit».',
     tabManualFill: 'Fill manually',
-    tabGenerate: 'Generate with NOVA Safety',
+    tabGenerate: 'Generate with NOVA SAFETY AI',
   },
   ndprPage: {
     duplicateWorker: 'The same worker cannot appear in two rows.',
@@ -2172,10 +2121,10 @@ export const uiExtEn: UiExtension = {
     demoSuffix: '({demo})',
   },
   validation: {
-    generatePermissions: 'Generate permissions for selected work types.',
+    generatePermissions: 'Complete permission forms for selected work types.',
     missingDoc: 'Missing document: {kind}',
     workDescriptionMin: '{kind}: specify work description (min. 3 characters).',
-    generatePermission: '{kind}: click «Generate permission».',
+    generatePermission: '{kind}: complete the form — PDF is generated when you submit the package.',
     abrNotGenerated: 'Generate «{abr}» from source document before submitting.',
     abrEmptyStages:
       'Generate «{abr}» from source document — stages without hazards and controls.',
@@ -2187,10 +2136,10 @@ export const uiExtEn: UiExtension = {
     pprExtractFailed: 'Could not extract text — file is empty or corrupted.',
   },
   helpPage: {
-    brand: 'NOVA Safety',
+    brand: 'NOVA SAFETY AI',
     title: 'Help & support',
     lead: 'Everything about working with the work permit management platform',
-    whatIsTitle: 'What is NOVA Safety?',
+    whatIsTitle: 'What is NOVA SAFETY AI?',
     whatIsBody:
       'A digital work permit (WP) management platform for industrial sites. The system automates the full lifecycle — from filling in and risk assessment to approval and closure — bringing every role into one application.',
     rolesTitle: 'Roles in the system',
@@ -2301,7 +2250,7 @@ export const uiExtEn: UiExtension = {
       },
     ],
     ctaTitle: 'Still have questions?',
-    ctaSubtitle: 'The NOVA Safety team is ready to help with any platform questions',
+    ctaSubtitle: 'The NOVA SAFETY AI team is ready to help with any platform questions',
     ctaButton: 'Contact support',
     supportEmail: 'support@nova-safety.kz',
     liveBadge: 'Auto-update',

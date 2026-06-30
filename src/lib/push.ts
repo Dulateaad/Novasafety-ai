@@ -80,7 +80,7 @@ function bindForeground(onForeground?: (n: ForegroundPush) => void): void {
   onMessage(messaging, (payload) => {
     const data = (payload.data ?? {}) as Record<string, string>
     onForeground({
-      title: data.title ?? payload.notification?.title ?? 'NOVA Safety',
+      title: data.title ?? payload.notification?.title ?? 'NOVA SAFETY AI',
       body: data.body ?? payload.notification?.body ?? '',
       permitId: data.permitId,
     })

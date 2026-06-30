@@ -59,7 +59,7 @@ export const DEMO_USERS: DemoUser[] = [
   },
   {
     id: 'u-performer-abylay',
-    displayName: 'Абылай Аманжол',
+    displayName: 'Абылай Акмалиев',
     email: 'abylay2@nova.local',
     role: 'performer',
     badgeNo: '020',

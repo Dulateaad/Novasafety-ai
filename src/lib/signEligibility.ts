@@ -1,7 +1,7 @@
 import type { DemoUser, Permit } from '../types/domain'
 import type { EgovSignRole } from '../types/egovSignature'
 import { ROLE_LABELS } from '../types/domain'
-import { approvalStepLabel, canSignRoleNow, nextRoleToSign } from './approvalSequence'
+import { approvalStepLabel, canSignRoleNow, nextRoleToSign, permitSigningPhaseActive } from './approvalSequence'
 import { uidMatchesAccount } from './permitAccess'
 import { assigneeUidForRole, isRoleSigned } from './signatureStatus'
 
@@ -17,7 +17,7 @@ export function signEligibilityForRole(
   resolveUser: (uid: string) => DemoUser | undefined,
   directory: DemoUser[] = [],
 ): SignEligibility {
-  if (permit.status !== 'on_approval') {
+  if (!permitSigningPhaseActive(permit)) {
     return { canSign: false, reason: 'Наряд не на этапе «На согласовании».' }
   }
 

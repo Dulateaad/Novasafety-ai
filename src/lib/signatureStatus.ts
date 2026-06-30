@@ -1,6 +1,6 @@
 import type { Permit } from '../types/domain'
 import type { EgovSignRole, EgovSignaturesMap } from '../types/egovSignature'
-import { requiredSignRoles } from './approvalSequence'
+import { approvalIndexForRole, requiredSignRoles } from './approvalSequence'
 
 export function getEgovSignatures(permit: Permit): EgovSignaturesMap {
   return permit.egovSignatures ?? {}
@@ -31,4 +31,21 @@ export function assigneeUidForRole(permit: Permit, role: EgovSignRole): string {
   if (role === 'issuer') return permit.issuerUid
   if (role === 'ert') return permit.ertUid?.trim() || 'u-ert'
   return permit.leadExpertUid
+}
+
+/** ФИО подписанта для карточки наряда (ЭЦП → назначенный → ASOR). */
+export function roleSignedByLabel(
+  permit: Permit,
+  role: EgovSignRole,
+  resolveUser?: (uid: string) => { displayName?: string } | undefined,
+): string | null {
+  const egovName = permit.egovSignatures?.[role]?.signedByDisplayName?.trim()
+  if (egovName) return egovName
+
+  const assigneeName = resolveUser?.(assigneeUidForRole(permit, role))?.displayName?.trim()
+  if (assigneeName) return assigneeName
+
+  const idx = approvalIndexForRole(role)
+  const asorName = idx >= 0 ? permit.asor?.approvals?.[idx]?.fullNamePrinted?.trim() : ''
+  return asorName || null
 }

@@ -28,32 +28,6 @@ export function HelpPage() {
       <section className="help-section card">
         <h2 className="help-section__title">
           <span className="help-section__icon" aria-hidden>
-            👥
-          </span>
-          {h.rolesTitle}
-        </h2>
-        <ul className="help-role-grid">
-          {h.roles.map((role) => (
-            <li key={role.title} className="help-role-card card">
-              <div className="help-role-card__head">
-                <div>
-                  <h3>{role.title}</h3>
-                  {role.badge ? (
-                    <span className={`help-badge help-badge--${role.badgeKind ?? 'role'}`}>
-                      {role.badge}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <p className="help-role-card__text">{role.desc}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="help-section card">
-        <h2 className="help-section__title">
-          <span className="help-section__icon" aria-hidden>
             🔄
           </span>
           {h.processTitle}

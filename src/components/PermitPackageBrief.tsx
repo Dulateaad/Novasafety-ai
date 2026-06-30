@@ -167,7 +167,7 @@ export function PermitPackageBriefCard(props: Props) {
               <button
                 key={perm.kind}
                 type="button"
-                className={`package-brief__doc-link package-brief__doc-link--perm package-brief__doc-link--${perm.kind}`}
+                className="package-brief__doc-link"
                 disabled={!perm.hasPdf || !onViewPermission || viewingPermission === perm.kind}
                 onClick={() => onViewPermission?.(perm.kind)}
                 title={perm.label}
@@ -178,7 +178,7 @@ export function PermitPackageBriefCard(props: Props) {
             {onViewFullPackage ? (
               <button
                 type="button"
-                className="package-brief__doc-link package-brief__doc-link--full"
+                className="package-brief__doc-link"
                 disabled={viewingFullPackage}
                 onClick={onViewFullPackage}
                 title={dk.fullPackage}

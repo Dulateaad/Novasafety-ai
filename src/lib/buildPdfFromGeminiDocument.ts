@@ -8,7 +8,7 @@ export function itemsToGeminiPdfDocument(input: {
 }): GeminiPdfDocument {
   const blocks: GeminiPdfDocument['blocks'] = [
     { type: 'h1', text: 'Меры контроля опасных факторов' },
-    { type: 'p', text: 'ТОО «Урал Ойл энд Газ» · NOVA Safety' },
+    { type: 'p', text: 'ТОО «Урал Ойл энд Газ» · NOVA SAFETY AI' },
     { type: 'h2', text: 'Общие сведения' },
     { type: 'p', text: `Наименование работ: ${input.workTitle || '—'}` },
     { type: 'p', text: `Источник ППР: ${input.sourceFileName}` },

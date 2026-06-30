@@ -3,7 +3,7 @@ import type { Permit, DemoUser } from '../types/domain'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import { EGOV_ROLE_LABELS } from '../types/egovSignature'
 import { EgovQrSignModal } from './EgovQrSignModal'
-import { isRoleSigned } from '../lib/signatureStatus'
+import { isRoleSigned, roleSignedByLabel } from '../lib/signatureStatus'
 import {
   isPermitSigningRejected,
   rejectionActorLabel,
@@ -42,6 +42,7 @@ export function EgovSignatureRoleRow(props: {
   const [modalOpen, setModalOpen] = useState(false)
   const signed = isRoleSigned(permit, role)
   const egov = permit.egovSignatures?.[role]
+  const signedByLabel = roleSignedByLabel(permit, role, resolveUser)
   const rejected = isPermitSigningRejected(permit)
   const rejectedRole = rejectionSignerRole(permit)
   const isRejectedStep = rejected && rejectedRole === role
@@ -61,16 +62,20 @@ export function EgovSignatureRoleRow(props: {
         )}
       </div>
 
-      {egov && (
+      {signed && (egov || signedByLabel) ? (
         <p className="muted xsmall" style={{ margin: '0.35rem 0' }}>
-          {egov.signedByDisplayName}
-          {egov.signerIin ? ` · IIN ${egov.signerIin}` : ''} ·{' '}
-          {new Date(egov.signedAtIso).toLocaleString()} ·{' '}
-          {egov.documentFormat === 'pdf' ? 'PDF' : 'TEXT'} · hash{' '}
-          {egov.documentHash.slice(0, 12)}…
-          {egov.sigexVerified ? ' · SIGEX ✓' : ''}
+          {egov?.signedByDisplayName ?? signedByLabel}
+          {egov?.signerIin ? ` · IIN ${egov.signerIin}` : ''}
+          {egov?.signedAtIso ? ` · ${new Date(egov.signedAtIso).toLocaleString()}` : ''}
+          {egov ? (
+            <>
+              {' '}
+              · {egov.documentFormat === 'pdf' ? 'PDF' : 'TEXT'} · hash {egov.documentHash.slice(0, 12)}…
+              {egov.sigexVerified ? ' · SIGEX ✓' : ''}
+            </>
+          ) : null}
         </p>
-      )}
+      ) : null}
 
       {canSign && !signed && !rejected && (
         <>

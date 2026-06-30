@@ -73,7 +73,7 @@ export function buildPermitPackageBrief(
     pdfParts.push(`${ABR_LABEL} (${abrStages} этап.)`)
   }
   if (hazardCount > 0) {
-    pdfParts.push(`Оценка риска (${taskCount} задан., ${hazardCount} фактор.)`)
+    pdfParts.push(`Оценка Риска (${taskCount} задан., ${hazardCount} фактор.)`)
   }
 
   const crewCount =

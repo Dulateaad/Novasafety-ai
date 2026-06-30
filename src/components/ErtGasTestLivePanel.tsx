@@ -8,7 +8,6 @@ import {
   canErtEditGasTests,
   ertGasTestBlockedHint,
   gasTestDocFilled,
-  permitHasGasTestDocuments,
 } from '../lib/ertGasTestHints'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
@@ -102,7 +101,7 @@ export function ErtGasTestLivePanel(props: {
 
   if (!localBundle?.documents?.length) return null
   if (!isErt) return null
-  if (!canErtEditGasTests(permit) && !permitHasGasTestDocuments(permit)) return null
+  if (!canErtEditGasTests(permit)) return null
 
   const visibleDocs = localBundle.documents.filter((doc) => {
     const meta = WORK_PERMISSION_BY_KIND[doc.kind]

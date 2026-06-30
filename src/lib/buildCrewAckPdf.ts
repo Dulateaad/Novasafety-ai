@@ -18,7 +18,7 @@ async function sha256HexFromBase64(b64: string): Promise<string> {
     .join('')
 }
 
-/** PDF для ознакомления бригады: АБР + оценка Риска. */
+/** PDF для ознакомления бригады: АБР + Оценка Риска. */
 export async function buildCrewAckPackagePdf(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,

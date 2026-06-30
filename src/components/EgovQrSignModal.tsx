@@ -100,7 +100,7 @@ export function EgovQrSignModal(props: {
         }
 
         const session = await startSigexQrSigning({
-          description: `NOVA Safety — ${t.egovRoles[role]}`,
+          description: `NOVA SAFETY AI — ${t.egovRoles[role]}`,
           documentTitle: `${m.wpTitle} ${permit.registrationRefNo || permit.id.slice(0, 8)}`,
           dataBase64,
           isPdf,

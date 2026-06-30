@@ -111,7 +111,7 @@ function regSlug(permit: Permit): string {
   return (permit.registrationRefNo || permit.id.slice(0, 8)).replace(/\s+/g, '-')
 }
 
-/** Отдельный PDF: только НДПР, АБР или оценка Риска. */
+/** Отдельный PDF: только НДПР, АБР или Оценка Риска. */
 export async function buildPermitPackagePartPdf(
   part: PackagePdfPart,
   permit: Permit,
@@ -157,7 +157,7 @@ export async function buildPermitPackagePartPdf(
 }
 
 /**
- * Полный PDF для подписания и скачивания: НДПР (сводка) + АБР + оценка Риска.
+ * Полный PDF для подписания и скачивания: НДПР (сводка) + АБР + Оценка Риска.
  */
 export async function buildSigningPackagePdf(
   permit: Permit,

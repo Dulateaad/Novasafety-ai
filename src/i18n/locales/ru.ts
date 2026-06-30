@@ -99,6 +99,8 @@ export type Locale = {
     caption: Record<EgovSignRole, string>
     crewBlocked: string
     signaturesTitle: string
+    signaturesHistoryTitle: string
+    signaturesHistoryHint: string
     demoMode: string
     rejectPackage: string
     waitingFirst: string
@@ -295,7 +297,7 @@ export const ru: Locale = {
     journal: 'Журнал НД',
     ndpr: 'НДПР',
     ppr: 'Исходный документ',
-    risk: 'Оценка риска',
+    risk: 'Оценка Риска',
     permissions: 'Разрешения',
     matrix: 'Матрица НД',
   },
@@ -330,7 +332,7 @@ export const ru: Locale = {
     analytics: 'Аналитика',
     settings: 'Настройки',
     help: 'Справка и поддержка',
-    footerCopyright: '© 2026 Nova Safety. Все права защищены.',
+    footerCopyright: '© 2026 NOVA SAFETY AI. Все права защищены.',
     footerPrivacy: 'Политика конфиденциальности',
     footerTerms: 'Условия использования',
   },
@@ -395,6 +397,8 @@ export const ru: Locale = {
     },
     crewBlocked: 'Ожидается ознакомление работников бригады с АБР и оценкой риска.',
     signaturesTitle: 'Подписи и согласования (ЭЦП)',
+    signaturesHistoryTitle: 'Согласование и подписи (завершено)',
+    signaturesHistoryHint: 'Кто подписал наряд на этапе согласования.',
     demoMode: 'Демо-режим: галочки без юридической ЭЦП.',
     rejectPackage: 'Отклонить пакет',
     waitingFirst: 'Сначала завершите {step}',
@@ -464,7 +468,7 @@ export const ru: Locale = {
     signTitle: 'Требуется ваша подпись',
     ackTitle: 'Требуется ознакомление',
     signHint:
-      'Вам назначена подпись единого PDF-пакета: НДПР, Анализ безопасности работ и оценка риска. Войдите под своей учётной записью и подпишите через eGov Mobile.',
+      'Вам назначена подпись единого PDF-пакета: НДПР, Анализ безопасности работ и Оценка Риска. Войдите под своей учётной записью и подпишите через eGov Mobile.',
     ackHint:
       'Вам назначено ознакомление с АБР и оценкой риска по наряд-допуску. Откройте наряд и подтвердите через eGov Mobile.',
     activeNow: '● Сейчас',
@@ -492,7 +496,7 @@ export const ru: Locale = {
   ert: {
     panelTitle: 'Задание: журнал газотестов (ERT)',
     panelHint:
-      'Заполните таблицу газотеста в PDF разрешений по нарядам ниже. Данные сохраняются в разрешение и общий пакет.',
+      'Заполните таблицу газотеста в PDF разрешений по выданным нарядам ниже. Данные сохраняются в разрешение и общий пакет.',
     needsReading: '● Требуется замер',
     gasTestOptional: '○ Газотест',
     openGasTest: 'Открыть газотест',
@@ -550,23 +554,23 @@ export const ru: Locale = {
   pages: {
     pprHowFill: 'Как заполнить НДПР?',
     pprChooseMode:
-      'Выберите способ: с помощью NOVA Safety из исходного документа или пустая форма для ручного ввода.',
-    pprWithAi: 'С помощью NOVA Safety',
+      'Выберите способ: с помощью NOVA SAFETY AI из исходного документа или пустая форма для ручного ввода.',
+    pprWithAi: 'С помощью NOVA SAFETY AI',
     pprNextNdpr: 'Далее — НДПР',
-    pprAnalyzing: 'NOVA Safety анализирует документ… после завершения откроется форма НДПР.',
+    pprAnalyzing: 'NOVA SAFETY AI анализирует документ… после завершения откроется форма НДПР.',
     ndprTitle: 'НДПР',
     ndprStep2: 'Наряд-допуск на проведение работ — шаг 2 из 3',
     ndprGatePpr:
       'Сначала завершите шаг «Исходный документ» — загрузите документ и выберите способ заполнения НДПР.',
-    riskTitle: 'Оценка риска',
+    riskTitle: 'Оценка Риска',
     riskStep3: 'шаг 3 из',
     riskGateNdpr: 'Сначала заполните «НДПР» и нажмите «Создать НДПР».',
     permissionsTitle: 'Разрешения',
-    permissionsGateRisk: 'Сначала завершите шаг «Оценка риска».',
-    permissionsGoRisk: 'Оценка риска',
+    permissionsGateRisk: 'Сначала завершите шаг «Оценка Риска».',
+    permissionsGoRisk: 'Оценка Риска',
     permissionsSubmit: 'Отправить на согласование',
     permissionsSubmitting: 'Отправка…',
-    permissionsFillAll: 'Заполнить все через NOVA Safety',
+    permissionsFillAll: 'Заполнить все через NOVA SAFETY AI',
     permissionsAiBusy: 'ИИ заполняет…',
   },
   matrix: {

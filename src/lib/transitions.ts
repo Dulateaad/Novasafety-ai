@@ -1,6 +1,7 @@
 import type { Permit, PermitStatus, UserRole } from '../types/domain'
 import { allCrewAcknowledged } from './crewAckComplete'
-import { allRequiredSignaturesComplete } from './signatureStatus'
+import { allRequiredSignaturesComplete, isRoleSigned } from './signatureStatus'
+import { localeMessages } from '../i18n/getLocale'
 
 const EDGES: Record<PermitStatus, PermitStatus[]> = {
   draft: ['on_approval'],
@@ -111,36 +112,40 @@ export function validateTransition(
   permit: Permit,
   next: PermitStatus,
 ): TransitionCheck {
+  const tr = localeMessages().transitions
+
   if (!allowedNextStatuses(permit.status).includes(next)) {
-    return { ok: false, reason: 'Недопустимый переход статуса' }
+    return { ok: false, reason: tr.invalid }
   }
 
   if (next === 'issued') {
-    if (!permit.signatures.issuerSigned || !permit.signatures.permitterSigned) {
-      return {
-        ok: false,
-        reason: 'Нельзя выдать НД без обязательных подписей (Выдающий, Допускающий)',
-      }
+    if (!isRoleSigned(permit, 'performer')) {
+      return { ok: false, reason: tr.needPerformer }
     }
-    if (
-      permit.category === 1 &&
-      !permit.signatures.leadExpertSigned
-    ) {
-      return {
-        ok: false,
-        reason: 'Для категории 1 нужна подпись утверждающего НД',
-      }
+    if (!allCrewAcknowledged(permit)) {
+      return { ok: false, reason: tr.needCrewAck }
+    }
+    if (!isRoleSigned(permit, 'issuer') || !isRoleSigned(permit, 'permitter')) {
+      return { ok: false, reason: tr.needPermitterIssuer }
+    }
+    if (permit.category === 1 && !isRoleSigned(permit, 'leadExpert')) {
+      return { ok: false, reason: tr.needLeadExpert }
+    }
+    if (!allRequiredSignaturesComplete(permit)) {
+      return { ok: false, reason: tr.needPermitterIssuer }
+    }
+  }
+
+  if (next === 'in_progress') {
+    if (!allCrewAcknowledged(permit)) {
+      return { ok: false, reason: tr.needCrewAck }
     }
   }
 
   if (next === 'in_progress' && permit.category === 1) {
     const bad = permit.ndprChecklist.some((i) => i.answer === null)
     if (bad) {
-      return {
-        ok: false,
-        reason:
-          'Заполните проверочный лист F09 (НДПР): все пункты Да/Нет/Н/П',
-      }
+      return { ok: false, reason: tr.needF09 }
     }
   }
 

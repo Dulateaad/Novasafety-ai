@@ -159,7 +159,11 @@ export function PermitOnApprovalSummary({
   return (
     <section className="card" style={{ marginBottom: '1rem' }}>
       <h2 style={{ marginTop: 0 }}>
-        {rejected ? 'Согласование отклонено' : 'Статус согласования НДПР'}
+        {rejected
+          ? 'Согласование отклонено'
+          : permit.status === 'on_approval'
+            ? 'Статус согласования НДПР'
+            : 'Согласование НДПР (завершено)'}
       </h2>
       {inner}
     </section>

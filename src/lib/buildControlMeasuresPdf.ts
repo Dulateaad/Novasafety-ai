@@ -27,7 +27,7 @@ function legacyTemplateContent(
 ): Record<string, unknown>[] {
   const content: Record<string, unknown>[] = [
     h('Меры контроля опасных факторов', 1),
-    p('NOVA Safety · ТОО «Урал Ойл энд Газ»'),
+    p('NOVA SAFETY AI · ТОО «Урал Ойл энд Газ»'),
     p(`Наименование работ: ${input.workTitle || '—'}`),
     p(`Источник ППР: ${input.sourceAttachmentName}`),
     p(`Дата формирования: ${new Date(input.generatedAtIso).toLocaleString()}`),
@@ -44,7 +44,7 @@ function legacyTemplateContent(
 
   content.push({
     text:
-      'Документ сформирован автоматически NOVA Safety. Требуется проверка ответственным лицом ОТ/ТБ.',
+      'Документ сформирован автоматически NOVA SAFETY AI. Требуется проверка ответственным лицом ОТ/ТБ.',
     italics: true,
     fontSize: 8,
     color: '#555555',

@@ -31,7 +31,7 @@ const ROLE_UID_FIELD: Record<EgovSignRole, string> = {
 }
 
 const APPROVAL_PACKAGE_MESSAGE =
-  'Требуется подпись единого PDF-пакета: НДПР, Анализ безопасности работ и оценка Риска'
+  'Требуется подпись единого PDF-пакета: НДПР, Анализ безопасности работ и Оценка Риска'
 
 type SigningInviteStatus = 'completed' | 'active' | 'pending'
 

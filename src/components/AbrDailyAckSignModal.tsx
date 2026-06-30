@@ -59,7 +59,7 @@ export function AbrDailyAckSignModal(props: {
         if (cancelled) return
 
         const session = await startSigexQrSigning({
-          description: `NOVA Safety — ${d.title}`,
+          description: `NOVA SAFETY AI — ${d.title}`,
           documentTitle: `${m.wpTitle} ${permit.registrationRefNo || permit.id.slice(0, 8)} · ${dateIso}`,
           dataBase64: pkg.base64,
           isPdf: true,

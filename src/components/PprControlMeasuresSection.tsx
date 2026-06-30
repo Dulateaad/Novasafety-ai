@@ -37,10 +37,10 @@ export function PprControlMeasuresSection(props: {
 
   return (
     <fieldset className="fieldset ppr-control-measures">
-      <legend>Оценка риска и PDF ({aiLabel})</legend>
+      <legend>Оценка Риска и PDF ({aiLabel})</legend>
       <AiDisclaimerNotice />
       <p className="muted xsmall" style={{ marginTop: 0 }}>
-        {aiLabel} извлекает риски из ППР и формирует PDF «Оценка риска» для согласования.
+        {aiLabel} извлекает риски из ППР и формирует PDF «Оценка Риска» для согласования.
       </p>
 
       {(extracting || pdfBuilding) && (

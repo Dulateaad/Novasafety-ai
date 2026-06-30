@@ -57,7 +57,7 @@ const SESSION_KEYS_TO_CLEAR = [
   'nova_ppr_form_v1',
 ] as const
 
-/** Сброс локального пакета ППР → НДПР → оценка риска. */
+/** Сброс локального пакета ППР → НДПР → Оценка Риска. */
 export function clearPackageSession(): void {
   clearNdGate()
   clearPprGate()

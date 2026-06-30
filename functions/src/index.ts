@@ -28,7 +28,6 @@ import {
   cleanupOrphanPermitRelatedData,
   deletePermitRelatedDataForPermitsAdmin,
 } from './admin/cleanupPermitRelatedData'
-import { applyGodModeSign } from './admin/godModeSign'
 import { broadcastPermitNotice } from './notifications/permitNotices'
 import { notifyUser } from './notifications/notifyUser'
 import {
@@ -119,7 +118,7 @@ export const pushOnPermitNotice = onDocumentCreated(
     const n = event.data?.data()
     if (!n) return
     await notifyUser(db, String(n.assigneeUid ?? ''), {
-      title: String(n.title ?? 'NOVA Safety'),
+      title: String(n.title ?? 'NOVA SAFETY AI'),
       body: String(n.message ?? ''),
       permitId: String(n.permitId ?? ''),
     })
@@ -479,32 +478,6 @@ export const renumberPermitsFn = onCall(CALLABLE_OPTIONS, async (request) => {
       'internal',
       e instanceof Error ? e.message : 'Не удалось перенумеровать наряды',
     )
-  }
-})
-
-/** GOD MODE: подписать работников и 3 согласующих на наряде (координатор, без производителя). */
-export const godModeSignPermitFn = onCall(CALLABLE_OPTIONS, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError('unauthenticated', 'Требуется вход')
-  }
-  const callerSnap = await db.collection('users').doc(request.auth.uid).get()
-  if (!callerSnap.exists) {
-    throw new HttpsError('permission-denied', 'Нет профиля пользователя')
-  }
-  const callerRole = String(callerSnap.data()?.role ?? '')
-  if (callerRole !== 'coordinator') {
-    throw new HttpsError('permission-denied', 'GOD MODE доступен только координатору')
-  }
-
-  const permitId = String(request.data?.permitId ?? '').trim()
-  if (!permitId) {
-    throw new HttpsError('invalid-argument', 'Укажите permitId')
-  }
-
-  try {
-    return await applyGodModeSign(db, permitId)
-  } catch (e) {
-    throw new HttpsError('internal', e instanceof Error ? e.message : 'GOD MODE не выполнен')
   }
 })
 

@@ -18,10 +18,10 @@ export default defineConfig({
         'animations/thinking.json',
       ],
       manifest: {
-        name: 'NOVA Safety — Наряд-допуск',
+        name: 'NOVA SAFETY AI — Наряд-допуск',
         short_name: 'NOVA PTW',
         description:
-          'NOVA Safety — учёт и согласование нарядов-допусков (веб-приложение).',
+          'NOVA SAFETY AI — учёт и согласование нарядов-допусков (веб-приложение).',
         lang: 'ru',
         scope: '/',
         start_url: '/',

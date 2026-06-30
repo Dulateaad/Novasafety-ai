@@ -5,7 +5,7 @@ import { LoadingProgress } from '../components/LoadingProgress'
 import { WorkPermissionIcon } from '../components/WorkPermissionIcon'
 import { WorkPermissionFormEditor } from '../components/WorkPermissionFormEditor'
 import { useLanguage } from '../context/LanguageContext'
-import { fillTemplate, workPermissionKindLabel } from '../i18n/getLocale'
+import { fillTemplate } from '../i18n/getLocale'
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { useSession } from '../context/SessionContext'
 import { useToast } from '../context/ToastContext'
@@ -14,7 +14,6 @@ import { setPermissionsGatePassed } from '../lib/permissionsGate'
 import { loadPprForm } from '../lib/pprAutosave'
 import { restoreNewPermitDraftFromSession } from '../lib/newPermitDraftAutosave'
 import { prepareNdprDraftForValidation } from '../lib/validateNdprDraft'
-import { renderSingleWorkPermission } from '../lib/buildWorkPermissionPdf'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import {
   canUserSubmitPermitPackage,
@@ -73,7 +72,7 @@ export function PermissionsPage() {
     profileError,
     permits,
   } = useSession()
-  const { t, language } = useLanguage()
+  const { t } = useLanguage()
   const p = t.pages
   const pp = t.permissionsPage
   const pb = t.permissionsBody
@@ -145,34 +144,6 @@ export function PermissionsPage() {
     },
     [],
   )
-
-  async function generateSinglePermission(kind: WorkPermissionDocument['kind']) {
-    if (!bundle) return
-    const doc = bundle.documents.find((d) => d.kind === kind)
-    if (!doc) return
-    setBusy(true)
-    setStage(fillTemplate(pp.formingKind, { kind: workPermissionKindLabel(kind, language) }))
-    try {
-      const enriched = enrichWorkPermissionsBundle(draft, { ...bundle, documents: [doc] }, permits)
-        .documents[0]!
-      const rendered = await renderSingleWorkPermission(enriched)
-      setBundle((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          updatedAtIso: new Date().toISOString(),
-          documents: prev.documents.map((d) => (d.kind === kind ? rendered : d)),
-        }
-      })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error('[work-permission-pdf]', e)
-      showError(msg || pp.pdfFailed)
-    } finally {
-      setBusy(false)
-      setStage(null)
-    }
-  }
 
   async function submitPackage() {
     if (!user || !form || !bundle) return
@@ -355,14 +326,6 @@ export function PermissionsPage() {
                 )}
               </div>
               <div className="work-perm-card__actions btn-row">
-                <button
-                  type="button"
-                  className="btn primary small"
-                  disabled={busy}
-                  onClick={() => void generateSinglePermission(doc.kind)}
-                >
-                  {busy ? c.forming : c.generatePermission}
-                </button>
                 {doc.pdfBase64 || doc.generatedAtIso ? (
                   <button
                     type="button"

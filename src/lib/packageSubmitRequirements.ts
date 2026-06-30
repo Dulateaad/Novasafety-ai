@@ -60,7 +60,7 @@ export function getPackageSubmitRequirements(args: {
       ok: aiOk,
       hint: aiOk
         ? undefined
-        : 'Ключ Claude не задан — кнопки «Сформировать через NOVA Safety» недоступны',
+        : 'Ключ Claude не задан — кнопки «Сформировать через NOVA SAFETY AI» недоступны',
     },
     {
       id: 'abr',
@@ -72,7 +72,7 @@ export function getPackageSubmitRequirements(args: {
     },
     {
       id: 'nebosh',
-      label: 'Оценка риска сформирована',
+      label: 'Оценка Риска сформирована',
       ok: neboshReady,
       hint: neboshReady
         ? undefined

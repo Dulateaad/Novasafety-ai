@@ -13,7 +13,7 @@ import { LoadingProgress } from '../components/LoadingProgress'
 const THREAD_STORAGE_KEY = 'nova_assistant_thread_v1'
 
 const SUGGESTED_QUESTIONS = [
-  'В каком порядке заполнять «Новый НД» и «Оценка риска (АСОР)»?',
+  'В каком порядке заполнять «Новый НД» и «Оценка Риска (АСОР)»?',
   'Чем отличается огневой и холодный наряд-допуск?',
   'Куда вписать работников исполнителей и что проверять перед сохранением?',
 ]

@@ -1,5 +1,5 @@
 /** Отображаемое имя продукта (Firebase project id не меняет). */
-export const APP_NAME = 'NOVA Safety'
+export const APP_NAME = 'NOVA SAFETY AI'
 export const APP_TAGLINE = 'Наряд-допуск'
 
 /** Название раздела вместо аббревиатуры «АБР». */

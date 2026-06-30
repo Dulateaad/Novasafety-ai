@@ -11,15 +11,9 @@ import type { WorkPermissionDocument } from '../types/workPermissions'
 
 
 const GAS_TEST_EDIT_STATUSES = new Set<PermitStatus>([
-
-  'on_approval',
-
   'issued',
-
   'in_progress',
-
   'suspended',
-
 ])
 
 
@@ -193,15 +187,8 @@ export function ertGasTestTasksForUser(
 
   }
 
-  return items.sort((a, b) => {
-
-    if (a.permit.status === 'on_approval' && b.permit.status !== 'on_approval') return -1
-
-    if (b.permit.status === 'on_approval' && a.permit.status !== 'on_approval') return 1
-
-    return (b.permit.updatedAtIso ?? '').localeCompare(a.permit.updatedAtIso ?? '')
-
-  })
-
+  return items.sort((a, b) =>
+    (b.permit.updatedAtIso ?? '').localeCompare(a.permit.updatedAtIso ?? ''),
+  )
 }
 

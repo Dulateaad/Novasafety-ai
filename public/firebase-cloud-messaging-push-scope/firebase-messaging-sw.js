@@ -21,7 +21,7 @@ const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {}
-  const title = data.title || 'NOVA Safety'
+  const title = data.title || 'NOVA SAFETY AI'
   const url = data.permitId ? `/p/${data.permitId}` : '/'
   self.registration.showNotification(title, {
     body: data.body || '',

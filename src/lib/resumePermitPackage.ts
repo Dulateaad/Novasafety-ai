@@ -64,7 +64,7 @@ export function permitToPermitDraft(permit: Permit): PermitDraft {
   return draft
 }
 
-/** Загружает данные наряда-черновика в sessionStorage для мастера ППР → НДПР → оценка риска. */
+/** Загружает данные наряда-черновика в sessionStorage для мастера ППР → НДПР → Оценка Риска. */
 export function restorePackageSessionFromPermit(permit: Permit): void {
   const ppr = permit.ppr
     ? normalizePprForm(permit.ppr) ?? emptyPprForm()

@@ -276,7 +276,7 @@ export function RiskAssessmentPage() {
         0,
       )
       setNeboshGenNote(
-        `Оценка риска сформирована (${APP_NAME}): ${groups} заданий, ${hazards} опасностей. Нажмите «Посмотреть».`,
+        `Оценка Риска сформирована (${APP_NAME}): ${groups} заданий, ${hazards} опасностей. Нажмите «Посмотреть».`,
       )
       setNeboshReviewOpen(true)
       setManualReviewConfirmed(false)
@@ -691,11 +691,11 @@ export function RiskAssessmentPage() {
       </section>
 
       <section className="card" style={{ marginTop: '0.85rem' }}>
-        <h2 style={{ marginTop: 0 }}>Оценка риска</h2>
+        <h2 style={{ marginTop: 0 }}>Оценка Риска</h2>
         <p className="muted small" style={{ marginTop: 0 }}>
           Заполните оценку риска вручную или сформируйте автоматически по исходному документу.
         </p>
-        <div className="journal-view-tabs" role="tablist" aria-label="Оценка риска">
+        <div className="journal-view-tabs" role="tablist" aria-label="Оценка Риска">
           <button
             type="button"
             role="tab"
@@ -777,7 +777,7 @@ export function RiskAssessmentPage() {
           </div>
         ) : neboshReady ? (
           <div className="alert" role="status" style={{ marginTop: '0.75rem' }}>
-            Оценка риска сформирована · {form.tasks.length} заданий, {neboshHazardCount}{' '}
+            Оценка Риска сформирована · {form.tasks.length} заданий, {neboshHazardCount}{' '}
             опасностей
           </div>
         ) : null}
@@ -813,7 +813,7 @@ export function RiskAssessmentPage() {
             )}
           </li>
           <li>
-            Оценка риска:{' '}
+            Оценка Риска:{' '}
             {neboshReady ? (
               <span className="strong">
                 готова · {form.tasks.length} заданий, {neboshHazardCount} опасностей

@@ -9,7 +9,7 @@ export const PPR_PDF_DOCUMENT_SYSTEM_PROMPT = `Ты — эксперт по ОТ
   "pdfDocument": {
     "blocks": [
       { "type": "h1", "text": "Меры контроля опасных факторов" },
-      { "type": "p", "text": "ТОО «Урал Ойл энд Газ» · NOVA Safety" },
+      { "type": "p", "text": "ТОО «Урал Ойл энд Газ» · NOVA SAFETY AI" },
       { "type": "h2", "text": "1. Наименование и источник" },
       { "type": "p", "text": "..." },
       { "type": "h2", "text": "2. Раздел ППР — ..." },
