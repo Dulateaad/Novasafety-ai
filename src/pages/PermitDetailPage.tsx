@@ -62,6 +62,7 @@ import {
 import { assigneeUidForRole } from '../lib/signatureStatus'
 import { canUserRejectPermit, rejectionPatch } from '../lib/approvalActions'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
+import { scrollAppToTopWithRetries } from '../lib/scrollAppToTop'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { notifyPermitNoticesRefresh } from '../lib/refreshPermitNotices'
 import { allCrewAcknowledged } from '../lib/crewAckComplete'
@@ -164,20 +165,26 @@ export function PermitDetailPage() {
   }, [])
 
   useEffect(() => {
-    if (
-      location.hash !== '#ert-gas-tests' &&
-      location.hash !== '#permitter-pre-work' &&
-      location.hash !== '#work-stop-section' &&
-      location.hash !== '#inspector-rejected-section'
-    ) {
-      return
-    }
-    const timer = window.setTimeout(() => {
-      const targetId = location.hash.slice(1)
-      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 150)
-    return () => window.clearTimeout(timer)
-  }, [location.hash, id, permit?.workPermissions?.documents?.length, permit?.workStop?.status])
+    const hash = location.hash.slice(1)
+    const scrollTargets = new Set([
+      'ert-gas-tests',
+      'permitter-pre-work',
+      'work-stop-section',
+      'inspector-rejected-section',
+      'pdf-package',
+    ])
+    if (!hash || !scrollTargets.has(hash)) return
+    if (hash === 'pdf-package' && !showPackageSection) return
+    const cancel = scrollAppToTopWithRetries(document.getElementById(hash))
+    return cancel
+  }, [
+    location.hash,
+    id,
+    showPackageSection,
+    packageBrief,
+    permit?.workPermissions?.documents?.length,
+    permit?.workStop?.status,
+  ])
 
   useEffect(() => {
     if (!user || !permit) return
@@ -585,7 +592,7 @@ export function PermitDetailPage() {
       ) : null}
 
       {showPackageSection && packageBrief ? (
-        <section className="card" style={{ marginBottom: '1rem' }}>
+        <section id="pdf-package" className="card" style={{ marginBottom: '1rem' }}>
           <h2 style={{ marginTop: 0 }}>{dp.viewFullPdf}</h2>
           {permissionTemplates.length > 0 ? (
             <DocumentKitSummary templates={permissionTemplates} />

@@ -538,7 +538,7 @@ export function RiskAssessmentPage() {
             : 'Наряд отправлен, но уведомления подписантам не созданы.'
       }
       clearPackageSession()
-      nav(`/p/${p.id}`, { state: { provisionWarning } })
+      nav(`/p/${p.id}#pdf-package`, { state: { provisionWarning } })
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e))
     } finally {

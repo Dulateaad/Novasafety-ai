@@ -237,7 +237,7 @@ export function PermissionsPage() {
         userDirectory,
         nav,
       })
-      nav(`/p/${permitId}`, { state: { provisionWarning } })
+      nav(`/p/${permitId}#pdf-package`, { state: { provisionWarning } })
     } catch (e) {
       showError(e instanceof Error ? e.message : String(e))
     } finally {
