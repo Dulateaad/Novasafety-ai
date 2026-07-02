@@ -1,9 +1,11 @@
 import type { DemoUser, Permit, UserRole } from '../types/domain'
 import { DEMO_USERS } from '../demoUsers'
 import { fillTemplate, localeMessages, roleLabel } from '../i18n/getLocale'
+import { resolveWorkerUid } from './resolveWorkerUid'
 import { isNdGatePassed } from './ndGate'
 import { isNavRouteAccessible, navRouteLockedHint } from './navGates'
 import { isPprGatePassed } from './pprGate'
+import { permitVisibleToPermitter } from './permitterApprovalGate'
 
 const APPROVAL_ROLES = new Set([
   'coordinator',
@@ -63,10 +65,14 @@ export function isUserOnPermitCrew(
   user?: DemoUser,
   directory: DemoUser[] = [],
 ): boolean {
-  const onCrew = permit.executors.some((ex) => ex.userUid.trim() === userId)
-  if (onCrew) return true
-  if (!user) return false
-  return permit.executors.some((ex) => uidMatchesAccount(ex.userUid, user, directory))
+  for (const ex of permit.executors) {
+    const raw = ex.userUid.trim()
+    if (!raw) continue
+    if (raw === userId) return true
+    if (resolveWorkerUid(directory, raw) === userId) return true
+    if (user && uidMatchesAccount(raw, user, directory)) return true
+  }
+  return false
 }
 
 export function isUserPermitParticipant(
@@ -104,6 +110,10 @@ export function filterPermitsForUser(
         (isUserOnPermitCrew(p, user.id, user, directory) ||
           !!p.crewAckSignatures?.[user.id]?.cmsBase64?.trim()),
     )
+    return mergeWorkStopJournalPermits(mine, permits)
+  }
+  if (user.role === 'permitter') {
+    const mine = permits.filter((p) => permitVisibleToPermitter(p, user, directory))
     return mergeWorkStopJournalPermits(mine, permits)
   }
   if (APPROVAL_ROLES.has(user.role)) return permits

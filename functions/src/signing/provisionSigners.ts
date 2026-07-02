@@ -3,7 +3,8 @@ import type { DocumentData, Firestore } from 'firebase-admin/firestore'
 import { assigneeUidForRole } from './permissions'
 import {
   approvalStepLabel,
-  nextRoleToSign,
+  nextRoleToSignAsync,
+  permitSigningPhaseActive,
   requiredSignRoles,
 } from './approvalSequence'
 import {
@@ -92,8 +93,20 @@ function approvalInviteMessage(status: SigningInviteStatus, stepLabel: string): 
 }
 
 function isRoleSigned(permit: DocumentData, role: string): boolean {
-  const egov = permit.egovSignatures as Record<string, { cmsBase64?: string }> | undefined
-  if (egov?.[role]?.cmsBase64?.trim()) return true
+  const egov = permit.egovSignatures as
+    | Record<string, { cmsBase64?: string; signedByUid?: string }>
+    | undefined
+  const stored = egov?.[role]
+  if (stored?.cmsBase64?.trim()) {
+    if (String(permit.status ?? '') === 'on_approval') {
+      const assigneeUid = assigneeUidForRole(permit, role as EgovSignRole).trim()
+      const signerUid = String(stored.signedByUid ?? '').trim()
+      if (!assigneeUid || !signerUid) return false
+      if (assigneeUid !== signerUid) return false
+    }
+    return true
+  }
+  if (permitSigningPhaseActive(permit)) return false
   const sig = permit.signatures as Record<string, boolean> | undefined
   if (role === 'performer') return !!sig?.performerSigned
   if (role === 'permitter') return !!sig?.permitterSigned
@@ -529,7 +542,7 @@ export async function provisionPermitSigners(
     const stepLabel = approvalStepLabel(role, resolved.displayName, permit)
     const inviteId = `${permitId}_${role}`
     const signed = isRoleSigned(permit, role)
-    const current = nextRoleToSign(permit)
+    const current = await nextRoleToSignAsync(db, permit)
     const status: SigningInviteStatus = signed
       ? 'completed'
       : current === role
@@ -588,7 +601,7 @@ export async function provisionPermitSigners(
   return {
     signers,
     permitUpdated: Object.keys(permitPatch).length > 0,
-    currentStep: nextRoleToSign({ ...permit, ...permitPatch, status: permit.status }),
+    currentStep: await nextRoleToSignAsync(db, { ...permit, ...permitPatch, status: permit.status }),
   }
 }
 
@@ -616,7 +629,7 @@ export async function syncSigningInvitesAfterSign(
   if (signedRole === 'performer') {
     await refreshCrewAckInvites(db, permitId)
   }
-  const next = nextRoleToSign(permit)
+  const next = await nextRoleToSignAsync(db, permit)
   if (!next) return
   const assigneeUid = assigneeUidForRole(permit, next)
   const inviteSnap = await db.collection('signingInvites').doc(`${permitId}_${next}`).get()

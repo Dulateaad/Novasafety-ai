@@ -1,4 +1,5 @@
 import type { DemoUser, WorkExecutor } from '../types/domain'
+import { isExcludedWorkerDirectoryUser } from '../config/excludedDirectoryUsers'
 import { usersMatchingRoles } from './directoryUsers'
 
 function shuffle<T>(items: T[]): T[] {
@@ -24,7 +25,9 @@ export function buildRandomExecutorRows(
   directory: DemoUser[],
   count?: number,
 ): WorkExecutor[] {
-  const pool = usersMatchingRoles(directory, ['executor'])
+  const pool = usersMatchingRoles(directory, ['executor']).filter(
+    (u) => !isExcludedWorkerDirectoryUser(u),
+  )
   if (pool.length === 0) return []
 
   const take = count ?? randomExecutorCount(pool.length)

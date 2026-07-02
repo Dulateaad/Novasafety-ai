@@ -1,4 +1,4 @@
-import type { Permit, PermitStatus, UserRole } from '../types/domain'
+import type { DemoUser, Permit, PermitStatus, UserRole } from '../types/domain'
 import { allCrewAcknowledged } from './crewAckComplete'
 import { allRequiredSignaturesComplete, isRoleSigned } from './signatureStatus'
 import { localeMessages } from '../i18n/getLocale'
@@ -7,7 +7,7 @@ const EDGES: Record<PermitStatus, PermitStatus[]> = {
   draft: ['on_approval'],
   on_approval: ['issued', 'rejected'],
   rejected: ['draft', 'on_approval', 'annulled'],
-  issued: ['in_progress', 'suspended'],
+  issued: ['in_progress', 'suspended', 'closed'],
   in_progress: ['suspended', 'closed'],
   suspended: ['in_progress', 'issued', 'closed', 'annulled'],
   closed: ['archived'],
@@ -45,8 +45,8 @@ export function canUserTriggerStatus(
       role === 'issuer' ||
       role === 'coordinator' ||
       role === 'permitter' ||
-      role === 'performer' ||
-      role === 'leadExpert'
+      role === 'leadExpert' ||
+      role === 'ert'
     )
   }
 
@@ -155,9 +155,10 @@ export function validateTransition(
 /** Автовыдача после завершения всех согласований на этапе on_approval. */
 export function issueStatusPatchIfApprovalsComplete(
   permit: Permit,
+  directory: DemoUser[] = [],
 ): Partial<Permit> | null {
   if (permit.status !== 'on_approval') return null
-  if (!allCrewAcknowledged(permit)) return null
+  if (!allCrewAcknowledged(permit, directory)) return null
   if (!allRequiredSignaturesComplete(permit)) return null
   if (permit.isContractorPermit && !permit.contractorSafetyApproved) return null
   return { status: 'issued' }

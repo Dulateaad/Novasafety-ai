@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Permit } from '../types/domain'
 import type { DemoUser } from '../types/domain'
 import { WorkPermissionIcon } from './WorkPermissionIcon'
-import { canFillPermissionClosure, permissionClosureDeniedReason } from '../lib/closeNdprEarly'
+import { canFillPermissionClosure, isPermitProducer, permissionClosureDeniedReason } from '../lib/closeNdprEarly'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import {
   broadcastPermitNoticeClient,
@@ -62,8 +62,8 @@ export function WorkPermissionClosurePanel(props: {
   const wp = t.workPermission
   const c = t.common
   const serverBundle = permit.workPermissions
-  const canEdit = canFillPermissionClosure(permit, actor)
-  const denied = permissionClosureDeniedReason(permit, actor)
+  const canEdit = canFillPermissionClosure(permit, actor, userDirectory)
+  const denied = permissionClosureDeniedReason(permit, actor, userDirectory)
   const [localBundle, setLocalBundle] = useState<WorkPermissionsBundle | null>(serverBundle ?? null)
   const [dirty, setDirty] = useState(false)
   const [dirtyKinds, setDirtyKinds] = useState<WorkPermissionKind[]>([])
@@ -87,6 +87,7 @@ export function WorkPermissionClosurePanel(props: {
         resolveUser,
         userDirectory,
         renderKinds: dirtyKinds.length ? dirtyKinds : undefined,
+        rebuildPackage: true,
       })
       setDirty(false)
       setDirtyKinds([])
@@ -108,7 +109,7 @@ export function WorkPermissionClosurePanel(props: {
   }, [localBundle, dirty, permit, updatePermit, resolveUser, userDirectory])
 
   if (!localBundle?.documents?.length) return null
-  if (permit.status !== 'closed' || actor.role !== 'performer') return null
+  if (permit.status !== 'closed' || !isPermitProducer(permit, actor, userDirectory)) return null
 
   function onClosureChange(kind: WorkPermissionKind, group: WorkPermissionCheckboxGroup) {
     setLocalBundle((prev) => {

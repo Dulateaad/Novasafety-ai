@@ -10,7 +10,7 @@ export function canUserRejectPermit(
 ): boolean {
   if (permit.status !== 'on_approval') return false
   if (user.role === 'coordinator') return true
-  const roles: EgovSignRole[] = ['performer', 'permitter', 'issuer', 'leadExpert']
+  const roles: EgovSignRole[] = ['permitter', 'issuer', 'leadExpert', 'ert']
   return roles.some(
     (role) =>
       user.role === role &&

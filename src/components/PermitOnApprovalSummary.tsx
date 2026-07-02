@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import type { Permit } from '../types/domain'
 import type { DemoUser } from '../types/domain'
 import {
-  isCrewAckPhaseActive,
+  crewAckBlocksRole,
+  displayRoleSigned,
   nextRoleToSign,
   signingRoleOrder,
   approvalStepLabel,
@@ -18,6 +19,7 @@ import { PermitRejectionNotice } from './PermitRejectionNotice'
 type Props = {
   permit: Permit
   resolveUser: (uid: string) => DemoUser | undefined
+  userDirectory?: DemoUser[]
   /** Кнопка ознакомления для работника бригады (eGov). */
   crewAckAction?: ReactNode
   variant?: 'card' | 'inline'
@@ -41,16 +43,16 @@ function stepStatus(
 export function PermitOnApprovalSummary({
   permit,
   resolveUser,
+  userDirectory = [],
   crewAckAction,
   variant = 'card',
   showRejectionNotice = true,
 }: Props) {
-  const crew = buildPermitCrewRows(permit, resolveUser)
-  const currentStep = nextRoleToSign(permit)
-  const crewPhase = isCrewAckPhaseActive(permit)
+  const crew = buildPermitCrewRows(permit, resolveUser, userDirectory)
+  const currentStep = nextRoleToSign(permit, userDirectory)
   const rejected = isPermitSigningRejected(permit)
   const rejectedRole = rejectionSignerRole(permit)
-  const performerSigned = isRoleSigned(permit, 'performer')
+  const performerSigned = isRoleSigned(permit, 'performer', userDirectory)
   const signingRoles = signingRoleOrder(permit)
 
   const inner = (
@@ -73,11 +75,11 @@ export function PermitOnApprovalSummary({
         </p>
         <ol className="permit-approval-summary__steps">
           {signingRoles.map((role) => {
-            const signed = isRoleSigned(permit, role)
+            const signed = displayRoleSigned(permit, role, userDirectory)
             const active = !rejected && currentStep === role
             const isRejectedStep = rejected && rejectedRole === role
             const blockedByCrew =
-              !signed && role !== 'performer' && performerSigned && crewPhase
+              !signed && performerSigned && crewAckBlocksRole(permit, role, userDirectory)
             return (
               <li
                 key={role}

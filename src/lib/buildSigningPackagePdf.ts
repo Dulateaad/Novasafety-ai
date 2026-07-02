@@ -15,6 +15,7 @@ import {
   mergeAbrPeopleFromNd,
 } from './prefillAbrFromPackage'
 import { resolveUserBadgeNo } from './userBadgeNumbers'
+import { workPermissionDocumentsForSigningPackage } from './workPermissions'
 
 export type PackagePdfPart = 'ndpr' | 'abr' | 'risk'
 
@@ -133,7 +134,11 @@ export async function buildPermitPackagePartPdf(
   if (part === 'abr') {
     const abr = prepareAbrForPermit(permit, resolveUser, directory)
     if (!abr) throw new Error('АБР не оформлен для этого наряда')
-    const { base64, fileName } = await buildAbrPdf(abr, permit.abrDailyAcks)
+    const { base64, fileName } = await buildAbrPdf(abr, permit.abrDailyAcks, {
+      permit,
+      resolveUser,
+      directory,
+    })
     return {
       fileName,
       generatedAtIso: new Date().toISOString(),
@@ -167,12 +172,14 @@ export async function buildSigningPackagePdf(
 ): Promise<PackagePdfDocument> {
   const abr = prepareAbrForPermit(permit, resolveUser, directory)
   const asor = prepareNeboshForPermit(permit, resolveUser, directory)
-  const permDocs = permit.workPermissions?.documents ?? []
+  const permDocs = workPermissionDocumentsForSigningPackage(permit)
 
   const [ndprBase64, abrResult, riskResult, permBase64s] = await Promise.all([
     buildNdprSectionBase64(permit, resolveUser, opts),
     abr
-      ? buildAbrPdf(abr, permit.abrDailyAcks).then((r) => r.base64)
+      ? buildAbrPdf(abr, permit.abrDailyAcks, { permit, resolveUser, directory }).then(
+          (r) => r.base64,
+        )
       : Promise.resolve(null as string | null),
     asor
       ? buildNeboshRiskPdf(

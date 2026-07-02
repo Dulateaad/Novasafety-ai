@@ -1,27 +1,41 @@
 import type { DemoUser, Permit } from '../types/domain'
+import { uidMatchesAccount } from './permitAccess'
 import { canUserTriggerStatus } from './transitions'
 
 
 /** Производитель работ по этому наряду (составитель пакета). */
-export function isPermitProducer(permit: Permit, actor: DemoUser): boolean {
+export function isPermitProducer(
+  permit: Permit,
+  actor: DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
   if (actor.role !== 'performer') return false
   const assigned = permit.performerUid?.trim()
-  return !assigned || assigned === actor.id
+  if (!assigned) return true
+  return uidMatchesAccount(assigned, actor, directory)
 }
 
-export function canFillPermissionClosure(permit: Permit, actor: DemoUser): boolean {
-  return permit.status === 'closed' && isPermitProducer(permit, actor)
+export function canFillPermissionClosure(
+  permit: Permit,
+  actor: DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
+  return permit.status === 'closed' && isPermitProducer(permit, actor, directory)
 }
 
-export function permissionClosureDeniedReason(permit: Permit, actor: DemoUser): string | null {
-  if (canFillPermissionClosure(permit, actor)) return null
+export function permissionClosureDeniedReason(
+  permit: Permit,
+  actor: DemoUser,
+  directory: DemoUser[] = [],
+): string | null {
+  if (canFillPermissionClosure(permit, actor, directory)) return null
   if (permit.status !== 'closed') {
     return 'Раздел закрытия доступен после закрытия НДПР.'
   }
   if (actor.role !== 'performer') {
     return 'Заполняет производитель работ, указанный в наряде.'
   }
-  if (permit.performerUid && permit.performerUid !== actor.id) {
+  if (permit.performerUid && !uidMatchesAccount(permit.performerUid, actor, directory)) {
     return 'Вы не указаны как производитель работ в этом наряде.'
   }
   return null
@@ -37,24 +51,32 @@ export function isPermitPostApproval(permit: Permit): boolean {
 }
 
 /** Производитель (или координатор) может досрочно закрыть выданный / выполняемый НДПР. */
-export function canCloseNdprEarly(permit: Permit, actor: DemoUser): boolean {
+export function canCloseNdprEarly(
+  permit: Permit,
+  actor: DemoUser,
+  directory: DemoUser[] = [],
+): boolean {
   if (!EARLY_CLOSE_STATUSES.has(permit.status)) return false
   if (!canUserTriggerStatus(permit, 'closed', actor.role)) return false
   if (actor.role === 'coordinator') return true
-  if (isPermitProducer(permit, actor)) return true
+  if (isPermitProducer(permit, actor, directory)) return true
   return false
 }
 
-export function closeNdprEarlyDeniedReason(permit: Permit, actor: DemoUser): string | null {
-  if (canCloseNdprEarly(permit, actor)) return null
+export function closeNdprEarlyDeniedReason(
+  permit: Permit,
+  actor: DemoUser,
+  directory: DemoUser[] = [],
+): string | null {
+  if (canCloseNdprEarly(permit, actor, directory)) return null
   if (actor.role !== 'performer' && actor.role !== 'coordinator') {
     return 'Досрочное закрытие доступно производителю работ или координатору.'
   }
   if (permit.status === 'on_approval') {
     return 'Наряд ещё на согласовании — закрыть можно после выдачи.'
   }
-  if (permit.status === 'issued') {
-    return 'Наряд выдан — нажмите «Закрыть НДПР», если работы завершены.'
+  if (permit.status === 'in_progress') {
+    return 'Закрытие доступно производителю работ или координатору.'
   }
   if (permit.status === 'draft') {
     return 'Черновик нельзя закрыть — отправьте на согласование или удалите.'
@@ -62,7 +84,11 @@ export function closeNdprEarlyDeniedReason(permit: Permit, actor: DemoUser): str
   if (['closed', 'archived', 'annulled'].includes(permit.status)) {
     return 'Наряд уже закрыт или аннулирован.'
   }
-  if (actor.role === 'performer' && permit.performerUid && permit.performerUid !== actor.id) {
+  if (
+    actor.role === 'performer' &&
+    permit.performerUid &&
+    !uidMatchesAccount(permit.performerUid, actor, directory)
+  ) {
     return 'Вы не указаны как производитель работ в этом наряде.'
   }
   return 'Закрытие недоступно для текущего статуса наряда.'

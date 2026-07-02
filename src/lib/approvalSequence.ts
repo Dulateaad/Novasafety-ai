@@ -2,7 +2,7 @@ import { assigneeUidForRole } from './signatureStatus'
 import type { AsorForm } from '../types/asor'
 import { defaultApprovalRows } from '../types/asor'
 import type { AsorApprovalRow } from '../types/asor'
-import type { Permit, PermitDraft } from '../types/domain'
+import type { Permit, PermitDraft, DemoUser } from '../types/domain'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import {
   buildPdfSignatureStatusCell,
@@ -12,24 +12,24 @@ import {
   pdfSignaturePlainText,
 } from './pdfEgovSignatureCell'
 import { allCrewAcknowledged, crewAckGateMessage } from './crewAckComplete'
-import { allRequiredSignaturesComplete, isRoleSigned } from './signatureStatus'
+import { allRequiredSignaturesComplete, isRoleSigned, isStrictEgovSigningPhase } from './signatureStatus'
 import { permitRequiresErtApproval } from './fireWorkApproval'
 import { localeMessages, fillTemplate } from '../i18n/getLocale'
 import { isPermitSigningRejected } from './permitRejectionDisplay'
 
 const CORE_SIGNING_ORDER: EgovSignRole[] = [
   'performer',
-  'issuer',
   'permitter',
+  'issuer',
   'leadExpert',
 ]
 
-/** Очередь подписания ЭЦП: производитель → [ERT при огневых] → выдающий → допускающий → утверждающий. */
+/** Очередь подписания ЭЦП: производитель → [ERT при огневых] → допускающий → выдающий → утверждающий. */
 export function signingRoleOrder(
   permit: Pick<Permit, 'specialWorkActivities' | 'specialWorkActivity' | 'permitType'>,
 ): EgovSignRole[] {
   if (permitRequiresErtApproval(permit)) {
-    return ['performer', 'ert', 'issuer', 'permitter', 'leadExpert']
+    return ['performer', 'ert', 'permitter', 'issuer', 'leadExpert']
   }
   return [...CORE_SIGNING_ORDER]
 }
@@ -39,8 +39,8 @@ export const SIGNING_ROLE_ORDER: EgovSignRole[] = [...CORE_SIGNING_ORDER]
 
 /** Согласующие после производителя (без ERT). */
 export const APPROVER_SIGNING_ROLES: EgovSignRole[] = [
-  'issuer',
   'permitter',
+  'issuer',
   'leadExpert',
 ]
 
@@ -49,7 +49,7 @@ export function approverSigningRoles(
   permit: Pick<Permit, 'specialWorkActivities' | 'specialWorkActivity' | 'permitType'>,
 ): EgovSignRole[] {
   if (permitRequiresErtApproval(permit)) {
-    return ['ert', 'issuer', 'permitter', 'leadExpert']
+    return ['ert', 'permitter', 'issuer', 'leadExpert']
   }
   return [...APPROVER_SIGNING_ROLES]
 }
@@ -96,36 +96,84 @@ export function permitSigningPhaseActive(permit: Permit): boolean {
   return false
 }
 
-/** Производитель подписал, но бригада ещё не ознакомилась — блокируем согласующих. */
-export function isCrewAckPhaseActive(permit: Permit): boolean {
+/** Производитель подписал, но бригада ещё не ознакомилась. */
+export function isCrewAckPhaseActive(permit: Permit, directory: DemoUser[] = []): boolean {
   if (!permitSigningPhaseActive(permit)) return false
-  if (!isRoleSigned(permit, 'performer')) return false
-  return !allCrewAcknowledged(permit)
+  if (!isRoleSigned(permit, 'performer', directory)) return false
+  return !allCrewAcknowledged(permit, directory)
 }
 
-export function signingQueueBlockedReason(permit: Permit): string | null {
-  if (!isCrewAckPhaseActive(permit)) return null
-  return crewAckGateMessage(permit) ?? localeMessages().signing.crewBlocked
+/** Ознакомление бригады обязательно перед согласующими (после подписи производителя). */
+export function crewAckBlocksRole(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  if (!isCrewAckPhaseActive(permit, directory)) return false
+  return role !== 'performer'
 }
 
-export function nextRoleToSign(permit: Permit): EgovSignRole | null {
+export function signingQueueBlockedReason(
+  permit: Permit,
+  directory: DemoUser[] = [],
+): string | null {
+  if (!isCrewAckPhaseActive(permit, directory)) return null
+  return crewAckGateMessage(permit, directory) ?? localeMessages().signing.crewBlocked
+}
+
+/** Подпись засчитывается в UI только если все предыдущие шаги очереди тоже подписаны. */
+export function displayRoleSigned(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  if (!isRoleSigned(permit, role, directory)) return false
+  if (!isStrictEgovSigningPhase(permit)) return true
+  if (
+    role !== 'performer' &&
+    isRoleSigned(permit, 'performer', directory) &&
+    !allCrewAcknowledged(permit, directory)
+  ) {
+    return false
+  }
+  const order = signingRoleOrder(permit)
+  const idx = order.indexOf(role)
+  if (idx <= 0) return true
+  return order.slice(0, idx).every((prior) => isRoleSigned(permit, prior, directory))
+}
+
+/** ЭЦП есть, но предыдущие шаги очереди ещё не завершены (старый порядок подписания). */
+export function outOfOrderRoleSignature(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  return isRoleSigned(permit, role, directory) && !displayRoleSigned(permit, role, directory)
+}
+
+export function nextRoleToSign(permit: Permit, directory: DemoUser[] = []): EgovSignRole | null {
   if (!permitSigningPhaseActive(permit)) return null
   if (isPermitSigningRejected(permit)) return null
-  if (!isRoleSigned(permit, 'performer')) return 'performer'
-  if (!allCrewAcknowledged(permit)) return null
+  if (!isRoleSigned(permit, 'performer', directory)) return 'performer'
+  if (!allCrewAcknowledged(permit, directory)) return null
+
   for (const role of requiredSignRoles(permit)) {
     if (role === 'performer') continue
-    if (!isRoleSigned(permit, role)) return role
+    if (!isRoleSigned(permit, role, directory)) return role
   }
   return null
 }
 
-export function canSignRoleNow(permit: Permit, role: EgovSignRole): boolean {
+export function canSignRoleNow(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
   if (!permitSigningPhaseActive(permit)) return false
   if (isPermitSigningRejected(permit)) return false
-  if (isRoleSigned(permit, role)) return false
+  if (displayRoleSigned(permit, role, directory)) return false
   if (!requiredSignRoles(permit).includes(role)) return false
-  return nextRoleToSign(permit) === role
+  return nextRoleToSign(permit, directory) === role
 }
 
 export function pdfApprovalRoleLabel(role: EgovSignRole): string {
@@ -209,13 +257,17 @@ export function waitingHint(
   permit: Permit,
   role: EgovSignRole,
   resolveUser?: (uid: string) => { displayName: string } | undefined,
+  directory: DemoUser[] = [],
 ): string | null {
-  if (isRoleSigned(permit, role)) return null
-  const crewBlock = signingQueueBlockedReason(permit)
-  if (crewBlock && role !== 'performer') return crewBlock
-  const next = nextRoleToSign(permit)
+  if (displayRoleSigned(permit, role, directory)) return null
+  const crewBlock = signingQueueBlockedReason(permit, directory)
+  if (crewBlock && crewAckBlocksRole(permit, role, directory)) return crewBlock
+  const next = nextRoleToSign(permit, directory)
   if (!next) return crewBlock
   if (next === role) return null
+  if (outOfOrderRoleSignature(permit, role, directory)) {
+    return 'Подпись этого шага будет доступна после завершения предыдущих этапов очереди.'
+  }
   return fillTemplate(localeMessages().signing.waitingFirst, {
     step: approvalStepLabel(next, permit, resolveUser),
   })

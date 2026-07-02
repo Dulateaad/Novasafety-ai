@@ -44,8 +44,8 @@ const ROLE_USERS = [
     role: 'issuer',
   },
   {
-    email: 'abylay2@nova.local',
-    password: 'Abylay2523',
+    email: 'abylay@nova.local',
+    password: 'Abylay123',
     displayName: 'Абылай Акмалиев',
     role: 'performer',
   },

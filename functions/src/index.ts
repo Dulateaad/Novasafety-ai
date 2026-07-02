@@ -13,8 +13,13 @@ import {
   assertSignerMatchesProfile,
   SignerIdentityRejected,
 } from './signing/verifySignerIdentity'
-import { canUserSignRole, signatureFlagKey } from './signing/permissions'
-import { patchAsorApprovalsOnSign } from './signing/approvalSequence'
+import {
+  assigneeUidForRole,
+  canUserSignRole,
+  loadAssigneeEmail,
+  signatureFlagKey,
+} from './signing/permissions'
+import { canSignRoleNow, patchAsorApprovalsOnSign } from './signing/approvalSequence'
 import { maybeAutoIssuePatch, applyAutoIssueIfReady } from './signing/autoIssue'
 import {
   ensureDefaultNdprSignerAccounts,
@@ -31,9 +36,11 @@ import {
 import { broadcastPermitNotice } from './notifications/permitNotices'
 import { notifyUser } from './notifications/notifyUser'
 import {
-  canUserSignCrewAck,
+  canUserSignCrewAckAsync,
   completeCrewAckInvite,
+  allCrewAcknowledgedAsync,
 } from './signing/crewAck'
+import { resolveWorkerUidOnServer } from './signing/resolveWorkerUid'
 import type { EgovSignRole } from './signing/types'
 import { SESSION_TTL_MS } from './signing/types'
 import { CALLABLE_OPTIONS } from './callableOptions'
@@ -192,10 +199,17 @@ export const getSigningDocument = onCall(CALLABLE_OPTIONS, async (request) => {
 
   const permit = permitSnap.data()!
   const user = userSnap.data()!
-  if (!canUserSignRole(user, uid, permit, role)) {
+  const assigneeEmail = await loadAssigneeEmail(db, assigneeUidForRole(permit, role))
+  if (!canUserSignRole(user, uid, permit, role, { assigneeEmail })) {
     throw new HttpsError(
       'permission-denied',
       'Недостаточно прав для подписи этой роли',
+    )
+  }
+  if (!canSignRoleNow(permit, role)) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Сейчас не очередь этой роли — дождитесь предыдущих подписей',
     )
   }
 
@@ -290,8 +304,15 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
   }
   const permit = permitSnap.data()!
   const user = userSnap.data()!
-  if (!canUserSignRole(user, uid, permit, role)) {
+  const assigneeEmail = await loadAssigneeEmail(db, assigneeUidForRole(permit, role))
+  if (!canUserSignRole(user, uid, permit, role, { assigneeEmail })) {
     throw new HttpsError('permission-denied', 'Нет прав на эту подпись')
+  }
+  if (!canSignRoleNow(permit, role)) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Сейчас не очередь этой роли — дождитесь предыдущих подписей',
+    )
   }
 
   let signerInfo
@@ -664,7 +685,7 @@ export const getCrewAckDocument = onCall(CALLABLE_OPTIONS, async (request) => {
 
   const permit = permitSnap.data()!
   const user = userSnap.data()!
-  if (!canUserSignCrewAck(user, uid, permit)) {
+  if (!(await canUserSignCrewAckAsync(db, user, uid, permit))) {
     throw new HttpsError('permission-denied', 'Нет прав на ознакомление по этому наряду')
   }
 
@@ -734,7 +755,7 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
 
   const permit = permitSnap.data()!
   const user = userSnap.data()!
-  if (!canUserSignCrewAck(user, uid, permit)) {
+  if (!(await canUserSignCrewAckAsync(db, user, uid, permit))) {
     throw new HttpsError('permission-denied', 'Нет прав на ознакомление')
   }
 
@@ -761,14 +782,29 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
   }
 
   const executors = Array.isArray(permit.executors) ? [...permit.executors] : []
-  const nextExecutors = executors.map((ex) => {
-    const row = ex as { userUid?: string; briefingAcknowledged?: boolean }
-    if (String(row.userUid ?? '').trim() !== uid) return ex
-    return { ...row, briefingAcknowledged: true }
-  })
-  const crewAckSignatures = {
-    ...(permit.crewAckSignatures ?? {}),
+  const nextExecutors = await Promise.all(
+    executors.map(async (ex) => {
+      const row = ex as { userUid?: string; briefingAcknowledged?: boolean }
+      const raw = String(row.userUid ?? '').trim()
+      if (!raw) return ex
+      const resolved = await resolveWorkerUidOnServer(db, raw)
+      if (raw === uid || resolved === uid) {
+        return { ...row, briefingAcknowledged: true }
+      }
+      return ex
+    }),
+  )
+  const crewAckSignatures: Record<string, typeof stored> = {
+    ...((permit.crewAckSignatures as Record<string, typeof stored> | undefined) ?? {}),
     [uid]: stored,
+  }
+  for (const ex of executors) {
+    const raw = String((ex as { userUid?: string }).userUid ?? '').trim()
+    if (!raw || raw === uid) continue
+    const resolved = await resolveWorkerUidOnServer(db, raw)
+    if (resolved === uid) {
+      crewAckSignatures[raw] = stored
+    }
   }
 
   await db.collection('permits').doc(permitId).update({
@@ -784,14 +820,16 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
   }
 
   await completeCrewAckInvite(db, permitId, uid)
-  if (
-    await applyAutoIssueIfReady(db, permitId, mergedPermit, {
-      uid,
-      role: String(user.role ?? 'executor'),
-    })
-  ) {
+  if (await allCrewAcknowledgedAsync(db, mergedPermit)) {
+    await provisionPermitSigners(db, permitId)
+  } else {
     await refreshCrewAckInvites(db, permitId)
   }
+
+  await applyAutoIssueIfReady(db, permitId, mergedPermit, {
+    uid,
+    role: String(user.role ?? 'executor'),
+  })
 
   await sessionRef.update({ used: true, completedAt: FieldValue.serverTimestamp() })
 

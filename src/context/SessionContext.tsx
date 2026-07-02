@@ -33,7 +33,8 @@ import {
 import { auth, db, firebaseConfigured } from '../lib/firebase'
 import { profileDocToDemoUser } from '../lib/userProfile'
 import { canUserDeletePermit } from '../lib/permitDelete'
-import { resetSessionUser, syncSessionUser } from '../lib/packageSession'
+import { resetSessionUser, syncSessionUser, clearPackageSession } from '../lib/packageSession'
+import { readResumePermitId } from '../lib/resumePermitPackage'
 import { createRepository } from '../storage/repositoryFactory'
 import type { PermitRepository } from '../storage/types'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
@@ -322,6 +323,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setError(null)
       try {
         await repo.deletePermit(id, user)
+        if (readResumePermitId() === id) {
+          clearPackageSession()
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
@@ -338,6 +342,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       await repo.deleteAllPermits(user)
+      clearPackageSession()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       throw e

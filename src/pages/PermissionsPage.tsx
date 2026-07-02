@@ -14,6 +14,8 @@ import { setPermissionsGatePassed } from '../lib/permissionsGate'
 import { loadPprForm } from '../lib/pprAutosave'
 import { restoreNewPermitDraftFromSession } from '../lib/newPermitDraftAutosave'
 import { prepareNdprDraftForValidation } from '../lib/validateNdprDraft'
+import { resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { readResumePermitId } from '../lib/resumePermitPackage'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import {
   canUserSubmitPermitPackage,
@@ -84,10 +86,19 @@ export function PermissionsPage() {
   const [stage, setStage] = useState<string | null>(null)
   const [bundle, setBundle] = useState<WorkPermissionsBundle | null>(null)
 
-  const draft = useMemo(
-    () => prepareNdprDraftForValidation(restoreNewPermitDraftFromSession(), user, userDirectory),
-    [user, userDirectory],
-  )
+  const draft = useMemo(() => {
+    const prepared = prepareNdprDraftForValidation(
+      restoreNewPermitDraftFromSession(),
+      user,
+      userDirectory,
+    )
+    const registrationRefNo = resolveRegistrationRefNo(
+      prepared,
+      permits,
+      readResumePermitId(),
+    )
+    return { ...prepared, registrationRefNo }
+  }, [user, userDirectory, permits])
   const form = useMemo(() => loadAsorFromSession(), [])
   const ppr = useMemo(() => loadPprForm(), [])
   const templates = useMemo(() => permissionNoticesForActivities(draft), [draft])
@@ -102,21 +113,13 @@ export function PermissionsPage() {
   useEffect(() => {
     if (!permissionsRequired) return
     setBundle((prev) => {
-      if (prev) return prev
-      return (
+      const base =
+        prev ??
         restoreWorkPermissionsFromSession() ??
         initializeWorkPermissionsBundle(draft, ppr ?? undefined, permits)
-      )
+      return enrichWorkPermissionsBundle(draft, base, permits)
     })
   }, [draft, ppr, permissionsRequired, permits])
-
-  useEffect(() => {
-    if (!permissionsRequired) return
-    setBundle((prev) => {
-      if (!prev) return prev
-      return enrichWorkPermissionsBundle(draft, prev, permits)
-    })
-  }, [draft.registrationRefNo, draft.f02?.badgeNo, permissionsRequired, permits, draft, ppr])
 
   useEffect(() => {
     if (bundle) saveWorkPermissionsToSession(bundle)
@@ -192,6 +195,7 @@ export function PermissionsPage() {
       packageDraft = {
         ...packageDraft,
         performerUid,
+        registrationRefNo: draft.registrationRefNo,
         ppr: ppr ?? undefined,
         asor: asorWithApprovers,
         workPermissions: readyBundle,

@@ -3,7 +3,8 @@ import type { Permit, DemoUser } from '../types/domain'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import { EGOV_ROLE_LABELS } from '../types/egovSignature'
 import { EgovQrSignModal } from './EgovQrSignModal'
-import { isRoleSigned, roleSignedByLabel } from '../lib/signatureStatus'
+import { displayRoleSigned, outOfOrderRoleSignature } from '../lib/approvalSequence'
+import { roleSignedByLabel, staleEgovSignatureForRole } from '../lib/signatureStatus'
 import {
   isPermitSigningRejected,
   rejectionActorLabel,
@@ -23,6 +24,7 @@ export function EgovSignatureRoleRow(props: {
   onReject?: () => void
   onSaveSignature: (sig: StoredEgovSignature) => void
   resolveUser?: (uid: string) => DemoUser | undefined
+  userDirectory?: DemoUser[]
 }) {
   const {
     permit,
@@ -35,13 +37,16 @@ export function EgovSignatureRoleRow(props: {
     onReject,
     onSaveSignature,
     resolveUser,
+    userDirectory = [],
   } = props
   const { online } = useNetwork()
   const { t } = useLanguage()
   const ui = t.signingUi
   const [modalOpen, setModalOpen] = useState(false)
-  const signed = isRoleSigned(permit, role)
-  const egov = permit.egovSignatures?.[role]
+  const signed = displayRoleSigned(permit, role, userDirectory)
+  const outOfOrder = outOfOrderRoleSignature(permit, role, userDirectory)
+  const egov = signed ? permit.egovSignatures?.[role] : undefined
+  const staleEgov = staleEgovSignatureForRole(permit, role, userDirectory)
   const signedByLabel = roleSignedByLabel(permit, role, resolveUser)
   const rejected = isPermitSigningRejected(permit)
   const rejectedRole = rejectionSignerRole(permit)
@@ -120,7 +125,11 @@ export function EgovSignatureRoleRow(props: {
 
       {!canSign && !signed && !rejected && (
         <p className="muted xsmall">
-          {waitingMessage ?? ui.waitingDefault}
+          {outOfOrder
+            ? 'ЭЦП этого шага сохранена, но шаг ещё не наступил — дождитесь очереди после предыдущих участников.'
+            : staleEgov
+              ? `Ранее подписано (${staleEgov.signedByDisplayName?.trim() || 'другой пользователь'}) — требуется ЭЦП текущего участника.`
+              : (waitingMessage ?? ui.waitingDefault)}
         </p>
       )}
 

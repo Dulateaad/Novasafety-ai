@@ -1,13 +1,30 @@
-import type { DemoUser, Permit } from '../types/domain'
+import type { DemoUser, Permit, UserRole } from '../types/domain'
 import type { EgovSignRole } from '../types/egovSignature'
 import { ROLE_LABELS } from '../types/domain'
-import { approvalStepLabel, canSignRoleNow, nextRoleToSign, permitSigningPhaseActive } from './approvalSequence'
-import { uidMatchesAccount } from './permitAccess'
-import { assigneeUidForRole, isRoleSigned } from './signatureStatus'
+import {
+  approvalStepLabel,
+  canSignRoleNow,
+  displayRoleSigned,
+  nextRoleToSign,
+  permitSigningPhaseActive,
+  signingQueueBlockedReason,
+} from './approvalSequence'
+import {
+  actorMatchesAssigneeForRole,
+  resolvedAssigneeUidForRole,
+} from './signatureStatus'
 
 export type SignEligibility = {
   canSign: boolean
   reason: string | null
+}
+
+const EGOV_ROLE_TO_USER_ROLE: Partial<Record<EgovSignRole, UserRole>> = {
+  performer: 'performer',
+  permitter: 'permitter',
+  issuer: 'issuer',
+  leadExpert: 'leadExpert',
+  ert: 'ert',
 }
 
 export function signEligibilityForRole(
@@ -21,48 +38,41 @@ export function signEligibilityForRole(
     return { canSign: false, reason: 'Наряд не на этапе «На согласовании».' }
   }
 
-  if (isRoleSigned(permit, role)) {
+  if (displayRoleSigned(permit, role, directory)) {
     return { canSign: false, reason: 'Этот этап уже подписан.' }
   }
 
-  const next = nextRoleToSign(permit)
+  const next = nextRoleToSign(permit, directory)
   if (next !== role) {
     return {
       canSign: false,
       reason: next
-        ? `Сейчас очередь: ${approvalStepLabel(next)}.`
-        : 'Все обязательные этапы подписаны.',
+        ? `Сейчас очередь: ${approvalStepLabel(next, permit, resolveUser)}.`
+        : signingQueueBlockedReason(permit, directory) ??
+          'Все обязательные этапы подписаны.',
     }
   }
 
-  if (!canSignRoleNow(permit, role)) {
+  if (!canSignRoleNow(permit, role, directory)) {
     return { canSign: false, reason: 'Подпись этого этапа пока недоступна.' }
   }
 
-  /** Координатор подписывает текущий этап очереди (если functions/назначенный недоступны). */
   if (user.role === 'coordinator') {
-    return {
-      canSign: true,
-      reason: null,
-    }
+    return { canSign: true, reason: null }
   }
 
-  const assigneeUid = assigneeUidForRole(permit, role)
+  if (EGOV_ROLE_TO_USER_ROLE[role] === user.role) {
+    return { canSign: true, reason: null }
+  }
+
+  if (actorMatchesAssigneeForRole(permit, role, user, directory)) {
+    return { canSign: true, reason: null }
+  }
+
+  const assigneeUid = resolvedAssigneeUidForRole(permit, role, directory)
   const assignee = resolveUser(assigneeUid)
-
-  if (user.role !== role) {
-    return {
-      canSign: false,
-      reason: `Подпись ставит ${ROLE_LABELS[role]} (${assignee?.displayName ?? assigneeUid}). Вы вошли как ${ROLE_LABELS[user.role]}.`,
-    }
+  return {
+    canSign: false,
+    reason: `В наряде указан другой ${ROLE_LABELS[role].toLowerCase()}: ${assignee?.displayName ?? assigneeUid}. Вы: ${user.displayName}.`,
   }
-
-  if (!uidMatchesAccount(assigneeUid, user, directory)) {
-    return {
-      canSign: false,
-      reason: `В наряде указан другой ${ROLE_LABELS[role].toLowerCase()}: ${assignee?.displayName ?? assigneeUid}. Вы: ${user.displayName}.`,
-    }
-  }
-
-  return { canSign: true, reason: null }
 }

@@ -3,6 +3,7 @@ import { uidMatchesAccount } from './permitAccess'
 import { canUserTriggerStatus, validateTransition } from './transitions'
 import { localeMessages } from '../i18n/getLocale'
 import { permitSigningPhaseActive } from './approvalSequence'
+import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
 import { isRoleSigned } from './signatureStatus'
 import { allCrewAcknowledged } from './crewAckComplete'
 
@@ -79,15 +80,17 @@ export function pendingApprovalsForUser(
       priority: 0,
     })
 
-    pushSignItem(items, p, user, directory, {
-      role: 'permitter',
-      assigneeUid: p.permitterUid,
-      signed: isRoleSigned(p, 'permitter'),
-      action: 'sign_permitter',
-      labelSelf: 'Поставить подпись допускающего',
-      labelCoord: 'Ожидает подпись допускающего',
-      priority: 1,
-    })
+    if (permitterOnApprovalUnlocked(p, directory)) {
+      pushSignItem(items, p, user, directory, {
+        role: 'permitter',
+        assigneeUid: p.permitterUid,
+        signed: isRoleSigned(p, 'permitter'),
+        action: 'sign_permitter',
+        labelSelf: 'Поставить подпись допускающего',
+        labelCoord: 'Ожидает подпись допускающего',
+        priority: 1,
+      })
+    }
 
     pushSignItem(items, p, user, directory, {
       role: 'issuer',
@@ -113,7 +116,7 @@ export function pendingApprovalsForUser(
 
     const signaturesComplete =
       isRoleSigned(p, 'performer') &&
-      allCrewAcknowledged(p) &&
+      allCrewAcknowledged(p, directory) &&
       isRoleSigned(p, 'permitter') &&
       isRoleSigned(p, 'issuer') &&
       (p.category !== 1 || isRoleSigned(p, 'leadExpert'))

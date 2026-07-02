@@ -152,23 +152,12 @@ export function packageDraftToPermitFields(draft: PermitDraft): Partial<Permit> 
     registrationRefNo: draft.registrationRefNo,
     f02: draft.f02,
     f04: draft.f04,
-    executors: draft.executors.map((ex) => ({
-      ...ex,
-      briefingAcknowledged: false,
-    })),
+    executors: draft.executors,
     ndprChecklist: draft.ndprChecklist,
     sitePhotos: draft.sitePhotos,
     ppr: draft.ppr,
     asor: draft.asor,
     specialWorkActivities: draft.specialWorkActivities,
     workPermissions: draft.workPermissions,
-    egovSignatures: {},
-    crewAckSignatures: {},
-    signatures: {
-      performerSigned: false,
-      issuerSigned: false,
-      permitterSigned: false,
-      leadExpertSigned: false,
-    },
   }
 }

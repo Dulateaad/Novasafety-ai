@@ -24,7 +24,7 @@ export function PerformerGasTestModesPanel(props: {
   const wp = t.workPermission
   const c = t.common
   const serverBundle = permit.workPermissions
-  const canEdit = isPermitProducer(permit, actor) && EDIT_STATUSES.has(permit.status)
+  const canEdit = isPermitProducer(permit, actor, userDirectory) && EDIT_STATUSES.has(permit.status)
   const [localBundle, setLocalBundle] = useState<WorkPermissionsBundle | null>(serverBundle ?? null)
   const [dirty, setDirty] = useState(false)
   const [dirtyKinds, setDirtyKinds] = useState<WorkPermissionKind[]>([])

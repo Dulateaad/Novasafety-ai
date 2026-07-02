@@ -1,4 +1,5 @@
 import type { DemoUser, Permit } from '../types/domain'
+import { isExecutorCrewAckDone } from './crewAckComplete'
 
 export type PermitCrewRow = {
   id: string
@@ -19,17 +20,42 @@ export function permitToolsAndEquipment(permit: Permit): string {
   )
 }
 
-/** Бригада для ознакомления с АБР: АБР → декларация АСОР → executors НДПР. */
+/** Бригада для ознакомления с АБР: executors НДПР + ФИО из АБР + статус ЭЦП. */
 export function buildPermitCrewRows(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[] = [],
 ): PermitCrewRow[] {
   const abrCrew =
     permit.asor?.abr?.crewAcknowledgments?.filter((c) => c.fullName.trim()) ?? []
+
+  const executorsWithUid = permit.executors.filter((ex) => ex.userUid.trim())
+  if (executorsWithUid.length > 0) {
+    return executorsWithUid.map((ex, i) => {
+      const uid = ex.userUid.trim()
+      const abrPerson = abrCrew[i]
+      const sig = permit.crewAckSignatures?.[uid]
+      return {
+        id: ex.id,
+        userUid: uid,
+        fullName:
+          abrPerson?.fullName.trim() ||
+          resolveUser(uid)?.displayName?.trim() ||
+          uid,
+        badgeNo: abrPerson?.badgeNo.trim() || '',
+        dateIso: sig?.signedAtIso
+          ? new Date(sig.signedAtIso).toLocaleString('ru-RU')
+          : ex.dateIso,
+        acknowledged: isExecutorCrewAckDone(permit, uid, directory),
+        roleLabel: abrPerson?.roleLabel.trim() || 'Работник',
+      }
+    })
+  }
+
   if (abrCrew.length > 0) {
     return abrCrew.map((c, i) => ({
       id: `abr-${i}`,
-      userUid: permit.executors[i]?.userUid ?? '',
+      userUid: permit.executors[i]?.userUid.trim() ?? '',
       fullName: c.fullName.trim(),
       badgeNo: c.badgeNo.trim(),
       dateIso: '',

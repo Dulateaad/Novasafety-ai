@@ -1,11 +1,24 @@
-import type { DocumentData } from 'firebase-admin/firestore'
-import { allCrewAcknowledged } from './crewAck'
+import type { DocumentData, Firestore } from 'firebase-admin/firestore'
+import { allCrewAcknowledged, allCrewAcknowledgedAsync } from './crewAck'
 import { permitRequiresErtApproval } from './fireWorkApproval'
+import { assigneeUidForRole } from './permissions'
 import type { EgovSignRole } from './types'
 
 function isRoleSigned(permit: DocumentData, role: string): boolean {
-  const egov = permit.egovSignatures as Record<string, { cmsBase64?: string }> | undefined
-  if (egov?.[role]?.cmsBase64?.trim()) return true
+  const egov = permit.egovSignatures as
+    | Record<string, { cmsBase64?: string; signedByUid?: string }>
+    | undefined
+  const stored = egov?.[role]
+  if (stored?.cmsBase64?.trim()) {
+    if (String(permit.status ?? '') === 'on_approval') {
+      const assigneeUid = assigneeUidForRole(permit, role as EgovSignRole).trim()
+      const signerUid = String(stored.signedByUid ?? '').trim()
+      if (!assigneeUid || !signerUid) return false
+      if (assigneeUid !== signerUid) return false
+    }
+    return true
+  }
+  if (permitSigningPhaseActive(permit)) return false
   const sig = permit.signatures as Record<string, boolean> | undefined
   if (role === 'performer') return !!sig?.performerSigned
   if (role === 'permitter') return !!sig?.permitterSigned
@@ -14,11 +27,11 @@ function isRoleSigned(permit: DocumentData, role: string): boolean {
   return !!sig?.leadExpertSigned
 }
 
-const CORE_ORDER: EgovSignRole[] = ['performer', 'issuer', 'permitter', 'leadExpert']
+const CORE_ORDER: EgovSignRole[] = ['performer', 'permitter', 'issuer', 'leadExpert']
 
 export function signingRoleOrder(permit: DocumentData): EgovSignRole[] {
   if (permitRequiresErtApproval(permit)) {
-    return ['performer', 'ert', 'issuer', 'permitter', 'leadExpert']
+    return ['performer', 'ert', 'permitter', 'issuer', 'leadExpert']
   }
   return [...CORE_ORDER]
 }
@@ -46,15 +59,32 @@ export function permitSigningPhaseActive(permit: DocumentData): boolean {
   return false
 }
 
-export function nextRoleToSign(permit: DocumentData): EgovSignRole | null {
-  if (!permitSigningPhaseActive(permit)) return null
-  if (!isRoleSigned(permit, 'performer')) return 'performer'
-  if (!allCrewAcknowledged(permit)) return null
+function nextUnsignedRoleAfterPerformer(
+  permit: DocumentData,
+  crewAcknowledged: boolean,
+): EgovSignRole | null {
+  if (!crewAcknowledged) return null
   for (const role of requiredSignRoles(permit)) {
     if (role === 'performer') continue
     if (!isRoleSigned(permit, role)) return role
   }
   return null
+}
+
+export async function nextRoleToSignAsync(
+  db: Firestore,
+  permit: DocumentData,
+): Promise<EgovSignRole | null> {
+  if (!permitSigningPhaseActive(permit)) return null
+  if (!isRoleSigned(permit, 'performer')) return 'performer'
+  const crewAcknowledged = await allCrewAcknowledgedAsync(db, permit)
+  return nextUnsignedRoleAfterPerformer(permit, crewAcknowledged)
+}
+
+export function nextRoleToSign(permit: DocumentData): EgovSignRole | null {
+  if (!permitSigningPhaseActive(permit)) return null
+  if (!isRoleSigned(permit, 'performer')) return 'performer'
+  return nextUnsignedRoleAfterPerformer(permit, allCrewAcknowledged(permit))
 }
 
 const SIGNING_ACTION_LABEL: Record<EgovSignRole, string> = {

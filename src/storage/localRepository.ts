@@ -102,7 +102,7 @@ export function seedDemoPermitIfEmpty() {
     toolsAndEquipment: 'Болгарка, сварочный аппарат.',
     issuerUid: 'u-issuer-temirlan',
     permitterUid: 'u-permitter',
-    performerUid: 'u-performer-abylay',
+    performerUid: 'u-performer-6',
     leadExpertUid: 'u-lead',
     ertUid: 'u-ert',
     isContractorPermit: false,
@@ -115,7 +115,7 @@ export function seedDemoPermitIfEmpty() {
     version: 1,
     signatures: {
       performerSigned: false,
-      issuerSigned: true,
+      issuerSigned: false,
       permitterSigned: false,
       leadExpertSigned: false,
       ertSigned: false,

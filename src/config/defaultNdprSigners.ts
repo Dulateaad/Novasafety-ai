@@ -30,8 +30,8 @@ export const DEFAULT_NDPR_SIGNERS: DefaultSignerSpec[] = [
   {
     slot: 'performer',
     displayName: 'Абылай Акмалиев',
-    emails: ['abylay2@nova.local', 'abylay@nova.local'],
-    demoIds: ['u-performer-abylay', 'u-performer-6'],
+    emails: ['abylay@nova.local'],
+    demoIds: ['u-performer-6'],
     roles: ['performer'],
     namePatterns: [/акмали/i, /абылай/i],
   },

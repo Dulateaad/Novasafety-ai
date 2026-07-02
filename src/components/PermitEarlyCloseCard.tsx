@@ -6,14 +6,15 @@ import { canCloseNdprEarly, closeNdprEarlyDeniedReason } from '../lib/closeNdprE
 export function PermitEarlyCloseCard(props: {
   permit: Permit
   actor: DemoUser
+  userDirectory?: DemoUser[]
   busy?: boolean
   onClose: () => void
 }) {
-  const { permit, actor, busy, onClose } = props
+  const { permit, actor, userDirectory = [], busy, onClose } = props
   const { t } = useLanguage()
   const cl = t.closure
-  const canClose = canCloseNdprEarly(permit, actor)
-  const hint = closeNdprEarlyDeniedReason(permit, actor)
+  const canClose = canCloseNdprEarly(permit, actor, userDirectory)
+  const hint = closeNdprEarlyDeniedReason(permit, actor, userDirectory)
 
   if (actor.role !== 'performer' && actor.role !== 'coordinator') return null
   if (['closed', 'archived', 'annulled', 'on_approval', 'draft'].includes(permit.status)) {

@@ -36,7 +36,11 @@ export async function buildCrewAckPackagePdf(
       abr = applyAbrHeaderFromPprNd(abr, permit.ppr, permit)
     }
     abr = mergeAbrPeopleFromNd(abr, permit, resolveName, resolveBadge)
-    const { base64 } = await buildAbrPdf(abr)
+    const { base64 } = await buildAbrPdf(abr, permit.abrDailyAcks, {
+      permit,
+      resolveUser,
+      directory,
+    })
     parts.push(base64)
   }
 

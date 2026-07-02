@@ -53,11 +53,18 @@ export function nextRegistrationNumber(permits: Permit[]): string {
   return formatRegistrationNumber(maxRegistrationSequence(permits) + 1)
 }
 
-/** Номер из черновика или следующий свободный рег. номер (не № бейджа). */
+/** Номер из черновика, возобновлённого наряда или следующий свободный рег. номер (не № бейджа). */
 export function resolveRegistrationRefNo(
   draft: PermitDraft,
   permits: Permit[],
+  resumePermitId?: string | null,
 ): string {
+  const resumed = resumePermitId
+    ? permits.find((p) => p.id === resumePermitId)
+    : undefined
+  const resumedRef = resumed?.registrationRefNo?.trim()
+  if (resumedRef) return resumedRef
+
   const manual = draft.registrationRefNo?.trim()
   if (manual && /^\d+$/.test(manual)) {
     const formatted = formatRegistrationNumber(parseInt(manual, 10))

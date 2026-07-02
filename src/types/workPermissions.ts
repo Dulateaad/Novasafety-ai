@@ -113,6 +113,8 @@ export interface WorkPermissionDocument {
 export interface WorkPermissionsBundle {
   documents: WorkPermissionDocument[]
   updatedAtIso: string
+  /** Допускающий сохранил раздел 3 — можно подписывать ЭЦП. */
+  permitterPreWorkSavedAtIso?: string
 }
 
 export const WORK_PERMISSION_KIND_LABELS: Record<WorkPermissionKind, string> = {

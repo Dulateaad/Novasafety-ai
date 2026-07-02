@@ -5,8 +5,11 @@ import {
   formatAbrNumbers,
 } from '../config/abrCatalog'
 import type { AbrForm, AbrStageRow } from '../types/abr'
+import type { DemoUser, Permit } from '../types/domain'
 import { abrDailyAckSignaturePdfText } from './abrDailyAckSignaturePdfText'
 import { normalizeAbrDailyAcks } from './abrDailyAck'
+import { buildPermitCrewRows } from './permitCrewRows'
+import { crewAckDatePdfText, crewAckSignaturePdfText } from './crewAckPdfText'
 import { initPdfMake, pdfBase64Async } from './pdfMakeEngine'
 
 type PdfCell = Record<string, unknown>
@@ -266,6 +269,37 @@ function controlsReferenceTable(active: Set<number>): Record<string, unknown> {
   }
 }
 
+function crewAckReportTable(
+  permit: Permit,
+  resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[],
+): Record<string, unknown> {
+  const rows = buildPermitCrewRows(permit, resolveUser, directory)
+  const body: PdfCell[][] = [
+    [
+      hdrCell('Ф.И.О.'),
+      hdrCell('Должность'),
+      hdrCell('Дата'),
+      hdrCell('Подпись'),
+    ],
+    ...(rows.length > 0
+      ? rows.map((r) => [
+          cell(r.fullName),
+          cell(r.roleLabel),
+          cell(crewAckDatePdfText(permit, r.userUid, r.dateIso)),
+          cell(crewAckSignaturePdfText(permit, r.userUid, r.acknowledged), {
+            align: 'center',
+          }),
+        ])
+      : [[cell(' '), cell(' '), cell(' '), cell(' ')]]),
+  ]
+  return {
+    table: { widths: ['32%', '24%', '18%', '26%'], body },
+    layout: LAYOUT,
+    margin: [0, 0, 0, 2],
+  }
+}
+
 function dailyAckReportTable(
   days: import('../types/abrDailyAck').AbrDailyAckDay[],
 ): Record<string, unknown> {
@@ -302,9 +336,16 @@ function dailyAckReportTable(
   }
 }
 
+export type BuildAbrPdfOpts = {
+  permit?: Permit
+  resolveUser?: (uid: string) => DemoUser | undefined
+  directory?: DemoUser[]
+}
+
 export async function buildAbrPdf(
   abr: AbrForm,
   dailyAcks?: import('../types/abrDailyAck').AbrDailyAckDay[],
+  opts?: BuildAbrPdfOpts,
 ): Promise<{ base64: string; fileName: string }> {
   const activeHazards = usedHazardNumbers(abr.stages)
   const activeControls = usedControlNumbers(abr.stages)
@@ -336,6 +377,16 @@ export async function buildAbrPdf(
     sectionPara('Реестр средств защиты'),
     bodyPara('Выделены меры, отмеченные как применяемые в рамках данного АБР.'),
     controlsReferenceTable(activeControls),
+    ...(opts?.permit && opts.resolveUser
+      ? [
+          sectionPara('Подписи бригады — ознакомление при согласовании наряда'),
+          bodyPara(
+            'Работники подтверждают ознакомление с АБР и оценкой рисков перед подписью допускающего и выдающего.',
+            { italics: true },
+          ),
+          crewAckReportTable(opts.permit, opts.resolveUser, opts.directory ?? []),
+        ]
+      : []),
     sectionPara('Подписи бригады — ежедневное ознакомление с АБР'),
     bodyPara(
       'АБР подписывают только работники бригады: каждый день им приходит задание подписать ознакомление через eGov Mobile. Подпись действительна 24 часа; по истечении суток работник подписывает повторно. Ниже — журнал подписей (дата, Ф.И.О., должность, подпись).',

@@ -3,9 +3,16 @@ import type { Permit } from '../types/domain'
 import type { DemoUser } from '../types/domain'
 import {
   canPermitterEditPreWorkChecks,
+  normalizePreWorkChecksForKind,
+  normalizePreWorkChecksInBundle,
   permitterPreWorkBlockedHint,
-  preWorkAvailableColumnComplete,
+  permitterPreWorkHasUnsavedChanges,
+  permitterPreWorkItemsRemaining,
+  permitterPreWorkRequiredDocuments,
+  permitterPreWorkSavedForSign,
+  preWorkAvailableColumnCompleteForKind,
 } from '../lib/permitterPreWorkHints'
+import { nextRoleToSign } from '../lib/approvalSequence'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import { enrichWorkPermissionsBundle } from '../lib/workPermissions'
@@ -26,6 +33,8 @@ export function PermitterPreWorkLivePanel(props: {
   userDirectory: DemoUser[]
   focusKind?: WorkPermissionKind | null
   onSaved?: (bundle: WorkPermissionsBundle) => void
+  /** Локальные правки (dirty=true) — родитель сбрасывает кэш для подписи. */
+  onDraftChange?: (bundle: WorkPermissionsBundle, dirty: boolean) => void
   refresh?: () => Promise<void>
 }) {
   const {
@@ -36,6 +45,7 @@ export function PermitterPreWorkLivePanel(props: {
     userDirectory,
     focusKind,
     onSaved,
+    onDraftChange,
     refresh,
   } = props
   const { t } = useLanguage()
@@ -54,52 +64,127 @@ export function PermitterPreWorkLivePanel(props: {
 
   useEffect(() => {
     if (dirty) return
-    setLocalBundle(serverBundle ? enrichWorkPermissionsBundle(permit, serverBundle) : null)
+    setLocalBundle(
+      serverBundle
+        ? normalizePreWorkChecksInBundle(enrichWorkPermissionsBundle(permit, serverBundle))
+        : null,
+    )
   }, [serverBundle, permit.id, permit.registrationRefNo, dirty])
 
+  useEffect(() => {
+    if (!dirty || !localBundle) return
+    onDraftChange?.(localBundle, true)
+  }, [dirty, localBundle, onDraftChange])
+
   const flush = useCallback(async () => {
-    if (!localBundle || !dirty) return
+    if (!localBundle) return
+    const savedPermitPreview = { ...permit, workPermissions: normalizePreWorkChecksInBundle(localBundle) }
+    const hasChanges = permitterPreWorkHasUnsavedChanges(permit, localBundle, serverBundle ?? undefined)
+    if (!hasChanges && !dirty) {
+      const signTurn = nextRoleToSign(savedPermitPreview, userDirectory)
+      if (signTurn === 'permitter' && permitterPreWorkSavedForSign(savedPermitPreview)) {
+        setStatus(`${wp.savedPermPdf} Можно подписать в блоке «Подписи» ниже.`)
+        requestAnimationFrame(() => {
+          document.getElementById('signatures-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      } else {
+        const itemsLeft = permitterPreWorkItemsRemaining(savedPermitPreview)
+        if (itemsLeft > 0) {
+          setStatus('Отметьте пункты «Имеется» и нажмите «Сохранить проверки».')
+        } else {
+          setStatus('Нажмите «Сохранить проверки», затем можно подписать ЭЦП.')
+        }
+      }
+      window.setTimeout(() => setStatus(null), 5000)
+      return
+    }
     setBusy(true)
     setStatus(wp.updatingPermPdf)
     try {
-      const updated = await syncWorkPermissionsLive({
-        permit,
-        bundle: localBundle,
-        updatePermit,
-        resolveUser,
-        userDirectory,
-        renderKinds: dirtyKinds.length ? dirtyKinds : undefined,
+      const bundleToSave = normalizePreWorkChecksInBundle({
+        ...localBundle,
+        permitterPreWorkSavedAtIso: new Date().toISOString(),
       })
+      const updated = normalizePreWorkChecksInBundle(
+        await syncWorkPermissionsLive({
+          permit,
+          bundle: bundleToSave,
+          updatePermit,
+          resolveUser,
+          userDirectory,
+          renderKinds: dirtyKinds.length ? dirtyKinds : undefined,
+        }),
+      )
+      onSaved?.(updated)
+      if (refresh) await refresh()
       setLocalBundle(updated)
       setDirty(false)
       setDirtyKinds([])
-      onSaved?.(updated)
-      if (refresh) await refresh()
-      setStatus(wp.savedPermPdf)
-      setSavedConfirmed(true)
+      onDraftChange?.(updated, false)
+      const savedPermit = { ...permit, workPermissions: updated }
+      const signTurn = nextRoleToSign(savedPermit, userDirectory)
+      if (signTurn === 'permitter') {
+        setStatus(`${wp.savedPermPdf} Можно подписать в блоке «Подписи» ниже.`)
+        requestAnimationFrame(() => {
+          document.getElementById('signatures-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      } else {
+        const itemsLeft = permitterPreWorkItemsRemaining(savedPermit)
+        setStatus(
+          signTurn
+            ? 'Проверки сохранены. Подпись появится после подписи предыдущего участника очереди (см. блок «Подписи» ниже).'
+            : itemsLeft > 0
+              ? `Сохранено. При необходимости отметьте ещё ${itemsLeft} пунктов «Имеется».`
+              : wp.savedPermPdf,
+        )
+      }
+      if (permitterPreWorkSavedForSign(savedPermit)) {
+        setSavedConfirmed(true)
+      }
     } catch (e) {
       setStatus(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
       window.setTimeout(() => setStatus(null), 4000)
     }
-  }, [localBundle, dirty, dirtyKinds, permit, updatePermit, resolveUser, userDirectory, onSaved, refresh, wp])
+  }, [
+    localBundle,
+    dirty,
+    serverBundle,
+    dirtyKinds,
+    permit,
+    updatePermit,
+    resolveUser,
+    userDirectory,
+    onSaved,
+    onDraftChange,
+    refresh,
+    wp,
+  ])
 
   if (!localBundle?.documents?.length) return null
   if (actor.role !== 'permitter') return null
 
-  const visibleDocs = localBundle.documents.filter((doc) => {
-    if (doc.kind === 'confined_space') return false
-    if (!focusKind) return true
-    return doc.kind === focusKind
-  })
+  const visibleDocs = permitterPreWorkRequiredDocuments(permit, localBundle).filter((doc) =>
+    focusKind ? doc.kind === focusKind : true,
+  )
 
   if (visibleDocs.length === 0) return null
 
   function patchLocal(kind: WorkPermissionKind, patch: Parameters<typeof patchWorkPermissionDocument>[2]) {
     setLocalBundle((prev) => {
       if (!prev) return prev
-      return patchWorkPermissionDocument(prev, kind, patch)
+      let next = patchWorkPermissionDocument(prev, kind, patch)
+      const doc = next.documents.find((d) => d.kind === kind)
+      if (doc) {
+        next = patchWorkPermissionDocument(next, kind, {
+          form: {
+            ...doc.form,
+            preWorkChecks: normalizePreWorkChecksForKind(kind, doc.form.preWorkChecks),
+          },
+        })
+      }
+      return next
     })
     setDirty(true)
     setSavedConfirmed(false)
@@ -117,7 +202,7 @@ export function PermitterPreWorkLivePanel(props: {
     }
   }
 
-  if (savedConfirmed && !dirty) {
+  if (savedConfirmed && !dirty && permitterPreWorkSavedForSign({ ...permit, workPermissions: localBundle })) {
     const firstKind = visibleDocs[0].kind
     return (
       <section className="card work-perm-ert-panel" id="permitter-pre-work">
@@ -161,7 +246,10 @@ export function PermitterPreWorkLivePanel(props: {
       ) : null}
 
       {visibleDocs.map((doc) => {
-        const needsFill = !preWorkAvailableColumnComplete(doc.form.preWorkChecks.items)
+        const needsFill = !preWorkAvailableColumnCompleteForKind(
+          doc.kind,
+          doc.form.preWorkChecks.items,
+        )
         const isFire = doc.kind === 'open_flame_fire'
         const sectionTitle = isFire ? pwc.panelTitleFire : pwc.panelTitle
         return (
@@ -227,10 +315,15 @@ export function PermitterPreWorkLivePanel(props: {
 
       {canEdit ? (
         <div className="btn-row" style={{ marginTop: '0.75rem' }}>
+          <p className="muted xsmall" style={{ margin: '0 0 0.5rem', width: '100%' }}>
+            {visibleDocs.length > 1
+              ? 'Отметьте нужные пункты «Имеется», сохраните — затем подпишите ЭЦП в блоке ниже.'
+              : 'Отметьте пункты «Имеется», нажмите «Сохранить проверки» — затем можно подписать ЭЦП.'}
+          </p>
           <button
             type="button"
             className="btn primary small"
-            disabled={!dirty || busy}
+            disabled={busy}
             onClick={() => void flush()}
           >
             {busy ? c.saving : pwc.saveChecks}

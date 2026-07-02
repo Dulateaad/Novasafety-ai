@@ -1,7 +1,7 @@
 /**
- * Удаляет учётные записи Абылай из Auth и Firestore.
+ * Удаляет учётную запись abylay2@nova.local из Auth и Firestore.
  *   firebase login
- *   node scripts/delete-abylay-user.mjs
+ *   node scripts/delete-abylay2-user.mjs
  */
 
 import { readFileSync, existsSync } from 'fs'
@@ -9,7 +9,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 
 const PROJECT_ID = 'naryad-67194'
-const EMAILS = ['abylay@nova.local', 'abylay2@nova.local']
+const EMAIL = 'abylay2@nova.local'
 
 function loadAccessToken() {
   const cfgPath = join(homedir(), '.config', 'configstore', 'firebase-tools.json')
@@ -56,29 +56,23 @@ async function firestoreDelete(uid, token) {
   }
 }
 
-async function deleteEmail(email) {
+async function main() {
   const token = loadAccessToken()
   const lookup = await authRequest(`projects/${PROJECT_ID}/accounts:lookup`, {
-    email: [email],
+    email: [EMAIL],
   })
   const found = lookup.users?.[0]
   if (!found?.localId) {
-    console.log(`Аккаунт ${email} не найден в Auth — пропуск.`)
+    console.log(`Аккаунт ${EMAIL} не найден — пропуск.`)
     return
   }
 
   const uid = found.localId
   await authRequest(`projects/${PROJECT_ID}/accounts:delete`, { localId: uid })
-  console.log(`✓ Удалён из Auth: ${email} (${uid})`)
+  console.log(`✓ Удалён из Auth: ${EMAIL} (${uid})`)
 
   await firestoreDelete(uid, token)
   console.log(`✓ Удалён профиль Firestore: users/${uid}`)
-}
-
-async function main() {
-  for (const email of EMAILS) {
-    await deleteEmail(email)
-  }
 }
 
 main().catch((e) => {

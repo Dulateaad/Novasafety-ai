@@ -53,6 +53,7 @@ import {
   cleanupOrphanSigningInvitesClient,
   renumberPermitsClient,
 } from '../lib/renumberPermits'
+import { filterSigningInvitesForViewer } from '../lib/signingInviteFilters'
 import { filterByExistingPermits } from '../lib/cleanupPermitRelatedData'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { notifyPermitNoticesRefresh } from '../lib/refreshPermitNotices'
@@ -199,8 +200,14 @@ export function PermitListPage() {
   const pending = user ? pendingApprovalsForUser(permits, user, resolveUser, userDirectory) : []
   const signingInvitesRaw = useSigningInvites(user?.id)
   const signingInvites = useMemo(
-    () => filterByExistingPermits(signingInvitesRaw, livePermitIds),
-    [signingInvitesRaw, livePermitIds],
+    () =>
+      filterSigningInvitesForViewer(
+        filterByExistingPermits(signingInvitesRaw, livePermitIds),
+        allPermits,
+        user,
+        userDirectory,
+      ),
+    [signingInvitesRaw, livePermitIds, allPermits, user, userDirectory],
   )
   const pendingWithoutInviteDup = pending.filter((item) => {
     if (item.action === 'issue_permit') return true

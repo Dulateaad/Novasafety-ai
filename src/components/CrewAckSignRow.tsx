@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Permit, DemoUser } from '../types/domain'
 import type { StoredCrewAckSignature } from '../types/crewAck'
 import { crewAckBlockedReason } from '../lib/crewAckEligibility'
+import { isExecutorCrewAckDone } from '../lib/crewAckComplete'
 import { CrewAckSignModal } from './CrewAckSignModal'
 import { useNetwork } from '../context/NetworkContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -10,9 +11,10 @@ export function CrewAckSignRow(props: {
   permit: Permit
   actor: DemoUser
   canSign: boolean
+  userDirectory?: DemoUser[]
   onSigned: (sig: StoredCrewAckSignature) => void
 }) {
-  const { permit, actor, canSign, onSigned } = props
+  const { permit, actor, canSign, userDirectory = [], onSigned } = props
   const { online } = useNetwork()
   const { t } = useLanguage()
   const crew = t.crew
@@ -20,11 +22,10 @@ export function CrewAckSignRow(props: {
   const a = t.approval
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
-  const row = permit.executors.find((ex) => ex.userUid === actor.id)
-  const signed = row?.briefingAcknowledged === true
+  const signed = isExecutorCrewAckDone(permit, actor.id, userDirectory)
   const sig = permit.crewAckSignatures?.[actor.id]
 
-  const blocked = crewAckBlockedReason(permit)
+  const blocked = crewAckBlockedReason(permit, userDirectory)
 
   return (
     <div className="egov-sign-row crew-ack-sign-row">

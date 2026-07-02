@@ -41,7 +41,6 @@ import {
   canUserSubmitPermitPackage,
   canViewPermitDetailTechnicalBlocks,
   isUserOnPermitCrew,
-  uidMatchesAccount,
 } from '../lib/permitAccess'
 import { isCrewAckPeriodActive } from '../lib/crewAckEligibility'
 import { isPermitSigningRejected } from '../lib/permitRejectionDisplay'
@@ -59,17 +58,19 @@ import {
   canSignRoleNow,
   approvalStepLabel,
   waitingHint,
-  nextRoleToSign,
   permitSigningPhaseActive,
 } from '../lib/approvalSequence'
-import { permitterPreWorkComplete } from '../lib/permitterPreWorkHints'
-import { assigneeUidForRole, isRoleSigned } from '../lib/signatureStatus'
+import { permitWithNormalizedWorkPermissions } from '../lib/permitterPreWorkHints'
+import { actorMatchesAssigneeForRole, isRoleSigned } from '../lib/signatureStatus'
+import { signEligibilityForRole } from '../lib/signEligibility'
 import { canUserRejectPermit, rejectionPatch } from '../lib/approvalActions'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
 import { scrollAppToTopWithRetries, scrollToElementWithRetries } from '../lib/scrollAppToTop'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { allCrewAcknowledged } from '../lib/crewAckComplete'
+import { permitVisibleToPermitter } from '../lib/permitterApprovalGate'
 import { canUserSignCrewAck } from '../lib/crewAckEligibility'
+import { resolveWorkerUid } from '../lib/resolveWorkerUid'
 import { provisionPermitSignersClient } from '../lib/provisionSigners'
 import { canUserDeletePermit } from '../lib/permitDelete'
 import {
@@ -80,7 +81,7 @@ import {
 } from '../lib/buildPackagePdf'
 import type { PackagePdfPart } from '../lib/buildPackagePdf'
 import { buildPermitPackageBrief } from '../lib/permitPackageBrief'
-import { isPermitPostApproval, isPermitProducer } from '../lib/closeNdprEarly'
+import { canCloseNdprEarly, isPermitPostApproval, isPermitProducer } from '../lib/closeNdprEarly'
 import { syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import { permissionNoticesForActivities } from '../lib/workPermissions'
 import { GasTestResultsReadOnlyCard } from '../components/GasTestResultsReadOnlyCard'
@@ -91,7 +92,7 @@ import {
 } from '../lib/ertGasTestHints'
 import { openPprAttachmentInBrowser } from '../lib/pprAttachment'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
-import type { WorkPermissionKind } from '../types/workPermissions'
+import type { WorkPermissionKind, WorkPermissionsBundle } from '../types/workPermissions'
 import {
   fillTemplate,
   formatSpecialWorkLabelsLocalized,
@@ -133,10 +134,17 @@ export function PermitDetailPage() {
   const [pdfPackageBusy, setPdfPackageBusy] = useState(false)
   const [viewingPart, setViewingPart] = useState<PackagePdfPart | null>(null)
   const [viewingPermission, setViewingPermission] = useState<WorkPermissionKind | null>(null)
+  const [savedWorkPermissions, setSavedWorkPermissions] = useState<WorkPermissionsBundle | null>(
+    null,
+  )
   const provisionWarning =
     (location.state as { provisionWarning?: string } | null)?.provisionWarning ?? null
 
   const permit = permits.find((p) => p.id === id)
+  useEffect(() => {
+    setSavedWorkPermissions(null)
+  }, [permit?.id])
+
   const packageBrief = useMemo(
     () => (permit ? buildPermitPackageBrief(permit, resolveUser) : null),
     [permit, resolveUser],
@@ -160,6 +168,13 @@ export function PermitDetailPage() {
         : undefined,
     }))
   }, [permit])
+  const signingPermit = useMemo(
+    () =>
+      permit
+        ? permitWithNormalizedWorkPermissions(permit, savedWorkPermissions ?? permit.workPermissions)
+        : null,
+    [permit, savedWorkPermissions],
+  )
   const showOperationalBlocks = Boolean(permit && isPermitPostApproval(permit))
 
   useEffect(() => {
@@ -212,6 +227,7 @@ export function PermitDetailPage() {
   }
 
   const p = permit
+  const signingP = signingPermit ?? p
 
   async function openFullPackagePdf() {
     setPdfPackageBusy(true)
@@ -266,21 +282,38 @@ export function PermitDetailPage() {
     )
   }
 
+  if (
+    actor.role === 'permitter' &&
+    p.status === 'on_approval' &&
+    !permitVisibleToPermitter(p, actor, userDirectory)
+  ) {
+    return (
+      <div className="page">
+        <p className="muted" style={{ maxWidth: '36rem' }}>
+          Наряд и задания допускающего появятся после подписи производителя работ и ознакомления
+          бригады с АБР и оценкой рисков.
+        </p>
+        <Link to="/">{dp.backToList}</Link>
+      </div>
+    )
+  }
+
   const showTechnicalBlocks = canViewPermitDetailTechnicalBlocks(actor)
   const matrixInfo = showTechnicalBlocks ? matrixRow(p.category) : null
 
   function canUserSignRole(role: EgovSignRole): boolean {
-    if (!permitSigningPhaseActive(p) || isPermitSigningRejected(p)) return false
-    if (role === 'permitter' && !permitterPreWorkComplete(p)) return false
-    if (actor.role === 'coordinator') return canSignRoleNow(p, role)
-    return uidMatchesAccount(assigneeUidForRole(p, role), actor, userDirectory) && canSignRoleNow(p, role)
+    if (!permitSigningPhaseActive(signingP) || isPermitSigningRejected(signingP)) {
+      return false
+    }
+    return signEligibilityForRole(signingP, actor, role, resolveUser, userDirectory).canSign
   }
 
   function approvalSignWaitingMessage(role: EgovSignRole): string | null {
-    if (role === 'permitter' && nextRoleToSign(p) === 'permitter' && !permitterPreWorkComplete(p)) {
-      return t.preWorkCheck.signBlockedHint
-    }
-    return waitingHint(p, role, resolveUser)
+    if (canUserSignRole(role)) return null
+    return (
+      signEligibilityForRole(signingP, actor, role, resolveUser, userDirectory).reason ??
+      waitingHint(signingP, role, resolveUser, userDirectory)
+    )
   }
 
   const showApprovalFlow = permitSigningPhaseActive(p)
@@ -325,7 +358,7 @@ export function PermitDetailPage() {
   }
 
   async function closePermitEarly() {
-    if (!canUserTriggerStatus(p, 'closed', actor.role)) return
+    if (!canCloseNdprEarly(p, actor, userDirectory)) return
     if (!window.confirm(dp.closeEarlyConfirm)) return
     setCloseBusy(true)
     try {
@@ -430,9 +463,12 @@ export function PermitDetailPage() {
   }
 
   function canRejectAs(role: EgovSignRole): boolean {
-    if (!canUserRejectPermit(p, actor, userDirectory)) return false
-    if (actor.role === 'coordinator') return canSignRoleNow(p, role)
-    return uidMatchesAccount(assigneeUidForRole(p, role), actor, userDirectory) && canSignRoleNow(p, role)
+    if (!canUserRejectPermit(signingP, actor, userDirectory)) return false
+    if (actor.role === 'coordinator') return canSignRoleNow(signingP, role, userDirectory)
+    return (
+      actorMatchesAssigneeForRole(signingP, role, actor, userDirectory) &&
+      canSignRoleNow(signingP, role, userDirectory)
+    )
   }
 
 
@@ -448,34 +484,57 @@ export function PermitDetailPage() {
   }
 
   function saveCrewAck(sig: StoredCrewAckSignature) {
-    const nextExecutors = p.executors.map((ex) =>
-      ex.userUid === sig.signedByUid
-        ? { ...ex, briefingAcknowledged: true }
-        : ex,
-    )
-    const nextCrewAck = {
-      ...(p.crewAckSignatures ?? {}),
-      [sig.signedByUid]: sig,
+    const signerUid = sig.signedByUid.trim()
+    const nextExecutors = p.executors.map((ex) => {
+      const raw = ex.userUid.trim()
+      if (!raw) return ex
+      const resolved = resolveWorkerUid(userDirectory, raw)
+      if (raw === signerUid || resolved === signerUid) {
+        return { ...ex, briefingAcknowledged: true }
+      }
+      return ex
+    })
+    const nextCrewAck: Record<string, StoredCrewAckSignature> = {
+      ...Object.fromEntries(
+        Object.entries(p.crewAckSignatures ?? {}).filter(
+          (entry): entry is [string, StoredCrewAckSignature] => Boolean(entry[1]),
+        ),
+      ),
+      [signerUid]: sig,
+    }
+    for (const ex of p.executors) {
+      const raw = ex.userUid.trim()
+      if (!raw || raw === signerUid) continue
+      const resolved = resolveWorkerUid(userDirectory, raw)
+      if (resolved === signerUid) {
+        nextCrewAck[raw] = sig
+      }
     }
     void updatePermit(p.id, {
       executors: nextExecutors,
       crewAckSignatures: {
         [sig.signedByUid]: sig,
       },
-      ...issueStatusPatchIfApprovalsComplete({
-        ...p,
-        executors: nextExecutors,
-        crewAckSignatures: nextCrewAck,
-      }),
+      ...issueStatusPatchIfApprovalsComplete(
+        {
+          ...p,
+          executors: nextExecutors,
+          crewAckSignatures: nextCrewAck,
+        },
+        userDirectory,
+      ),
     }).then(async () => {
       notifySigningInvitesRefresh()
       if (
         authMode === 'firebase' &&
-        allCrewAcknowledged({
-          ...p,
-          executors: nextExecutors,
-          crewAckSignatures: nextCrewAck,
-        })
+        allCrewAcknowledged(
+          {
+            ...p,
+            executors: nextExecutors,
+            crewAckSignatures: nextCrewAck,
+          },
+          userDirectory,
+        )
       ) {
         await provisionPermitSignersClient(p.id)
         notifySigningInvitesRefresh()
@@ -573,22 +632,45 @@ export function PermitDetailPage() {
             permit={p}
             actor={actor}
             canSign={canSignCrewAck()}
+            userDirectory={userDirectory}
             onSigned={saveCrewAck}
           />
         </section>
       ) : null}
 
+      {actor.role === 'permitter' &&
+      p.status !== 'closed' &&
+      p.workPermissions?.documents?.length &&
+      permitVisibleToPermitter(p, actor, userDirectory) ? (
+        <PermitterPreWorkLivePanel
+          permit={p}
+          actor={actor}
+          updatePermit={updatePermit}
+          resolveUser={resolveUser}
+          userDirectory={userDirectory}
+          refresh={refresh}
+          onSaved={(bundle) => {
+            setSavedWorkPermissions(bundle)
+          }}
+          onDraftChange={(_bundle, isDirty) => {
+            if (isDirty) setSavedWorkPermissions(null)
+          }}
+        />
+      ) : null}
+
       {showInteractiveApproval || showApprovalHistory ? (
         <>
           <PermitOnApprovalSummary
-            permit={p}
+            permit={signingP}
             resolveUser={resolveUser}
+            userDirectory={userDirectory}
             crewAckAction={
-              showInteractiveApproval && canSignCrewAck() ? (
+              canSignCrewAck() ? (
                 <CrewAckSignRow
                   permit={p}
                   actor={actor}
                   canSign={canSignCrewAck()}
+                  userDirectory={userDirectory}
                   onSigned={saveCrewAck}
                 />
               ) : undefined
@@ -610,7 +692,7 @@ export function PermitDetailPage() {
               {signingRoles.map((role) => (
                 <EgovSignatureRoleRow
                   key={role}
-                  permit={p}
+                  permit={signingP}
                   role={role}
                   actor={actor}
                   canSign={showInteractiveApproval && canUserSignRole(role)}
@@ -620,6 +702,7 @@ export function PermitDetailPage() {
                   onReject={() => void rejectPermit()}
                   onSaveSignature={(sig) => saveEgovSignature(role, sig)}
                   resolveUser={resolveUser}
+                  userDirectory={userDirectory}
                 />
               ))}
             </div>
@@ -641,7 +724,7 @@ export function PermitDetailPage() {
       {showInspectorWorkStop ? workStopInspectorBlock : null}
 
       {p.status === 'closed' &&
-      isPermitProducer(p, actor) &&
+      isPermitProducer(p, actor, userDirectory) &&
       p.workPermissions?.documents?.length ? (
         <div className="card alert" role="status" style={{ marginBottom: '1rem' }}>
           <p className="small" style={{ margin: 0 }}>
@@ -680,6 +763,7 @@ export function PermitDetailPage() {
           <PermitEarlyCloseCard
             permit={p}
             actor={actor}
+            userDirectory={userDirectory}
             busy={closeBusy}
             onClose={() => void closePermitEarly()}
           />
@@ -696,19 +780,6 @@ export function PermitDetailPage() {
       p.status !== 'closed' &&
       p.workPermissions?.documents?.length ? (
         <PerformerGasTestModesPanel
-          permit={p}
-          actor={actor}
-          updatePermit={updatePermit}
-          resolveUser={resolveUser}
-          userDirectory={userDirectory}
-          refresh={refresh}
-        />
-      ) : null}
-
-      {actor.role === 'permitter' &&
-      p.status !== 'closed' &&
-      p.workPermissions?.documents?.length ? (
-        <PermitterPreWorkLivePanel
           permit={p}
           actor={actor}
           updatePermit={updatePermit}

@@ -1053,7 +1053,7 @@ export const uiExtRu: UiExtension = {
     savedConfirm: 'Раздел 3 сохранён. Проверки на рабочем месте заполнены.',
     editAgain: 'Изменить проверки',
     signBlockedHint:
-      'Сначала заполните раздел 3 в разрешениях (колонка «Имеется»), сохраните PDF — затем можно подписать.',
+      'Отметьте пункты раздела 3 (колонка «Имеется»), нажмите «Сохранить проверки» — затем можно подписать ЭЦП.',
   },
   closure: {
     closeBusy: 'Закрытие…',
@@ -1845,7 +1845,7 @@ export const uiExtEn: UiExtension = {
     savedConfirm: 'Section 3 saved. Workplace checks are complete.',
     editAgain: 'Edit checks',
     signBlockedHint:
-      'Complete section 3 in permissions (the «Available» column), save the PDF — then you can sign.',
+      'Mark section 3 items (the «Available» column), click «Save checks» — then you can sign with e-signature.',
   },
   closure: {
     closeBusy: 'Closing…',

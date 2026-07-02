@@ -58,18 +58,18 @@ export const DEMO_USERS: DemoUser[] = [
     badgeNo: '008',
   },
   {
-    id: 'u-performer-abylay',
-    displayName: 'Абылай Акмалиев',
-    email: 'abylay2@nova.local',
-    role: 'performer',
-    badgeNo: '020',
-  },
-  {
     id: 'u-performer-6',
-    displayName: 'Абылай — производитель работ',
+    displayName: 'Абылай Акмалиев',
     email: 'abylay@nova.local',
     role: 'performer',
     badgeNo: '009',
+  },
+  {
+    id: 'u-performer-nurkhan',
+    displayName: 'Нурхан Каниев',
+    email: 'nurkhan@nova.local',
+    role: 'performer',
+    badgeNo: '021',
   },
   {
     id: 'u-issuer-temirlan',

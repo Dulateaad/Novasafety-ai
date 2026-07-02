@@ -11,6 +11,7 @@ import {
 } from '../types/workPermissions'
 import {
   WORK_PERMISSION_TEMPLATES,
+  WORK_PERMISSION_BY_KIND,
   type WorkPermissionTemplateMeta,
 } from '../config/workPermissionsConfig'
 import {
@@ -20,9 +21,10 @@ import {
   type LanguageCode,
 } from '../i18n/getLocale'
 import { renderSingleWorkPermission } from './buildWorkPermissionPdf'
-import { nextRegistrationNumber } from './registrationNumber'
+import { resolveRegistrationRefNo } from './registrationNumber'
+import { readResumePermitId } from './resumePermitPackage'
 
-type WorkPermissionRefSource = Pick<PermitDraft, 'registrationRefNo' | 'f02'>
+type WorkPermissionRefSource = Pick<PermitDraft, 'registrationRefNo'>
 
 const PERMISSION_KIND_SUFFIX: Record<WorkPermissionKind, string> = {
   gas_hazard: 'Г',
@@ -30,15 +32,17 @@ const PERMISSION_KIND_SUFFIX: Record<WorkPermissionKind, string> = {
   confined_space: 'З',
 }
 
-/** № наряд-допуска (НДПР) для шапки разрешения. */
+/** № наряд-допуска (НДПР) для шапки разрешения — только рег. № наряда, не № пропуска (f02). */
 export function resolveNdprRefForWorkPermission(
   source: WorkPermissionRefSource,
   existingPermits: Permit[] = [],
+  resumePermitId?: string | null,
 ): string {
-  const fromDraft = source.registrationRefNo?.trim() || source.f02?.badgeNo?.trim() || ''
-  if (fromDraft) return fromDraft
-  if (existingPermits.length) return nextRegistrationNumber(existingPermits)
-  return ''
+  return resolveRegistrationRefNo(
+    { registrationRefNo: source.registrationRefNo ?? '' } as PermitDraft,
+    existingPermits,
+    resumePermitId ?? readResumePermitId(),
+  )
 }
 
 export function resolvePermissionRefNo(
@@ -58,10 +62,10 @@ function applyWorkPermissionRefs(
   ndRef: string,
 ): WorkPermissionDocument['form'] {
   const next = { ...form }
-  if (!next.pprRef.trim()) next.pprRef = ndRef
-  if (!next.permissionRefNo?.trim()) {
-    next.permissionRefNo = resolvePermissionRefNo(ndRef, kind, kinds)
-  }
+  const ref = ndRef.trim()
+  if (!ref) return next
+  next.pprRef = ref
+  next.permissionRefNo = resolvePermissionRefNo(ref, kind, kinds)
   return next
 }
 
@@ -84,6 +88,20 @@ export function requiresWorkPermissions(
   draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
 ): boolean {
   return requiredPermissionKinds(draft).length > 0
+}
+
+/** Разрешения для слияния в общий PDF-пакет (без дубля «замкнутое пространство», если есть газоопасные). */
+export function workPermissionDocumentsForSigningPackage(
+  permit: Pick<Permit, 'specialWorkActivities' | 'specialWorkActivity' | 'workPermissions'>,
+): WorkPermissionDocument[] {
+  const required = new Set(requiredPermissionKinds(permit))
+  const docs = (permit.workPermissions?.documents ?? []).filter((d) => required.has(d.kind))
+  const hasOrangeOrRed = docs.some((d) => {
+    const style = WORK_PERMISSION_BY_KIND[d.kind]?.style
+    return style === 'orange' || style === 'red'
+  })
+  if (!hasOrangeOrRed) return docs
+  return docs.filter((d) => WORK_PERMISSION_BY_KIND[d.kind]?.style !== 'blue')
 }
 
 export function permissionNoticesForActivities(

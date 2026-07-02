@@ -13,11 +13,11 @@ export type SignerAccountTemplate = {
 /** Стандартные учётки подписантов (создаются автоматически при отправке на согласование). */
 export const SIGNER_ACCOUNT_TEMPLATES: Record<EgovSignRole, SignerAccountTemplate> = {
   performer: {
-    email: 'abylay2@nova.local',
-    password: 'Abylay2523',
+    email: 'abylay@nova.local',
+    password: 'Abylay123',
     displayName: 'Абылай Акмалиев',
     role: 'performer',
-    badgeNo: '020',
+    badgeNo: '009',
     stepLabel: 'Шаг 1: Заполнение НДПР — Абылай Акмалиев — Производитель работ',
   },
   permitter: {
