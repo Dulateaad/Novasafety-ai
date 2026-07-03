@@ -14,8 +14,12 @@ function crewAckDone(
   return isExecutorCrewAckDone(permit, uid, directory)
 }
 
-function approvalInviteDone(permit: Permit, role: EgovSignRole): boolean {
-  return isRoleSigned(permit, role)
+function approvalInviteDone(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  return isRoleSigned(permit, role, directory)
 }
 
 /** Скрыть уведомления, если подпись/ознакомление уже есть в наряде. */

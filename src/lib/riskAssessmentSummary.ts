@@ -1,4 +1,5 @@
 import type { RiskAssessmentDraft } from '../types/riskAssessment'
+import { RISK_ASSESSMENT_LABEL } from '../config/branding'
 import {
   RISK_RESIDUAL_LABELS,
   type RiskResidualLevel,
@@ -9,7 +10,7 @@ import { PTW_SITES_SET } from '../config/ptwSites'
 export function riskAssessmentWorkDescription(draft: RiskAssessmentDraft): string {
   const lines: string[] = []
   lines.push(
-    `[Оценка рисков${draft.assessmentRefNo.trim() ? ` № ${draft.assessmentRefNo.trim()}` : ''} от ${draft.assessmentDate || '—'}]`,
+    `[${RISK_ASSESSMENT_LABEL}${draft.assessmentRefNo.trim() ? ` № ${draft.assessmentRefNo.trim()}` : ''} от ${draft.assessmentDate || '—'}]`,
   )
   if (draft.personnelPresentNote.trim()) {
     lines.push(`Участники оценки: ${draft.personnelPresentNote.trim()}`)

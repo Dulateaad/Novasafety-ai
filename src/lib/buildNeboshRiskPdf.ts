@@ -1,3 +1,4 @@
+import { RISK_ASSESSMENT_LABEL } from '../config/branding'
 import type { AsorForm, AsorHazardRow, AsorTaskResidualRisk } from '../types/asor'
 import type { DemoUser, Permit } from '../types/domain'
 import {
@@ -326,15 +327,15 @@ function infoTable(form: AsorForm): Record<string, unknown> {
         ],
         [
           cell('Подрядчик:', NEBOSH_PDF_COLORS.labelBg, { bold: true }),
-          cell(nb.contractorOrg),
-          cell('Составил:', NEBOSH_PDF_COLORS.labelBg, { bold: true }),
-          cell(nb.preparedBy),
+          { ...cell(nb.contractorOrg), colSpan: 3 },
+          {},
+          {},
         ],
         [
           cell('Стандарт ОР:', NEBOSH_PDF_COLORS.labelBg, { bold: true }),
-          cell(nb.standardRef),
-          cell('Утвердил:', NEBOSH_PDF_COLORS.labelBg, { bold: true }),
-          cell(nb.approvedBy),
+          { ...cell(nb.standardRef), colSpan: 3 },
+          {},
+          {},
         ],
       ],
     },
@@ -533,7 +534,7 @@ export async function buildNeboshRiskPdf(
   const nb = form.nebosh
   const content: Record<string, unknown>[] = [
     {
-      text: 'ОЦЕНКА РИСКОВ',
+      text: RISK_ASSESSMENT_LABEL.toUpperCase(),
       bold: true,
       fontSize: 16,
       margin: [0, 0, 0, 4],
@@ -714,7 +715,7 @@ export async function buildNeboshRiskPdf(
   const safe = title.replace(/[^\wа-яА-ЯёЁ\d-]+/gi, '-').slice(0, 60)
   return {
     base64,
-    fileName: `Оценка-рисков-${safe || 'UOG'}.pdf`,
+    fileName: `Оценка-Риска-${safe || 'UOG'}.pdf`,
   }
 }
 

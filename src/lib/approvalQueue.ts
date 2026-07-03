@@ -73,7 +73,7 @@ export function pendingApprovalsForUser(
     pushSignItem(items, p, user, directory, {
       role: 'performer',
       assigneeUid: p.performerUid,
-      signed: isRoleSigned(p, 'performer'),
+      signed: isRoleSigned(p, 'performer', directory),
       action: 'sign_performer',
       labelSelf: 'Подписать ЭЦП (производитель / составитель)',
       labelCoord: 'Ожидает ЭЦП производителя работ',
@@ -84,7 +84,7 @@ export function pendingApprovalsForUser(
       pushSignItem(items, p, user, directory, {
         role: 'permitter',
         assigneeUid: p.permitterUid,
-        signed: isRoleSigned(p, 'permitter'),
+        signed: isRoleSigned(p, 'permitter', directory),
         action: 'sign_permitter',
         labelSelf: 'Поставить подпись допускающего',
         labelCoord: 'Ожидает подпись допускающего',
@@ -95,7 +95,7 @@ export function pendingApprovalsForUser(
     pushSignItem(items, p, user, directory, {
       role: 'issuer',
       assigneeUid: p.issuerUid,
-      signed: isRoleSigned(p, 'issuer'),
+      signed: isRoleSigned(p, 'issuer', directory),
       action: 'sign_issuer',
       labelSelf: 'Поставить подпись выдающего',
       labelCoord: 'Ожидает подпись выдающего',
@@ -106,7 +106,7 @@ export function pendingApprovalsForUser(
       pushSignItem(items, p, user, directory, {
         role: 'leadExpert',
         assigneeUid: p.leadExpertUid,
-        signed: isRoleSigned(p, 'leadExpert'),
+        signed: isRoleSigned(p, 'leadExpert', directory),
         action: 'sign_lead_expert',
         labelSelf: 'Поставить подпись утверждающего НД',
         labelCoord: 'Ожидает подпись утверждающего НД',
@@ -115,11 +115,11 @@ export function pendingApprovalsForUser(
     }
 
     const signaturesComplete =
-      isRoleSigned(p, 'performer') &&
+      isRoleSigned(p, 'performer', directory) &&
       allCrewAcknowledged(p, directory) &&
-      isRoleSigned(p, 'permitter') &&
-      isRoleSigned(p, 'issuer') &&
-      (p.category !== 1 || isRoleSigned(p, 'leadExpert'))
+      isRoleSigned(p, 'permitter', directory) &&
+      isRoleSigned(p, 'issuer', directory) &&
+      (p.category !== 1 || isRoleSigned(p, 'leadExpert', directory))
 
     if (
       signaturesComplete &&

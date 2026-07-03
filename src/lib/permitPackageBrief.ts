@@ -1,4 +1,4 @@
-import { ABR_LABEL } from '../config/branding'
+import { ABR_LABEL, RISK_ASSESSMENT_LABEL } from '../config/branding'
 import {
   ISSUER_DOCUMENT_ROLE_LABEL,
   LEAD_EXPERT_DOCUMENT_ROLE_LABEL,
@@ -58,6 +58,16 @@ function toolsPreview(permit: Permit): { text: string; count: number } {
   return { text: preview + suffix, count: items.length }
 }
 
+/** «2 рабочих», «1 рабочий» — для чипа на карточке наряда. */
+export function formatCrewCountLabel(count: number, lang: 'ru' | 'en' = 'ru'): string {
+  if (count <= 0) return ''
+  if (lang === 'en') return count === 1 ? `${count} worker` : `${count} workers`
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return `${count} рабочий`
+  return `${count} рабочих`
+}
+
 export function buildPermitPackageBrief(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,
@@ -73,7 +83,7 @@ export function buildPermitPackageBrief(
     pdfParts.push(`${ABR_LABEL} (${abrStages} этап.)`)
   }
   if (hazardCount > 0) {
-    pdfParts.push(`Оценка Риска (${taskCount} задан., ${hazardCount} фактор.)`)
+    pdfParts.push(`${RISK_ASSESSMENT_LABEL} (${taskCount} задан., ${hazardCount} фактор.)`)
   }
 
   const crewCount =

@@ -5,7 +5,7 @@ import { WorkPermissionIcon } from './WorkPermissionIcon'
 import { WorkPermissionEgovSignModal } from './WorkPermissionEgovSignModal'
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { assigneeUidForRole } from '../lib/signatureStatus'
-import { openPdfInBrowser } from '../lib/pdfPreview'
+import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { renderSingleWorkPermission } from '../lib/buildWorkPermissionPdf'
 import { syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import {
@@ -104,15 +104,14 @@ export function WorkPermissionSignaturesSection(props: {
             <header className="work-perm-sign-block__head">
               <WorkPermissionIcon kind={doc.kind} size={22} />
               <span className="strong">{doc.title}</span>
-              {doc.pdfBase64 ? (
-                <button
-                  type="button"
-                  className="btn ghost small"
-                  onClick={() => openPdfInBrowser(doc.pdfBase64!, doc.title)}
-                >
-                  PDF
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="btn ghost small"
+                disabled={busy}
+                onClick={() => void openWorkPermissionPdf(doc, permit)}
+              >
+                PDF
+              </button>
             </header>
             <ul className="work-perm-sign-list">
               {WORK_PERMISSION_SIGN_ROLES.map((role) => {

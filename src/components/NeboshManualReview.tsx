@@ -150,13 +150,6 @@ export function NeboshManualReview(props: {
               onChange={(e) => patchNebosh({ contractorOrg: e.target.value })}
             />
           </label>
-          <label>
-            {mrf.preparedBy}
-            <input
-              value={nb.preparedBy}
-              onChange={(e) => patchNebosh({ preparedBy: e.target.value })}
-            />
-          </label>
         </div>
 
         {form.tasks.length === 0 && (
@@ -366,10 +359,10 @@ export function NeboshManualReview(props: {
           {(nb.signatureRows.length >= 4
             ? nb.signatureRows.slice(0, 4)
             : [
-                { role: mr.performer, fullName: nb.preparedBy, dateIso: nb.assessmentDateIso || form.creationDateIso },
+                { role: mr.performer, fullName: '', dateIso: nb.assessmentDateIso || form.creationDateIso },
                 { role: mr.permitter, fullName: '', dateIso: '' },
                 { role: mr.issuer, fullName: '', dateIso: '' },
-                { role: mr.leadExpert, fullName: nb.approvedBy, dateIso: '' },
+                { role: mr.leadExpert, fullName: '', dateIso: '' },
               ]
           ).map((row, index) => (
             <div key={`sig-${index}`} style={{ marginBottom: '0.75rem' }}>

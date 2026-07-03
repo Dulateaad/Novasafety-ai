@@ -192,10 +192,10 @@ export async function buildSigningPackagePdf(
       if (!permDocs.length) return [] as string[]
       const { buildWorkPermissionPdf } = await import('./buildWorkPermissionPdf')
       const pdfMake = await initPdfMake()
+      const permPdfOpts = { includeClosureSection: permit.status === 'closed' }
       return Promise.all(
         permDocs.map(async (doc) => {
-          if (doc.pdfBase64) return doc.pdfBase64
-          const { base64 } = await buildWorkPermissionPdf(doc, pdfMake)
+          const { base64 } = await buildWorkPermissionPdf(doc, pdfMake, permPdfOpts)
           return base64
         }),
       )

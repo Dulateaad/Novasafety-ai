@@ -53,7 +53,10 @@ import {
   cleanupOrphanSigningInvitesClient,
   renumberPermitsClient,
 } from '../lib/renumberPermits'
-import { filterSigningInvitesForViewer } from '../lib/signingInviteFilters'
+import {
+  filterActionableSigningInvites,
+  filterSigningInvitesForViewer,
+} from '../lib/signingInviteFilters'
 import { filterByExistingPermits } from '../lib/cleanupPermitRelatedData'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { notifyPermitNoticesRefresh } from '../lib/refreshPermitNotices'
@@ -201,10 +204,15 @@ export function PermitListPage() {
   const signingInvitesRaw = useSigningInvites(user?.id)
   const signingInvites = useMemo(
     () =>
-      filterSigningInvitesForViewer(
-        filterByExistingPermits(signingInvitesRaw, livePermitIds),
+      filterActionableSigningInvites(
+        filterSigningInvitesForViewer(
+          filterByExistingPermits(signingInvitesRaw, livePermitIds),
+          allPermits,
+          user,
+          userDirectory,
+        ),
         allPermits,
-        user,
+        livePermitIds,
         userDirectory,
       ),
     [signingInvitesRaw, livePermitIds, allPermits, user, userDirectory],

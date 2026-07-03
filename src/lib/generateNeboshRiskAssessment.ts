@@ -16,7 +16,7 @@ export function isNeboshAiAvailable(): boolean {
 
 export async function generateNeboshRiskAssessmentFromPpr(
   ppr: PprForm,
-  meta?: { preparedBy?: string; contractorOrg?: string },
+  meta?: { contractorOrg?: string },
 ): Promise<NeboshRiskAssessmentPayload> {
   if (!isAiClientReady()) {
     throw new Error('Для генерации NEBOSH нужен ключ Claude (VITE_ANTHROPIC_API_KEY) в .env')
@@ -39,7 +39,6 @@ export async function generateNeboshRiskAssessmentFromPpr(
       operationGroupsHint: ctx.operationGroupsHint,
       siteName: ctx.siteName,
       contractorOrg: meta?.contractorOrg?.trim() || ctx.contractorOrg,
-      preparedBy: meta?.preparedBy?.trim() || '',
     }),
   })
 

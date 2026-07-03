@@ -196,7 +196,7 @@ export function PermitterPreWorkLivePanel(props: {
     if (!doc) return
     setViewingKind(kind)
     try {
-      await openWorkPermissionPdf(doc)
+      await openWorkPermissionPdf(doc, permit)
     } finally {
       setViewingKind(null)
     }

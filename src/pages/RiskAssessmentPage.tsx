@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { RISK_ASSESSMENT_LABEL } from '../config/branding'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
 import { useToast } from '../context/ToastContext'
@@ -251,12 +252,8 @@ export function RiskAssessmentPage() {
     try {
       const nd = restoreNewPermitDraftFromSession()
       const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
-      const preparedBy = nd.performerUid.trim()
-        ? resolveName(nd.performerUid)
-        : user?.displayName?.trim() || ''
       const contractorOrg = nd.f02?.company?.trim() || ppr.contractorOrg
       const payload = await generateNeboshRiskAssessmentFromPpr(ppr, {
-        preparedBy,
         contractorOrg,
       })
       setForm((current) =>
@@ -334,7 +331,7 @@ export function RiskAssessmentPage() {
       const title =
         merged.shortTitleForNarjad.trim() ||
         loadPprForm().workTitle.trim() ||
-        'Оценка рисков'
+        RISK_ASSESSMENT_LABEL
       const { base64, fileName } = await buildNeboshRiskPdf(merged, title)
       openPdfInBrowser(base64, pdfTabTitleFromFileName(fileName))
     } catch (e) {

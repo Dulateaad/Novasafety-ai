@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { EgovSignatureRoleRow } from '../components/EgovSignatureRoleRow'
 import { CrewAckSignRow } from '../components/CrewAckSignRow'
+import { WorkerCrewAckPanel } from '../components/WorkerCrewAckPanel'
 import { PermitOnApprovalSummary } from '../components/PermitOnApprovalSummary'
 import { WorkStopActionCard } from '../components/WorkStopActionCard'
 import { WorkStopModal } from '../components/WorkStopModal'
@@ -256,7 +257,7 @@ export function PermitDetailPage() {
     if (!doc) return
     setViewingPermission(kind)
     try {
-      await openWorkPermissionPdf(doc)
+      await openWorkPermissionPdf(doc, p)
     } finally {
       setViewingPermission(null)
     }
@@ -558,9 +559,10 @@ export function PermitDetailPage() {
   }
 
   const canDelete = canUserDeletePermit(actor)
+  const isWorkerView = actor.role === 'executor'
 
   return (
-    <div className="page">
+    <div className={`page${isWorkerView ? ' worker-crew-ack-page' : ''}`}>
       <div className="page-header">
         <div>
           <Link className="small muted" to="/">
@@ -596,7 +598,7 @@ export function PermitDetailPage() {
         </div>
       ) : null}
 
-      {showPackageSection && packageBrief ? (
+      {showPackageSection && packageBrief && !isWorkerView ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
           <h2 id="pdf-package" className="pdf-package-heading" style={{ marginTop: 0 }}>
             {dp.viewFullPdf}
@@ -625,7 +627,16 @@ export function PermitDetailPage() {
         </section>
       ) : null}
 
-      {showCrewAckSection ? (
+      {showCrewAckSection && isWorkerView ? (
+        <WorkerCrewAckPanel
+          permit={p}
+          actor={actor}
+          brief={packageBrief}
+          canSign={canSignCrewAck()}
+          userDirectory={userDirectory}
+          onSigned={saveCrewAck}
+        />
+      ) : showCrewAckSection ? (
         <section className="card" id="crew-ack-section">
           <h2 style={{ marginTop: 0 }}>{t.approval.crewSection}</h2>
           <CrewAckSignRow

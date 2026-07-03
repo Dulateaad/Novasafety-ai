@@ -4,6 +4,7 @@ import { fillTemplate, localeMessages, statusLabel } from '../i18n/getLocale'
 
 import { uidMatchesAccount } from './permitAccess'
 import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
+import { isRoleSigned } from './signatureStatus'
 
 import { requiredPermissionKinds, requiresWorkPermissions } from './workPermissions'
 
@@ -176,7 +177,8 @@ export function permitterPreWorkRequiredDocuments(
 export function permitterPreWorkDocsNeedingFill(permit: Permit): number {
   const bundle = permit.workPermissions
   if (!bundle?.documents?.length) return 0
-  return permitterPreWorkRequiredDocuments(permit, bundle).filter(
+  const normalized = normalizePreWorkChecksInBundle(bundle)
+  return permitterPreWorkRequiredDocuments(permit, normalized).filter(
     (doc) => !preWorkAvailableColumnCompleteForKind(doc.kind, doc.form.preWorkChecks.items),
   ).length
 }
@@ -185,8 +187,9 @@ export function permitterPreWorkDocsNeedingFill(permit: Permit): number {
 export function permitterPreWorkItemsRemaining(permit: Permit): number {
   const bundle = permit.workPermissions
   if (!bundle?.documents?.length) return 0
+  const normalized = normalizePreWorkChecksInBundle(bundle)
   let remaining = 0
-  for (const doc of permitterPreWorkRequiredDocuments(permit, bundle)) {
+  for (const doc of permitterPreWorkRequiredDocuments(permit, normalized)) {
     const pairs = preWorkPairsForKind(doc.kind)
     if (!pairs?.length) continue
     const byId = new Map(doc.form.preWorkChecks.items.map((i) => [i.id, i]))
@@ -262,9 +265,8 @@ export function permitterPreWorkTasksForUser(
     if (!PRE_WORK_TASK_STATUSES.has(permit.status)) continue
     if (!canPermitterEditPreWorkChecks(permit, user, resolveUser, directory)) continue
     if (!permitterOnApprovalUnlocked(permit, directory)) continue
-
-    const empty = permitterPreWorkDocsNeedingFill(permit)
-    if (empty === 0) continue
+    if (isRoleSigned(permit, 'permitter', directory)) continue
+    if (permitterPreWorkComplete(permit)) continue
 
     const summary = permitterPreWorkTaskSummary(permit)
     if (!summary) continue

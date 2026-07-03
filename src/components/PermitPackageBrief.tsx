@@ -1,4 +1,5 @@
 import type { PermitPackageBrief } from '../lib/permitPackageBrief'
+import { formatCrewCountLabel } from '../lib/permitPackageBrief'
 import type { PackagePdfPart } from '../lib/buildPackagePdf'
 import { parseWorkStagesBlocks } from '../lib/formatWorkStagesDisplay'
 import type { WorkPermissionKind } from '../types/workPermissions'
@@ -69,7 +70,7 @@ export function PermitPackageBriefCard(props: Props) {
     viewingPermission,
     viewingFullPackage,
   } = props
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const dk = t.docKit
   const c = t.common
 
@@ -107,7 +108,7 @@ export function PermitPackageBriefCard(props: Props) {
         <span className="package-brief__chip">{c.zonePrefix} {brief.zoneClass}</span>
         {brief.crewCount > 0 ? (
           <span className="package-brief__chip">
-            {brief.crewCount}
+            {formatCrewCountLabel(brief.crewCount, language)}
           </span>
         ) : null}
       </div>

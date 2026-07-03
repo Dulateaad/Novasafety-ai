@@ -75,9 +75,8 @@ export function mergeNeboshApprovalPeopleFromNd(
   asor: AsorForm,
   permit: NdprApprovalSource,
   resolveName: (uid: string) => string,
-  resolveBadge?: (uid: string) => string,
+  _resolveBadge?: (uid: string) => string,
 ): AsorForm {
-  const people = ndprApprovalPeopleFromNd(permit, resolveName, resolveBadge)
   const rows = ndprApprovalSignatureRows(
     permit,
     resolveName,
@@ -89,12 +88,6 @@ export function mergeNeboshApprovalPeopleFromNd(
       ...asor.nebosh,
       signatureRows:
         asor.nebosh.signatureRows.length > 0 ? asor.nebosh.signatureRows : rows,
-      preparedBy: asor.nebosh.preparedBy.trim() || people[0]?.fullName || '',
-      approvedBy:
-        asor.nebosh.approvedBy.trim() ||
-        people[3]?.fullName ||
-        people[2]?.fullName ||
-        '',
     },
   }
 }

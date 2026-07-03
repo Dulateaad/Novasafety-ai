@@ -215,6 +215,27 @@ export type UiExtension = {
     documentAbrRisk: string
     inviteApproval: string
   }
+  crewWorker: {
+    title: string
+    greeting: string
+    regNo: string
+    readyTitle: string
+    readyHint: string
+    pendingTitle: string
+    pendingHint: string
+    waitProducerTitle: string
+    signedTitle: string
+    signedHint: string
+    stepProducer: string
+    stepRead: string
+    stepSign: string
+    documentsLabel: string
+    signButton: string
+    modalStepPrepare: string
+    modalStepQr: string
+    modalStepSign: string
+    modalStepDone: string
+  }
   abrDailyAck: {
     title: string
     description: string
@@ -897,6 +918,28 @@ export const uiExtRu: UiExtension = {
     documentAbrRisk: 'АБР + Оценка Риска',
     inviteApproval: 'Согласование НДПР',
   },
+  crewWorker: {
+    title: 'Ознакомление с АБР и Оценкой Риска',
+    greeting: '{name}, подтвердите ознакомление с документами по этому наряду.',
+    regNo: '№ {regNo}',
+    readyTitle: 'Можно подписать ознакомление',
+    readyHint:
+      'Отметьте подтверждение и нажмите кнопку — откроется QR-код для подписи в eGov Mobile.',
+    pendingTitle: 'Ожидается ваше ознакомление',
+    pendingHint: 'После подписи производителя работ откройте документы и подтвердите ознакомление.',
+    waitProducerTitle: 'Сначала подписывает производитель работ',
+    signedTitle: 'Ознакомление подтверждено',
+    signedHint: 'Спасибо. Согласующие могут продолжить подписание наряда.',
+    stepProducer: 'Производитель работ подписывает НДПР',
+    stepRead: 'Ознакомьтесь с АБР и Оценкой Риска',
+    stepSign: 'Подтвердите и подпишите через eGov Mobile',
+    documentsLabel: 'Документы для ознакомления',
+    signButton: 'Подписать ознакомление (eGov)',
+    modalStepPrepare: 'Подготовка',
+    modalStepQr: 'QR-код',
+    modalStepSign: 'Подпись',
+    modalStepDone: 'Готово',
+  },
   abrDailyAck: {
     title: 'Ежедневное ознакомление с АБР',
     description:
@@ -1074,7 +1117,7 @@ export const uiExtRu: UiExtension = {
     riskReady: 'Оценка Риска готова ({app}): {groups} заданий, {hazards} опасностей. Нажмите «Посмотреть».',
     generateAbrFirst: 'Сформируйте {abr} из исходного документа.',
     generateRiskFirst: 'Сформируйте оценку риска из исходного документа.',
-    riskAssessmentTitle: 'Оценка рисков',
+    riskAssessmentTitle: 'Оценка Риска',
     saveForErt: 'Сохранение наряда для ERT и разрешений…',
     uploadSource: 'Сначала загрузите {source}.',
     confirmManualReview: 'Подтвердите ручную проверку {abr} и оценки риска перед отправкой.',
@@ -1688,6 +1731,27 @@ export const uiExtEn: UiExtension = {
     demoSuffix: 'demo',
     documentAbrRisk: 'JSA + risk assessment',
     inviteApproval: 'Work permit approval',
+  },
+  crewWorker: {
+    title: 'JSA & risk assessment acknowledgment',
+    greeting: '{name}, please confirm you have reviewed the documents for this permit.',
+    regNo: 'No. {regNo}',
+    readyTitle: 'Ready to sign acknowledgment',
+    readyHint: 'Check the confirmation box and tap the button — a QR code for eGov Mobile will open.',
+    pendingTitle: 'Your acknowledgment is pending',
+    pendingHint: 'After the supervisor signs, review the documents and confirm acknowledgment.',
+    waitProducerTitle: 'Waiting for work supervisor signature',
+    signedTitle: 'Acknowledgment confirmed',
+    signedHint: 'Thank you. Approvers can continue signing the permit.',
+    stepProducer: 'Work supervisor signs the work permit',
+    stepRead: 'Review JSA and risk assessment',
+    stepSign: 'Confirm and sign via eGov Mobile',
+    documentsLabel: 'Documents to review',
+    signButton: 'Sign acknowledgment (eGov)',
+    modalStepPrepare: 'Prepare',
+    modalStepQr: 'QR code',
+    modalStepSign: 'Sign',
+    modalStepDone: 'Done',
   },
   abrDailyAck: {
     title: 'Daily JSA acknowledgment',

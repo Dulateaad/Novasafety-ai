@@ -13,6 +13,7 @@ import {
   PERMITTER_DOCUMENT_ROLE_LABEL,
   ISSUER_DOCUMENT_ROLE_LABEL,
   LEAD_EXPERT_DOCUMENT_ROLE_LABEL,
+  RISK_ASSESSMENT_LABEL,
 } from '../config/branding'
 
 type PersonRow = {
@@ -191,7 +192,7 @@ export function PermitCoordinatorOverview({ permit, resolveUser }: Props) {
             ))}
           </div>
         ) : (
-          <p className="muted small">Оценка рисков ещё не заполнена.</p>
+          <p className="muted small">{RISK_ASSESSMENT_LABEL} ещё не заполнена.</p>
         )}
       </section>
     </div>
