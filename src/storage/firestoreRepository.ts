@@ -23,6 +23,7 @@ import { canUserTriggerStatus, validateTransition } from '../lib/transitions'
 import { assertSignaturePatchAllowed } from '../lib/signatureGuard'
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
+import { mergeAbrDailyAcksBundles, normalizeAbrDailyAcks } from '../lib/abrDailyAck'
 import { resolveRegistrationRefNo } from '../lib/registrationNumber'
 import { readResumePermitId } from '../lib/resumePermitPackage'
 import { deleteSigningInvitesForPermit, deleteSigningInvitesForPermits } from '../lib/deletePermitInvites'
@@ -81,6 +82,46 @@ function stripHeavyPdfBlobs(cloned: Record<string, unknown>): void {
   }
 }
 
+/** ЭЦП CMS в base64 раздувают документ Firestore (>1 МБ) — храним метаданные подписи. */
+function stripHeavySignatureBlobs(cloned: Record<string, unknown>): void {
+  if (cloned.crewAckSignatures && typeof cloned.crewAckSignatures === 'object') {
+    const sigs = { ...(cloned.crewAckSignatures as Record<string, unknown>) }
+    for (const key of Object.keys(sigs)) {
+      const sig = sigs[key]
+      if (!sig || typeof sig !== 'object') continue
+      const copy = { ...(sig as Record<string, unknown>) }
+      delete copy.cmsBase64
+      sigs[key] = copy
+    }
+    cloned.crewAckSignatures = sigs
+  }
+  if (cloned.egovSignatures && typeof cloned.egovSignatures === 'object') {
+    const sigs = { ...(cloned.egovSignatures as Record<string, unknown>) }
+    for (const key of Object.keys(sigs)) {
+      const sig = sigs[key]
+      if (!sig || typeof sig !== 'object') continue
+      const copy = { ...(sig as Record<string, unknown>) }
+      delete copy.cmsBase64
+      sigs[key] = copy
+    }
+    cloned.egovSignatures = sigs
+  }
+  if (Array.isArray(cloned.abrDailyAcks)) {
+    cloned.abrDailyAcks = cloned.abrDailyAcks.map((day) => {
+      if (!day || typeof day !== 'object') return day
+      const d = { ...(day as Record<string, unknown>) }
+      if (!Array.isArray(d.entries)) return d
+      d.entries = d.entries.map((e) => {
+        if (!e || typeof e !== 'object') return e
+        const copy = { ...(e as Record<string, unknown>) }
+        delete copy.cmsBase64
+        return copy
+      })
+      return d
+    })
+  }
+}
+
 function forFirestore<T>(value: T): T {
   const cloned = JSON.parse(JSON.stringify(value)) as Record<string, unknown>
   if (cloned && typeof cloned === 'object') {
@@ -88,6 +129,7 @@ function forFirestore<T>(value: T): T {
       cloned.ppr = pprForFirestore(cloned.ppr as import('../types/ppr').PprForm)
     }
     stripHeavyPdfBlobs(cloned)
+    stripHeavySignatureBlobs(cloned)
   }
   return JSON.parse(JSON.stringify(cloned)) as T
 }
@@ -190,6 +232,15 @@ export class FirestorePermitRepository implements PermitRepository {
           ...(cur.crewAckSignatures ?? {}),
           ...patch.crewAckSignatures,
         },
+      }
+    }
+    if (patch.abrDailyAcks !== undefined) {
+      next = {
+        ...next,
+        abrDailyAcks: mergeAbrDailyAcksBundles(
+          normalizeAbrDailyAcks(cur.abrDailyAcks),
+          normalizeAbrDailyAcks(patch.abrDailyAcks),
+        ),
       }
     }
     if (patch.executors !== undefined) {

@@ -6,7 +6,45 @@ import type {
 } from '../types/workPermissions'
 import { renderSingleWorkPermission, renderWorkPermissionsBundle } from './buildWorkPermissionPdf'
 import { buildSigningPackagePdf } from './buildSigningPackagePdf'
+import { gasTestReadingFilled } from './ertGasTestHints'
 import { enrichWorkPermissionsBundle } from './workPermissions'
+
+function documentGasTestsFilled(doc: WorkPermissionDocument): boolean {
+  return (doc.gasTests ?? []).some(gasTestReadingFilled)
+}
+
+/** Не затирать газотест ERT при сохранении проверок допускающего / подписей со stale bundle. */
+function mergeGasTestsFromServerPermit(
+  permit: Permit,
+  bundle: WorkPermissionsBundle,
+): WorkPermissionsBundle {
+  const serverDocs = permit.workPermissions?.documents ?? []
+  if (!serverDocs.length) {
+    return {
+      ...bundle,
+      documents: bundle.documents.map((doc) => ({
+        ...doc,
+        gasTests: doc.gasTests ?? [],
+      })),
+    }
+  }
+  return {
+    ...bundle,
+    documents: bundle.documents.map((doc) => {
+      const serverDoc = serverDocs.find((d) => d.kind === doc.kind)
+      const localGasTests = doc.gasTests ?? []
+      if (!serverDoc) return { ...doc, gasTests: localGasTests }
+      const serverGasTests = serverDoc.gasTests ?? []
+      if (documentGasTestsFilled({ ...doc, gasTests: localGasTests })) {
+        return { ...doc, gasTests: localGasTests }
+      }
+      if (documentGasTestsFilled({ ...doc, gasTests: serverGasTests })) {
+        return { ...doc, gasTests: serverGasTests }
+      }
+      return { ...doc, gasTests: localGasTests.length ? localGasTests : serverGasTests }
+    }),
+  }
+}
 
 /** Пересборка PDF разрешений и (опционально) полного пакета после live-изменений. */
 export async function syncWorkPermissionsLive(args: {
@@ -21,7 +59,8 @@ export async function syncWorkPermissionsLive(args: {
   rebuildPackage?: boolean
 }): Promise<WorkPermissionsBundle> {
   const { permit, updatePermit, resolveUser, userDirectory, renderKinds } = args
-  let documents = enrichWorkPermissionsBundle(permit, args.bundle).documents
+  const mergedBundle = mergeGasTestsFromServerPermit(permit, args.bundle)
+  let documents = enrichWorkPermissionsBundle(permit, mergedBundle).documents
 
   const kindsToRender = renderKinds?.length ? new Set(renderKinds) : null
   const pdfOpts = {
@@ -69,7 +108,14 @@ export function patchWorkPermissionDocument(
   return {
     updatedAtIso: new Date().toISOString(),
     documents: bundle.documents.map((d) =>
-      d.kind === kind ? { ...d, ...patch, form: { ...d.form, ...patch.form } } : d,
+      d.kind === kind
+        ? {
+            ...d,
+            ...patch,
+            gasTests: patch.gasTests ?? d.gasTests ?? [],
+            form: { ...d.form, ...patch.form },
+          }
+        : d,
     ),
   }
 }

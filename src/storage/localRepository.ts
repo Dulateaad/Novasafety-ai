@@ -17,6 +17,7 @@ import type { PermitRepository, Unsubscribe, WorkStopRequestParams, WorkStopReso
 import { validateTransition, canUserTriggerStatus, issueStatusPatchIfApprovalsComplete } from '../lib/transitions'
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
+import { mergeAbrDailyAcksBundles, normalizeAbrDailyAcks } from '../lib/abrDailyAck'
 import { resolveRegistrationRefNo } from '../lib/registrationNumber'
 import { coercePtwSite } from '../config/ptwSites'
 import { emptyF02 } from '../uog/permitDefaults'
@@ -213,6 +214,15 @@ export class LocalPermitRepository implements PermitRepository {
           ...(prev.crewAckSignatures ?? {}),
           ...patch.crewAckSignatures,
         },
+      }
+    }
+    if (patch.abrDailyAcks !== undefined) {
+      next = {
+        ...next,
+        abrDailyAcks: mergeAbrDailyAcksBundles(
+          normalizeAbrDailyAcks(prev.abrDailyAcks),
+          normalizeAbrDailyAcks(patch.abrDailyAcks),
+        ),
       }
     }
     if (patch.executors !== undefined) {

@@ -72,6 +72,7 @@ export function ErtGasTestLivePanel(props: {
         resolveUser,
         userDirectory,
         renderKinds: dirtyKinds.length ? dirtyKinds : undefined,
+        rebuildPackage: true,
       })
       setLocalBundle(updated)
       setDirty(false)
@@ -123,7 +124,7 @@ export function ErtGasTestLivePanel(props: {
 
   function onGasChange(kind: WorkPermissionKind, id: string, patch: Partial<GasTestReading>) {
     const doc = localBundle!.documents.find((d) => d.kind === kind)!
-    const gasTests = doc.gasTests.map((r) => {
+    const gasTests = (doc.gasTests ?? []).map((r) => {
       if (r.id !== id) return r
       const merged = { ...r, ...patch }
       merged.testerUid = actor.id
@@ -138,7 +139,7 @@ export function ErtGasTestLivePanel(props: {
     const reading = emptyGasTestReading()
     reading.testerUid = actor.id
     reading.testerName = actor.displayName
-    patchLocal(kind, { gasTests: [...doc.gasTests, reading] })
+    patchLocal(kind, { gasTests: [...(doc.gasTests ?? []), reading] })
   }
 
   async function viewPdf(kind: WorkPermissionKind) {
@@ -202,7 +203,7 @@ export function ErtGasTestLivePanel(props: {
             </div>
             <GasTestResultsTable
               kind={doc.kind}
-              readings={doc.gasTests}
+              readings={doc.gasTests ?? []}
               editable={canEdit}
               ertOnly
               isErt={isErt}

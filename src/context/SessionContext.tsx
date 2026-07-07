@@ -322,17 +322,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw new Error('Недостаточно прав для удаления наряда')
       }
       setError(null)
+      const deletedPermit = permits.find((p) => p.id === id)
       try {
         await repo.deletePermit(id, user)
         if (readResumePermitId() === id) {
           clearPackageSession()
         } else {
-          // Сброс устаревшего номера в черновике (иначе новый наряд получит «003» вместо «001»).
           try {
             const raw = sessionStorage.getItem(NEW_PERMIT_DRAFT_AUTOSAVE_KEY)
             if (raw) {
               const parsed = JSON.parse(raw) as { registrationRefNo?: string }
-              if (parsed.registrationRefNo?.trim()) {
+              const staleRef = parsed.registrationRefNo?.trim()
+              const deletedRef = deletedPermit?.registrationRefNo?.trim()
+              if (staleRef && (!deletedRef || staleRef === deletedRef)) {
                 parsed.registrationRefNo = ''
                 sessionStorage.setItem(NEW_PERMIT_DRAFT_AUTOSAVE_KEY, JSON.stringify(parsed))
               }
@@ -346,7 +348,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw e
       }
     },
-    [repo, user],
+    [repo, user, permits],
   )
 
   const deleteAllPermits = useCallback(async () => {

@@ -222,8 +222,8 @@ export function PermitListPage() {
     return !signingInvites.some((invItem) => invItem.permitId === item.permit.id)
   })
   const dailyAckPending = useMemo(
-    () => (user ? pendingAbrDailyAckPermitsForUser(permits, user.id) : []),
-    [permits, user],
+    () => (user ? pendingAbrDailyAckPermitsForUser(permits, user, userDirectory) : []),
+    [permits, user, userDirectory],
   )
 
   const { dismissed: dismissedRejections, dismiss: dismissRejection } =

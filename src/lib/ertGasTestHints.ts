@@ -6,7 +6,7 @@ import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 
 import { requiresWorkPermissions } from './workPermissions'
 
-import type { WorkPermissionDocument } from '../types/workPermissions'
+import type { GasTestReading, WorkPermissionDocument } from '../types/workPermissions'
 
 
 
@@ -30,32 +30,27 @@ export function canErtEditGasTests(permit: Permit): boolean {
 
 
 
-export function gasTestDocFilled(doc: WorkPermissionDocument): boolean {
+function gasFieldFilled(value: string | number | undefined | null): boolean {
+  if (value === undefined || value === null) return false
+  return String(value).trim().length > 0
+}
 
-  const meta = WORK_PERMISSION_BY_KIND[doc.kind]
-
-  if (!meta.requiresGasTests) return true
-
-  return doc.gasTests.some(
-
-    (r) =>
-
-      Boolean(r.atIso) ||
-
-      r.location.trim().length > 0 ||
-
-      r.lelPercent.trim().length > 0 ||
-
-      r.h2sPpm.trim().length > 0 ||
-
-      r.o2Percent.trim().length > 0 ||
-
-      r.coPpm.trim().length > 0 ||
-
-      r.instrumentNo.trim().length > 0,
-
+export function gasTestReadingFilled(r: GasTestReading): boolean {
+  return (
+    Boolean(r.atIso?.trim()) ||
+    gasFieldFilled(r.location) ||
+    gasFieldFilled(r.lelPercent) ||
+    gasFieldFilled(r.h2sPpm) ||
+    gasFieldFilled(r.o2Percent) ||
+    gasFieldFilled(r.coPpm) ||
+    gasFieldFilled(r.instrumentNo)
   )
+}
 
+export function gasTestDocFilled(doc: WorkPermissionDocument): boolean {
+  const meta = WORK_PERMISSION_BY_KIND[doc.kind]
+  if (!meta.requiresGasTests) return true
+  return (doc.gasTests ?? []).some(gasTestReadingFilled)
 }
 
 

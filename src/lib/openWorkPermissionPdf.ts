@@ -1,4 +1,5 @@
 import { openPdfInBrowser } from './pdfPreview'
+import { normalizeWorkPermissionDocument } from './normalizeWorkPermissions'
 import type { Permit } from '../types/domain'
 import type { WorkPermissionDocument } from '../types/workPermissions'
 import { buildWorkPermissionPdf } from './buildWorkPermissionPdf'
@@ -14,10 +15,11 @@ export async function openWorkPermissionPdf(
   doc: WorkPermissionDocument,
   permit?: Pick<Permit, 'status'>,
 ): Promise<void> {
+  const normalized = normalizeWorkPermissionDocument(doc) ?? doc
   const { base64, fileName } = await buildWorkPermissionPdf(
-    doc,
+    normalized,
     undefined,
     workPermissionPdfOptsForPermit(permit),
   )
-  openPdfInBrowser(base64, doc.title || fileName)
+  openPdfInBrowser(base64, normalized.title || fileName)
 }

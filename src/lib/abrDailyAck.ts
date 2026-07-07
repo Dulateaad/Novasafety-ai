@@ -1,14 +1,169 @@
 import type { DemoUser, Permit } from '../types/domain'
 import type { AbrDailyAckDay, AbrDailyAckEntry } from '../types/abrDailyAck'
 import { emptyAbrDailyAckDay } from '../types/abrDailyAck'
+import { DEFAULT_WORKERS } from '../config/defaultWorkers'
+import { resolveWorkerUid } from './resolveWorkerUid'
+import { isUserOnPermitCrew, uidMatchesAccount } from './permitAccess'
 
 const ACTIVE = new Set<Permit['status']>(['issued', 'in_progress', 'suspended'])
 
 /** Подпись действительна 24 часа с момента подписания. */
 export const ABR_DAILY_ACK_VALID_MS = 24 * 60 * 60 * 1000
 
-export function todayDateIso(): string {
-  return new Date().toISOString().slice(0, 10)
+/** Локальная календарная дата (не UTC), чтобы «сегодня» совпадало с Казахстаном. */
+export function todayDateIso(date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function accountIdsForUid(uid: string, directory: DemoUser[] = []): Set<string> {
+  const ids = new Set<string>()
+  const id = uid.trim()
+  if (!id) return ids
+  ids.add(id)
+  const resolved = resolveWorkerUid(directory, id)
+  if (resolved) ids.add(resolved)
+  for (const u of directory) {
+    if (uidMatchesAccount(id, u, directory)) ids.add(u.id)
+  }
+  return ids
+}
+
+function workerSpecForExecutorUid(
+  uid: string,
+  directory: DemoUser[] = [],
+): (typeof DEFAULT_WORKERS)[number] | undefined {
+  const id = uid.trim()
+  if (!id) return undefined
+  const direct = DEFAULT_WORKERS.find((s) => s.demoIds.includes(id))
+  if (direct) return direct
+  const resolved = resolveWorkerUid(directory, id)
+  if (resolved) {
+    const hit = DEFAULT_WORKERS.find((s) => s.demoIds.includes(resolved))
+    if (hit) return hit
+  }
+  const user =
+    directory.find((u) => u.id === id || u.id === resolved) ??
+    directory.find((u) => uidMatchesAccount(id, u, directory))
+  if (!user?.displayName?.trim()) return undefined
+  const text = user.displayName.trim()
+  return DEFAULT_WORKERS.find((s) => s.namePatterns?.some((p) => p.test(text)))
+}
+
+/** Все известные подписи ФИО для строки бригады (справочник + шаблон бригады). */
+export function executorDisplayNamesForUid(
+  uid: string,
+  directory: DemoUser[] = [],
+): string[] {
+  const names = new Set<string>()
+  const id = uid.trim()
+  if (!id) return []
+  const resolved = resolveWorkerUid(directory, id)
+  for (const u of directory) {
+    if (u.id === id || u.id === resolved || uidMatchesAccount(id, u, directory)) {
+      if (u.displayName?.trim()) names.add(u.displayName.trim())
+    }
+  }
+  const spec = workerSpecForExecutorUid(id, directory)
+  if (spec) {
+    names.add(spec.displayName)
+    const short = spec.displayName.split('—')[0]?.trim()
+    if (short) names.add(short)
+  }
+  return [...names]
+}
+
+export function resolveExecutorDisplayName(
+  uid: string,
+  directory: DemoUser[] = [],
+): string {
+  const names = executorDisplayNamesForUid(uid, directory)
+  return names[0] ?? uid
+}
+
+function entryMatchesExecutorName(
+  entry: AbrDailyAckEntry,
+  executorUid: string,
+  directory: DemoUser[] = [],
+): boolean {
+  const text = `${entry.fullName} ${entry.roleLabel}`.trim()
+  if (!text) return false
+  const spec = workerSpecForExecutorUid(executorUid, directory)
+  if (!spec?.namePatterns?.length) return false
+  return spec.namePatterns.some((p) => p.test(text))
+}
+
+function isAbrEntryStillValid(entry: AbrDailyAckEntry, now = Date.now()): boolean {
+  const signedAt = new Date(entry.signedAtIso).getTime()
+  if (!Number.isFinite(signedAt)) return false
+  return now - signedAt < ABR_DAILY_ACK_VALID_MS
+}
+
+export function abrDailyAckValidUntilIso(entry: AbrDailyAckEntry): string {
+  const signedAt = new Date(entry.signedAtIso).getTime()
+  if (!Number.isFinite(signedAt)) return ''
+  return new Date(signedAt + ABR_DAILY_ACK_VALID_MS).toISOString()
+}
+
+function executorNameKeys(name: string): string[] {
+  const raw = name.trim().toLowerCase()
+  if (!raw) return []
+  const keys = new Set<string>([raw])
+  const short = raw.split('—')[0]?.split('-')[0]?.trim()
+  if (short) keys.add(short)
+  const tokens = raw.split(/[\s,—\-]+/).filter((t) => t.length > 2)
+  for (const t of tokens) keys.add(t)
+  return [...keys]
+}
+
+function namesLikelySame(a: string, b: string): boolean {
+  const ak = executorNameKeys(a)
+  const bk = executorNameKeys(b)
+  if (!ak.length || !bk.length) return false
+  if (ak.some((x) => bk.some((y) => x.includes(y) || y.includes(x)))) return true
+  const aTokens = new Set(ak.flatMap((k) => k.split(/[\s,—\-]+/).filter((t) => t.length > 2)))
+  const bTokens = new Set(bk.flatMap((k) => k.split(/[\s,—\-]+/).filter((t) => t.length > 2)))
+  let overlap = 0
+  for (const t of aTokens) {
+    if (bTokens.has(t)) overlap += 1
+  }
+  return overlap >= 2 || (overlap >= 1 && (aTokens.size <= 2 || bTokens.size <= 2))
+}
+
+function uidsRepresentSameAccount(
+  leftUid: string,
+  rightUid: string,
+  directory: DemoUser[] = [],
+): boolean {
+  const a = leftUid.trim()
+  const b = rightUid.trim()
+  if (!a || !b) return false
+  if (a === b) return true
+  const left = accountIdsForUid(a, directory)
+  for (const id of accountIdsForUid(b, directory)) {
+    if (left.has(id)) return true
+  }
+  return false
+}
+
+function entryMatchesExecutorUid(
+  entry: AbrDailyAckEntry,
+  executorUid: string,
+  directory: DemoUser[] = [],
+  executorDisplayName = '',
+): boolean {
+  const entryUid = entry.userUid.trim()
+  const execUid = executorUid.trim()
+  if (!execUid) return false
+  if (entryUid && uidsRepresentSameAccount(entryUid, execUid, directory)) return true
+  const names = new Set(executorDisplayNamesForUid(execUid, directory))
+  if (executorDisplayName.trim()) names.add(executorDisplayName.trim())
+  for (const name of names) {
+    if (entry.fullName.trim() && namesLikelySame(entry.fullName, name)) return true
+  }
+  return entryMatchesExecutorName(entry, execUid, directory)
 }
 
 export function normalizeAbrDailyAcks(raw: unknown): AbrDailyAckDay[] {
@@ -65,37 +220,99 @@ export function abrDailyAckForDate(
 export function latestAbrDailyAckForUser(
   permit: Permit,
   userUid: string,
+  directory: DemoUser[] = [],
+  executorDisplayName = '',
 ): AbrDailyAckEntry | undefined {
   const uid = userUid.trim()
   if (!uid) return undefined
+  const label =
+    executorDisplayName.trim() || resolveExecutorDisplayName(uid, directory)
   return normalizeAbrDailyAcks(permit.abrDailyAcks)
     .flatMap((day) => day.entries)
-    .filter((e) => e.userUid === uid)
+    .filter((e) => entryMatchesExecutorUid(e, uid, directory, label))
     .sort((a, b) => b.signedAtIso.localeCompare(a.signedAtIso))[0]
 }
 
-export function hasValidAbrDailyAck(permit: Permit, userUid: string): boolean {
-  const latest = latestAbrDailyAckForUser(permit, userUid)
-  if (!latest) return false
-  const signedAt = new Date(latest.signedAtIso).getTime()
-  if (!Number.isFinite(signedAt)) return false
-  return Date.now() - signedAt < ABR_DAILY_ACK_VALID_MS
+export function hasValidAbrDailyAck(
+  permit: Permit,
+  userUid: string,
+  directory: DemoUser[] = [],
+  executorDisplayName = '',
+): boolean {
+  const latest = latestAbrDailyAckForUser(permit, userUid, directory, executorDisplayName)
+  return latest ? isAbrEntryStillValid(latest) : false
 }
 
 /** Подпись действительна в течение 24 часов с момента подписания. */
-export function hasAbrDailyAckToday(permit: Permit, userUid: string): boolean {
-  return hasValidAbrDailyAck(permit, userUid)
+export function hasAbrDailyAckToday(
+  permit: Permit,
+  userUid: string,
+  directory: DemoUser[] = [],
+): boolean {
+  return hasValidAbrDailyAck(permit, userUid, directory)
+}
+
+function ackMergeKey(
+  entry: AbrDailyAckEntry,
+  directory: DemoUser[] = [],
+): string {
+  const ids = [...accountIdsForUid(entry.userUid, directory)].sort()
+  if (ids.length) return ids.join('|')
+  const name = entry.fullName.trim().toLowerCase()
+  return name ? `name:${name}` : entry.userUid
+}
+
+/** Объединить серверные и новые подписи (защита от гонки при одновременном сохранении). */
+export function mergeAbrDailyAcksBundles(
+  server: AbrDailyAckDay[],
+  incoming: AbrDailyAckDay[],
+  directory: DemoUser[] = [],
+): AbrDailyAckDay[] {
+  const byDate = new Map<string, Map<string, AbrDailyAckEntry>>()
+
+  const put = (day: AbrDailyAckDay) => {
+    let map = byDate.get(day.dateIso)
+    if (!map) {
+      map = new Map()
+      byDate.set(day.dateIso, map)
+    }
+    for (const e of day.entries) {
+      const key = ackMergeKey(e, directory)
+      const prev = map.get(key)
+      if (!prev || e.signedAtIso >= prev.signedAtIso) {
+        map.set(key, e)
+      }
+    }
+  }
+
+  for (const day of server) put(day)
+  for (const day of incoming) put(day)
+
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateIso, map]) => ({
+      dateIso,
+      entries: [...map.values()].sort((a, b) => a.signedAtIso.localeCompare(b.signedAtIso)),
+    }))
 }
 
 export function mergeAbrDailyAckEntry(
   permit: Permit,
   entry: AbrDailyAckEntry,
   dateIso = todayDateIso(),
+  directory: DemoUser[] = [],
 ): AbrDailyAckDay[] {
   const list = normalizeAbrDailyAcks(permit.abrDailyAcks)
   const idx = list.findIndex((d) => d.dateIso === dateIso)
   const day = idx >= 0 ? list[idx]! : emptyAbrDailyAckDay(dateIso)
-  const entries = [...day.entries, entry]
+  const entries = [
+    ...day.entries.filter(
+      (e) =>
+        !uidsRepresentSameAccount(e.userUid, entry.userUid, directory) &&
+        !namesLikelySame(e.fullName, entry.fullName),
+    ),
+    entry,
+  ]
   const nextDay = { dateIso, entries }
   if (idx >= 0) {
     const copy = [...list]
@@ -135,21 +352,38 @@ export function isAbrDailyAckPeriodActive(status: Permit['status']): boolean {
   return ACTIVE.has(status)
 }
 
-export function pendingAbrDailyAckUids(permit: Permit, _dateIso = todayDateIso()): string[] {
+export function pendingAbrDailyAckUids(
+  permit: Permit,
+  _dateIso = todayDateIso(),
+  directory: DemoUser[] = [],
+  resolveDisplayName?: (uid: string) => string | undefined,
+): string[] {
   if (!isAbrDailyAckPeriodActive(permit.status)) return []
   return permit.executors
     .map((ex) => ex.userUid.trim())
-    .filter((uid) => uid && !hasValidAbrDailyAck(permit, uid))
+    .filter((uid) => {
+      if (!uid) return false
+      const label =
+        resolveDisplayName?.(uid) ?? resolveExecutorDisplayName(uid, directory)
+      return !hasValidAbrDailyAck(permit, uid, directory, label)
+    })
 }
 
 export function pendingAbrDailyAckPermitsForUser(
   permits: Permit[],
-  userUid: string,
+  user: DemoUser,
+  directory: DemoUser[] = [],
 ): Permit[] {
-  const uid = userUid.trim()
-  if (!uid) return []
+  if (!user.id.trim()) return []
   return permits.filter((p) => {
-    if (!p.executors.some((ex) => ex.userUid === uid)) return false
-    return pendingAbrDailyAckUids(p).includes(uid)
+    if (!isAbrDailyAckPeriodActive(p.status)) return false
+    if (!isUserOnPermitCrew(p, user.id, user, directory)) return false
+    return p.executors.some((ex) => {
+      const uid = ex.userUid.trim()
+      if (!uid) return false
+      if (uid !== user.id && !uidMatchesAccount(uid, user, directory)) return false
+      const label = resolveExecutorDisplayName(uid, directory)
+      return !hasValidAbrDailyAck(p, uid, directory, label)
+    })
   })
 }

@@ -1,4 +1,5 @@
 import type { Permit, PermitDraft } from '../types/domain'
+import { clearResumePermitId } from './resumePermitPackage'
 
 /** Учитывает только строки «001», «12» и т.д. (одни цифры). Прочее — 0 для выбора следующего номера. */
 export function parseRegistrationSequence(ref: string | undefined): number {
@@ -59,9 +60,11 @@ export function resolveRegistrationRefNo(
   permits: Permit[],
   resumePermitId?: string | null,
 ): string {
-  const resumed = resumePermitId
-    ? permits.find((p) => p.id === resumePermitId)
-    : undefined
+  const resumeId = resumePermitId?.trim() || null
+  const resumed = resumeId ? permits.find((p) => p.id === resumeId) : undefined
+  if (resumeId && !resumed) {
+    clearResumePermitId()
+  }
   const resumedRef = resumed?.registrationRefNo?.trim()
   if (resumedRef) return resumedRef
 

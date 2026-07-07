@@ -20,6 +20,7 @@ import {
   WORK_PERMISSION_SIGN_ROLES,
 } from '../types/workPermissions'
 import { initPdfMake, pdfBase64Async } from './pdfMakeEngine'
+import { gasTestReadingFilled } from './ertGasTestHints'
 import { listWorkStageTitles } from './formatWorkStagesDisplay'
 import { parseToolsAndEquipmentList } from './toolsAndEquipmentFormat'
 
@@ -282,12 +283,33 @@ function section1Blocks(doc: WorkPermissionDocument): PdfBlock[] {
     workScopeBlock(doc),
     { text: 'Инструменты и оборудование', bold: true, fontSize: FS, margin: [0, 0, 0, 2] },
     equipmentInlineBlock(f.equipmentAndDocs),
+    ...gasTestModesBlock(f),
   ]
 }
 
-function gasTestTable(gasTests: GasTestReading[], palette: WorkPermissionPdfPalette): PdfBlock {
-  const rows: GasTestReading[] = [...gasTests]
-  while (rows.length < 3) rows.push({ id: '', atIso: '', location: '', lelPercent: '', h2sPpm: '', o2Percent: '', coPpm: '', testerUid: '', testerName: '', instrumentNo: '', notes: '' })
+function gasFieldCell(value: string | number | undefined | null, palette: WorkPermissionPdfPalette): PdfCell {
+  if (value === undefined || value === null) return cell(' ', palette, { align: 'center' })
+  const text = String(value).trim()
+  return cell(text || ' ', palette, { align: 'center' })
+}
+
+function gasTestTable(gasTests: GasTestReading[] | undefined, palette: WorkPermissionPdfPalette): PdfBlock {
+  const filled = (gasTests ?? []).filter(gasTestReadingFilled)
+  const rows: GasTestReading[] = [...filled]
+  const emptyRow: GasTestReading = {
+    id: '',
+    atIso: '',
+    location: '',
+    lelPercent: '',
+    h2sPpm: '',
+    o2Percent: '',
+    coPpm: '',
+    testerUid: '',
+    testerName: '',
+    instrumentNo: '',
+    notes: '',
+  }
+  while (rows.length < 3) rows.push(emptyRow)
   const body: PdfCell[][] = [
     [
       hdr('Дата', palette),
@@ -298,15 +320,15 @@ function gasTestTable(gasTests: GasTestReading[], palette: WorkPermissionPdfPale
       hdr('CO, ppm', palette),
       hdr('Ф.И.О. проводившего', palette),
     ],
-    ...rows.slice(0, 3).map((g) => {
+    ...rows.map((g) => {
       const d = g.atIso ? new Date(g.atIso) : null
       return [
         cell(d ? d.toLocaleDateString('ru-RU') : ' ', palette),
         cell(d ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ' ', palette),
-        cell(g.lelPercent || ' ', palette, { align: 'center' }),
-        cell(g.h2sPpm || ' ', palette, { align: 'center' }),
-        cell(g.o2Percent || ' ', palette, { align: 'center' }),
-        cell(g.coPpm || ' ', palette, { align: 'center' }),
+        gasFieldCell(g.lelPercent, palette),
+        gasFieldCell(g.h2sPpm, palette),
+        gasFieldCell(g.o2Percent, palette),
+        gasFieldCell(g.coPpm, palette),
         cell(g.testerName || ' ', palette),
       ]
     }),
@@ -494,10 +516,10 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
   ]
 
   if (doc.kind === 'confined_space') {
-    content.push(...gasTestSection(2, doc.gasTests, f.additionalNotes, palette))
+    content.push(...gasTestSection(2, doc.gasTests ?? [], f.additionalNotes, palette))
     content.push(...confinedSpaceMiddleSections(doc, palette))
   } else {
-    content.push(...gasTestSection(2, doc.gasTests, f.additionalNotes, palette))
+    content.push(...gasTestSection(2, doc.gasTests ?? [], f.additionalNotes, palette))
     const checksTitle =
       doc.kind === 'open_flame_fire'
         ? '3.  Проверки, выполняемые на рабочей площадке'
