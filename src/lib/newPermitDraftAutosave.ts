@@ -11,6 +11,7 @@ import { coercePtwSite } from '../config/ptwSites'
 import { emptyF02, emptyPermitDraft } from '../uog/permitDefaults'
 import { initialNdprResponses } from '../uog/ndprChecklistTemplate'
 import { normalizeSitePhotos } from './sitePhotos'
+import { notifyNavGatesChanged } from './navGates'
 
 export const NEW_PERMIT_DRAFT_AUTOSAVE_KEY = 'nova_new_permit_draft_v1'
 
@@ -185,6 +186,7 @@ export function saveNewPermitDraftToSession(draft: PermitDraft): void {
       NEW_PERMIT_DRAFT_AUTOSAVE_KEY,
       JSON.stringify(stripDraftForSession(draft)),
     )
+    notifyNavGatesChanged()
   } catch {
     /* storage full / private mode */
   }

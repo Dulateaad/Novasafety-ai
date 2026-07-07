@@ -20,6 +20,8 @@ const SERVICES = [
   'cleanuporphansigninginvitesfn',
   'getcrewackdocument',
   'submitcrewacknowledgment',
+  'claudeaifn',
+  'extractpprcontrolmeasuresfrompdffn',
 ]
 
 for (const service of SERVICES) {

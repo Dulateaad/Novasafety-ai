@@ -1,5 +1,5 @@
 import { workStagesTitlesText } from './formatWorkStagesDisplay'
-import type { DemoUser, Permit, PermitDraft } from '../types/domain'
+import type { DemoUser, Permit, PermitDraft, SpecialWorkActivity } from '../types/domain'
 import type { PprForm } from '../types/ppr'
 import {
   WORK_ACTIVITIES_REQUIRING_PERMISSIONS,
@@ -23,6 +23,10 @@ import {
 import { renderSingleWorkPermission } from './buildWorkPermissionPdf'
 import { resolveRegistrationRefNo } from './registrationNumber'
 import { readResumePermitId } from './resumePermitPackage'
+import {
+  buildPprWorkTypesHaystack,
+  inferPermissionActivitiesFromText,
+} from './inferSpecialWorkActivityFromPpr'
 
 type WorkPermissionRefSource = Pick<PermitDraft, 'registrationRefNo'>
 
@@ -88,6 +92,41 @@ export function requiresWorkPermissions(
   draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
 ): boolean {
   return requiredPermissionKinds(draft).length > 0
+}
+
+/** Газоопасные / огневые / ЗП — только эти виды открывают вкладку «Разрешения». */
+export function hasPermissionRequiringActivities(
+  activities: SpecialWorkActivity[],
+): boolean {
+  const required = new Set<string>(WORK_ACTIVITIES_REQUIRING_PERMISSIONS)
+  return activities.some((a) => required.has(a))
+}
+
+const PERMISSION_ACTIVITY_SET = new Set<string>(WORK_ACTIVITIES_REQUIRING_PERMISSIONS)
+
+/**
+ * Виды работ ППР, для которых нужны спецразрешения (ГО/ОР/ЗП).
+ * gas_hazard — только при явных признаках в тексте (не «продувка» из холодных работ).
+ */
+export function effectivePermissionActivitiesFromPpr(ppr: PprForm): SpecialWorkActivity[] {
+  const haystack = buildPprWorkTypesHaystack(ppr)
+  const fromPermissionRules = inferPermissionActivitiesFromText(haystack)
+  const result = new Set<SpecialWorkActivity>(fromPermissionRules)
+
+  for (const activity of ppr.specialWorkActivities.filter(Boolean)) {
+    if (!PERMISSION_ACTIVITY_SET.has(activity)) continue
+    if (activity === 'gas_hazard') {
+      if (fromPermissionRules.includes('gas_hazard')) result.add(activity)
+      continue
+    }
+    result.add(activity)
+  }
+
+  return [...result]
+}
+
+export function pprRequiresSpecialPermissions(ppr: PprForm): boolean {
+  return effectivePermissionActivitiesFromPpr(ppr).length > 0
 }
 
 /** Разрешения для слияния в общий PDF-пакет (без дубля «замкнутое пространство», если есть газоопасные). */

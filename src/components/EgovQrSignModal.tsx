@@ -35,6 +35,7 @@ export function EgovQrSignModal(props: {
   const m = t.modals
   const c = t.common
   const ui = t.signingUi
+  const w = t.crewWorker
   const useServerPdf = authMode === 'firebase'
 
   const [phase, setPhase] = useState<Phase>('idle')
@@ -189,9 +190,36 @@ export function EgovQrSignModal(props: {
 
   if (!open) return null
 
+  const modalSteps = [
+    {
+      key: 'prepare',
+      label: w.modalStepPrepare,
+      active: phase === 'idle' || phase === 'qr',
+      done: phase === 'waiting' || phase === 'submitting' || phase === 'done',
+    },
+    {
+      key: 'qr',
+      label: w.modalStepQr,
+      active: phase === 'waiting',
+      done: phase === 'submitting' || phase === 'done',
+    },
+    {
+      key: 'sign',
+      label: w.modalStepSign,
+      active: phase === 'submitting',
+      done: phase === 'done',
+    },
+    {
+      key: 'done',
+      label: w.modalStepDone,
+      active: phase === 'done',
+      done: phase === 'done',
+    },
+  ] as const
+
   return (
     <div className="egov-modal-backdrop" role="dialog" aria-modal="true">
-      <div className="egov-modal card">
+      <div className="egov-modal card crew-ack-modal">
         <div className="egov-modal__header">
           <h2 style={{ margin: 0 }}>{ui.approveEgov}</h2>
           <button type="button" className="btn ghost small" onClick={onClose} aria-label={m.closeAria}>
@@ -218,6 +246,24 @@ export function EgovQrSignModal(props: {
             {m.verifyingEsigh}
           </p>
         )}
+
+        <div className="crew-ack-modal__steps" aria-hidden>
+          {modalSteps.map((step) => (
+            <div
+              key={step.key}
+              className={[
+                'crew-ack-modal__step',
+                step.active ? 'is-active' : '',
+                step.done ? 'is-done' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <div className="crew-ack-modal__step-dot" />
+              {step.label}
+            </div>
+          ))}
+        </div>
 
         {phase === 'qr' && qrSrc && (
           <>

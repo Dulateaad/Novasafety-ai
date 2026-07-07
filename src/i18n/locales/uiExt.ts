@@ -230,6 +230,9 @@ export type UiExtension = {
     stepRead: string
     stepSign: string
     documentsLabel: string
+    viewAbr: string
+    viewRisk: string
+    openingPdf: string
     signButton: string
     modalStepPrepare: string
     modalStepQr: string
@@ -797,7 +800,7 @@ export const uiExtRu: UiExtension = {
   adminPage: {
     title: 'Админ-панель',
     subtitle: 'Пользователи, уведомления и настройки NOVA SAFETY AI',
-    backJournal: 'Журнал НД',
+    backJournal: 'Журнал НДПР',
     adminLabel: 'Администратор',
     activeBadge: 'Активен',
     exportExcel: 'Выгрузить в Excel',
@@ -934,6 +937,9 @@ export const uiExtRu: UiExtension = {
     stepRead: 'Ознакомьтесь с АБР и Оценкой Риска',
     stepSign: 'Подтвердите и подпишите через eGov Mobile',
     documentsLabel: 'Документы для ознакомления',
+    viewAbr: 'Посмотреть АБР',
+    viewRisk: 'Посмотреть оценку риска',
+    openingPdf: 'Открытие…',
     signButton: 'Подписать ознакомление (eGov)',
     modalStepPrepare: 'Подготовка',
     modalStepQr: 'QR-код',
@@ -1611,7 +1617,7 @@ export const uiExtEn: UiExtension = {
   adminPage: {
     title: 'Admin panel',
     subtitle: 'Users, notifications and NOVA SAFETY AI settings',
-    backJournal: 'PTW journal',
+    backJournal: 'NDPR journal',
     adminLabel: 'Administrator',
     activeBadge: 'Active',
     exportExcel: 'Export to Excel',
@@ -1747,6 +1753,9 @@ export const uiExtEn: UiExtension = {
     stepRead: 'Review JSA and risk assessment',
     stepSign: 'Confirm and sign via eGov Mobile',
     documentsLabel: 'Documents to review',
+    viewAbr: 'View JSA',
+    viewRisk: 'View risk assessment',
+    openingPdf: 'Opening…',
     signButton: 'Sign acknowledgment (eGov)',
     modalStepPrepare: 'Prepare',
     modalStepQr: 'QR code',

@@ -34,6 +34,7 @@ import { auth, db, firebaseConfigured } from '../lib/firebase'
 import { profileDocToDemoUser } from '../lib/userProfile'
 import { canUserDeletePermit } from '../lib/permitDelete'
 import { resetSessionUser, syncSessionUser, clearPackageSession } from '../lib/packageSession'
+import { NEW_PERMIT_DRAFT_AUTOSAVE_KEY } from '../lib/newPermitDraftAutosave'
 import { readResumePermitId } from '../lib/resumePermitPackage'
 import { createRepository } from '../storage/repositoryFactory'
 import type { PermitRepository } from '../storage/types'
@@ -325,6 +326,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await repo.deletePermit(id, user)
         if (readResumePermitId() === id) {
           clearPackageSession()
+        } else {
+          // Сброс устаревшего номера в черновике (иначе новый наряд получит «003» вместо «001»).
+          try {
+            const raw = sessionStorage.getItem(NEW_PERMIT_DRAFT_AUTOSAVE_KEY)
+            if (raw) {
+              const parsed = JSON.parse(raw) as { registrationRefNo?: string }
+              if (parsed.registrationRefNo?.trim()) {
+                parsed.registrationRefNo = ''
+                sessionStorage.setItem(NEW_PERMIT_DRAFT_AUTOSAVE_KEY, JSON.stringify(parsed))
+              }
+            }
+          } catch {
+            /* ignore */
+          }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))

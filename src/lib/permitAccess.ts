@@ -198,8 +198,7 @@ export function isNavRouteAccessibleForUser(to: string, user: DemoUser | null): 
     return to === '/' || to.startsWith('/p/') || to === '/help'
   }
   if (to === '/admin') return user.role === 'coordinator'
-  if (to === '/matrix' && user.role !== 'coordinator') return false
-  if (to === '/' || to === '/matrix' || to === '/ppr') return true
+  if (to === '/' || to === '/ppr') return true
   if (to === '/new' || to === '/certificates') {
     return isPprGatePassed()
   }

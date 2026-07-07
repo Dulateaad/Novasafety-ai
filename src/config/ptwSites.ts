@@ -19,8 +19,8 @@ function wellNumberToSite(num: string): PtwSiteOption | undefined {
   return PTW_SITES_SET.has(site) ? (site as PtwSiteOption) : undefined
 }
 
-/** Определяет объект / локацию по тексту ППР (U12 → «12 скважина» и т.д.). */
-export function matchPtwSiteFromText(text: string): PtwSiteOption | undefined {
+/** Определяет объект / локацию по тексту ППР (U12 → «12 скважина», TGTU → «ТГТУ / НКОК» и т.д.). */
+export function matchPtwSiteFromText(text: string): string | undefined {
   const haystack = text.trim()
   if (!haystack) return undefined
 
@@ -50,6 +50,12 @@ export function matchPtwSiteFromText(text: string): PtwSiteOption | undefined {
   if (/сборн(?:ая|ой)?\s+станц/i.test(haystack)) return 'Сборочная станция'
   if (/передаточн(?:ая|ой)?\s+станц/i.test(haystack)) return 'Передаточная станция'
 
+  if (/\b(?:tgtu|тгту)\b/i.test(haystack)) {
+    const hasNkok = /\b(?:hkok|hkdk|нкок|nkok)\b/i.test(haystack)
+    return hasNkok ? 'ТГТУ / НКОК' : 'ТГТУ'
+  }
+  if (/\b(?:hkok|hkdk|нкок|nkok)\b/i.test(haystack)) return 'НКОК'
+
   return undefined
 }
 
@@ -62,5 +68,14 @@ export function coercePtwSite(raw: string | undefined, textHint?: string): strin
   const fromRaw = matchPtwSiteFromText(s)
   if (fromRaw) return fromRaw
   if (s.length >= 3) return s.slice(0, 200)
+  if (textHint && /(?:tgtu|тгту|hkok|hkdk|нкок)/i.test(textHint)) {
+    const fromHint = matchPtwSiteFromText(textHint)
+    if (fromHint) return fromHint
+    if (/\b(?:tgtu|тгту)\b/i.test(textHint) && /\b(?:hkok|hkdk|нкок)\b/i.test(textHint)) {
+      return 'ТГТУ / НКОК'
+    }
+    if (/\b(?:tgtu|тгту)\b/i.test(textHint)) return 'ТГТУ'
+    if (/\b(?:hkok|hkdk|нкок)\b/i.test(textHint)) return 'НКОК'
+  }
   return ''
 }

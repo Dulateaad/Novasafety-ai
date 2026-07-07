@@ -4,3 +4,10 @@ export const CALLABLE_OPTIONS = {
   invoker: 'public' as const,
   timeoutSeconds: 120,
 }
+
+/** Долгие вызовы Claude (PDF ППР, тяжёлое извлечение). */
+export const LONG_CALLABLE_OPTIONS = {
+  ...CALLABLE_OPTIONS,
+  timeoutSeconds: 300,
+  memory: '1GiB' as const,
+}

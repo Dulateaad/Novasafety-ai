@@ -11,9 +11,9 @@ export function notifyNavGatesChanged(): void {
   }
 }
 
-/** Журнал, Матрица и ППР — всегда; остальные по мере прохождения шагов. */
+/** Журнал и ППР — всегда; остальные по мере прохождения шагов. */
 export function isNavRouteAccessible(to: string): boolean {
-  if (to === '/' || to === '/matrix' || to === '/ppr') return true
+  if (to === '/' || to === '/ppr') return true
   if (to === '/new') return isPprGatePassed()
   if (to === '/risk-assessment') return isNdGatePassed()
   if (to === '/permissions') return isPermissionsNavAccessible()

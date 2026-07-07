@@ -43,7 +43,7 @@ import {
 import { resolveWorkerUidOnServer } from './signing/resolveWorkerUid'
 import type { EgovSignRole } from './signing/types'
 import { SESSION_TTL_MS } from './signing/types'
-import { CALLABLE_OPTIONS } from './callableOptions'
+import { CALLABLE_OPTIONS, LONG_CALLABLE_OPTIONS } from './callableOptions'
 import {
   getSigningAppSettings,
   setSigningAppSettings,
@@ -1006,3 +1006,88 @@ export const setInspectorSettingsFn = onCall(CALLABLE_OPTIONS, async (request) =
     inspectorNotifyMode: settings.inspectorNotifyMode,
   }
 })
+
+/** Универсальный прокси Claude (PDF и текст) — ключ ANTHROPIC_API_KEY только на сервере. */
+export const claudeAiFn = onCall(LONG_CALLABLE_OPTIONS, async (request) => {
+  const systemPrompt = String(request.data?.systemPrompt ?? '').trim()
+  const userPrompt = String(request.data?.userPrompt ?? '').trim()
+  const mimeType = String(request.data?.mimeType ?? '').trim()
+  const dataBase64 = String(request.data?.dataBase64 ?? '').trim()
+  const complex = Boolean(request.data?.complex)
+
+  if (!systemPrompt || !userPrompt) {
+    throw new HttpsError('invalid-argument', 'systemPrompt и userPrompt обязательны')
+  }
+
+  try {
+    const {
+      claudeGenerateText,
+      claudeGenerateTextForComplexExtraction,
+      claudeGenerateTextForExtraction,
+      claudeGenerateWithFileForExtraction,
+    } = await import('./claude/client')
+    if (dataBase64 && mimeType) {
+      if (dataBase64.length > 12_000_000) {
+        throw new HttpsError('invalid-argument', 'Файл слишком большой для Claude')
+      }
+      const raw = await claudeGenerateWithFileForExtraction({
+        systemPrompt,
+        userPrompt,
+        mimeType,
+        dataBase64,
+        complex,
+      })
+      return { raw }
+    }
+    const raw = complex
+      ? await claudeGenerateTextForComplexExtraction({ systemPrompt, userPrompt })
+      : request.data?.extraction === false
+        ? await claudeGenerateText({
+            systemPrompt,
+            userPrompt,
+            json: request.data?.json !== false,
+          })
+        : await claudeGenerateTextForExtraction({ systemPrompt, userPrompt })
+    return { raw }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    if (message.includes('ANTHROPIC_API_KEY')) {
+      throw new HttpsError(
+        'failed-precondition',
+        'На сервере не настроен ANTHROPIC_API_KEY для Cloud Functions',
+      )
+    }
+    throw new HttpsError('internal', message)
+  }
+})
+
+/** Извлечение мер контроля из PDF ППР через Claude на сервере (ANTHROPIC_API_KEY). */
+export const extractPprControlMeasuresFromPdfFn = onCall(
+  LONG_CALLABLE_OPTIONS,
+  async (request) => {
+    const dataBase64 = String(request.data?.dataBase64 ?? '').trim()
+    const fileName = String(request.data?.fileName ?? 'document.pdf').trim()
+    if (!dataBase64) {
+      throw new HttpsError('invalid-argument', 'dataBase64 обязателен')
+    }
+    if (dataBase64.length > 12_000_000) {
+      throw new HttpsError('invalid-argument', 'PDF слишком большой для извлечения')
+    }
+    try {
+      const { extractPprControlMeasuresPdfRaw } = await import(
+        './claude/extractPprControlMeasuresPdf'
+      )
+      const raw = await extractPprControlMeasuresPdfRaw({ dataBase64, fileName })
+      return { raw }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      if (message.includes('ANTHROPIC_API_KEY')) {
+        throw new HttpsError(
+          'failed-precondition',
+          'На сервере не настроен ANTHROPIC_API_KEY для Cloud Functions',
+        )
+      }
+      throw new HttpsError('internal', message)
+    }
+  },
+)

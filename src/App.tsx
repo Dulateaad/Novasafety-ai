@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { RequireAuth } from './components/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
-import { MatrixPage } from './pages/MatrixPage'
 import { NewPermitPage } from './pages/NewPermitPage'
 import { PermitDetailPage } from './pages/PermitDetailPage'
 import { PermitListPage } from './pages/PermitListPage'
@@ -30,7 +29,7 @@ export default function App() {
         <Route path="risk-assessment" element={<RiskAssessmentPage />} />
         <Route path="permissions" element={<PermissionsPage />} />
         <Route path="p/:id" element={<PermitDetailPage />} />
-        <Route path="matrix" element={<MatrixPage />} />
+        <Route path="matrix" element={<Navigate to="/" replace />} />
         <Route path="certificates" element={<CertificatesPage />} />
         <Route path="help" element={<HelpPage />} />
         <Route path="admin" element={<AdminPanelPage />} />

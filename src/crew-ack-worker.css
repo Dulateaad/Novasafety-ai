@@ -203,6 +203,22 @@
   gap: 0.45rem;
 }
 
+.worker-crew-ack__doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.worker-crew-ack__doc-btn {
+  flex: 1 1 10rem;
+  justify-content: center;
+}
+
+.worker-crew-ack__doc-hint {
+  margin: 0;
+}
+
 .worker-crew-ack__doc {
   display: inline-flex;
   align-items: center;

@@ -28,7 +28,9 @@ export async function generateAbrFromPpr(
   },
 ): Promise<AbrForm> {
   if (!isAiClientReady()) {
-    throw new Error('Для генерации АБР нужен ключ Claude (VITE_ANTHROPIC_API_KEY) в .env')
+    throw new Error(
+      'Для генерации АБР нужен Claude на сервере (deploy functions + ANTHROPIC_API_KEY) или VITE_ANTHROPIC_API_KEY для локальной разработки.',
+    )
   }
 
   const header = prefillAbrHeaderFromPprNd(ppr, opts?.nd)

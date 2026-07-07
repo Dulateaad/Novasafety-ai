@@ -24,6 +24,7 @@ import { assertSignaturePatchAllowed } from '../lib/signatureGuard'
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
 import { resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { readResumePermitId } from '../lib/resumePermitPackage'
 import { deleteSigningInvitesForPermit, deleteSigningInvitesForPermits } from '../lib/deletePermitInvites'
 import { cleanupPermitRelatedDataClient } from '../lib/cleanupPermitRelatedData'
 import { coercePtwSite } from '../config/ptwSites'
@@ -129,7 +130,7 @@ export class FirestorePermitRepository implements PermitRepository {
 
   async create(draft: PermitDraft, actor: DemoUser): Promise<Permit> {
     const existing = await this.list()
-    const regNo = resolveRegistrationRefNo(draft, existing)
+    const regNo = resolveRegistrationRefNo(draft, existing, readResumePermitId())
     const id = uid()
     const p: Permit = {
       ...draft,

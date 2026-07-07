@@ -2,6 +2,10 @@ import type { GeminiPdfDocument, PprControlMeasuresItem } from '../types/ppr'
 
 export interface ControlMeasuresAiPayload {
   workTitle?: string
+  siteName?: string
+  customerOrg?: string
+  contractorOrg?: string
+  specialWorkActivities?: unknown
   workTasks?: unknown[]
   items?: unknown[]
   controlMeasures?: unknown

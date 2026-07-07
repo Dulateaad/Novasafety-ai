@@ -14,7 +14,14 @@ import type { PermitPackageBrief } from '../lib/permitPackageBrief'
 import { CrewAckSignModal } from './CrewAckSignModal'
 import { useNetwork } from '../context/NetworkContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useSession } from '../context/SessionContext'
 import { fillTemplate } from '../i18n/getLocale'
+import {
+  buildPermitPackagePartPdf,
+  viewPackagePdf,
+  type PackagePdfPart,
+} from '../lib/buildPackagePdf'
+import { canPreviewAbr, canPreviewNebosh } from '../lib/finalizeGeneratedRiskDocs'
 
 export function WorkerCrewAckPanel(props: {
   permit: Permit
@@ -27,6 +34,7 @@ export function WorkerCrewAckPanel(props: {
   const { permit, actor, brief, canSign, userDirectory = [], onSigned } = props
   const { online } = useNetwork()
   const { t, language } = useLanguage()
+  const { resolveUser } = useSession()
   const w = t.crewWorker
   const crew = t.crew
   const ui = t.signingUi
@@ -34,6 +42,7 @@ export function WorkerCrewAckPanel(props: {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
+  const [viewingPart, setViewingPart] = useState<PackagePdfPart | null>(null)
 
   const signed = isExecutorCrewAckDone(permit, actor.id, userDirectory)
   const sig = permit.crewAckSignatures?.[actor.id]
@@ -44,6 +53,10 @@ export function WorkerCrewAckPanel(props: {
     ? formatCrewCountLabel(brief.crewCount, language)
     : null
 
+  const asor = permit.asor
+  const abrReady = asor ? canPreviewAbr(asor) : false
+  const riskReady = asor ? canPreviewNebosh(asor) : false
+
   const statusKind = signed
     ? 'done'
     : !performerSigned || blocked
@@ -51,6 +64,19 @@ export function WorkerCrewAckPanel(props: {
       : canSign
         ? 'ready'
         : 'pending'
+
+  async function openDocPart(part: 'abr' | 'risk') {
+    setViewingPart(part)
+    try {
+      viewPackagePdf(
+        await buildPermitPackagePartPdf(part, permit, resolveUser, userDirectory),
+      )
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : t.modals.pdfPackageFailed)
+    } finally {
+      setViewingPart(null)
+    }
+  }
 
   return (
     <section className="worker-crew-ack" id="crew-ack-section">
@@ -110,6 +136,31 @@ export function WorkerCrewAckPanel(props: {
           </div>
         </div>
 
+        <div className="worker-crew-ack__docs">
+          <p className="worker-crew-ack__docs-label">{w.documentsLabel}</p>
+          <div className="worker-crew-ack__doc-actions">
+            <button
+              type="button"
+              className="btn ghost small worker-crew-ack__doc-btn"
+              disabled={!abrReady || viewingPart !== null}
+              onClick={() => void openDocPart('abr')}
+            >
+              {viewingPart === 'abr' ? w.openingPdf : w.viewAbr}
+            </button>
+            <button
+              type="button"
+              className="btn ghost small worker-crew-ack__doc-btn"
+              disabled={!riskReady || viewingPart !== null}
+              onClick={() => void openDocPart('risk')}
+            >
+              {viewingPart === 'risk' ? w.openingPdf : w.viewRisk}
+            </button>
+          </div>
+          <p className="worker-crew-ack__doc-hint small muted">
+            {ABR_LABEL} · {RISK_ASSESSMENT_LABEL}
+          </p>
+        </div>
+
         {!signed ? (
           <>
             <ol className="worker-crew-ack__steps">
@@ -126,20 +177,6 @@ export function WorkerCrewAckPanel(props: {
                 <p className="worker-crew-ack__step-label">{w.stepSign}</p>
               </li>
             </ol>
-
-            <div className="worker-crew-ack__docs">
-              <p className="worker-crew-ack__docs-label">{w.documentsLabel}</p>
-              <div className="worker-crew-ack__doc-list">
-                <span className="worker-crew-ack__doc">
-                  <span className="worker-crew-ack__doc-dot" />
-                  {ABR_LABEL}
-                </span>
-                <span className="worker-crew-ack__doc">
-                  <span className="worker-crew-ack__doc-dot" />
-                  {RISK_ASSESSMENT_LABEL}
-                </span>
-              </div>
-            </div>
 
             {canSign ? (
               <>

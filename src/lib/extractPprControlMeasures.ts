@@ -87,7 +87,7 @@ async function extractItemsFromAttachment(
   if (isPdfAttachment(attachment)) {
     if (!isPprPdfAiReady()) {
       throw new Error(
-        'Для PDF нужен ключ Claude (VITE_ANTHROPIC_API_KEY). Загрузите .docx или настройте API.',
+        'Для PDF нужен Claude на сервере или VITE_ANTHROPIC_API_KEY. Загрузите .docx или настройте API.',
       )
     }
     onStage?.('gemini')

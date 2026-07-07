@@ -7,6 +7,25 @@ const CLAUDE_MODEL_CANDIDATES = [
   'claude-3-5-haiku-20241022',
 ] as const
 
+const CLAUDE_EXTRACTION_MODEL_CANDIDATES = [
+  'claude-haiku-4-5-20251001',
+  'claude-3-5-haiku-20241022',
+  'claude-sonnet-4-20250514',
+] as const
+
+const CLAUDE_COMPLEX_EXTRACTION_MODEL_CANDIDATES = [
+  'claude-sonnet-4-6',
+  'claude-sonnet-4-20250514',
+  'claude-3-5-sonnet-20241022',
+] as const
+
+type ClaudeContentBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'document'
+      source: { type: 'base64'; media_type: string; data: string }
+    }
+
 function apiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY?.trim()
   if (!key) {
@@ -46,7 +65,12 @@ function extractClaudeText(data: unknown): string {
 
 async function claudeRequest(
   model: string,
-  opts: { systemPrompt: string; userPrompt: string; json?: boolean },
+  opts: {
+    systemPrompt: string
+    userContent: ClaudeContentBlock[]
+    json?: boolean
+    maxTokens?: number
+  },
 ): Promise<string> {
   const system = opts.json
     ? `${opts.systemPrompt}\n\nОтвет — ТОЛЬКО валидный JSON без markdown.`
@@ -61,9 +85,9 @@ async function claudeRequest(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 16384,
+      max_tokens: opts.maxTokens ?? 16384,
       system,
-      messages: [{ role: 'user', content: opts.userPrompt }],
+      messages: [{ role: 'user', content: opts.userContent }],
       temperature: opts.json ? 0.1 : 0.4,
     }),
   })
@@ -81,20 +105,27 @@ async function claudeRequest(
       parsed &&
       typeof parsed === 'object' &&
       (parsed as { error?: { message?: string } }).error?.message
+    if (res.status === 401) {
+      throw new Error(
+        'Claude HTTP 401: недействительный ANTHROPIC_API_KEY — создайте новый ключ в console.anthropic.com, обновите functions/.env и задеплойте functions',
+      )
+    }
     throw new Error(`Claude HTTP ${res.status}: ${errMsg || rawText.slice(0, 200)}`)
   }
 
   return extractClaudeText(parsed)
 }
 
-export async function claudeGenerateText(opts: {
-  systemPrompt: string
-  userPrompt: string
-  json?: boolean
-}): Promise<string> {
-  const models = claudeModelCandidates(process.env.CLAUDE_MODEL?.trim())
+async function claudeRequestWithFallback(
+  opts: {
+    systemPrompt: string
+    userContent: ClaudeContentBlock[]
+    json?: boolean
+    maxTokens?: number
+  },
+  models: string[],
+): Promise<string> {
   let lastError: Error | null = null
-
   for (const model of models) {
     try {
       return await claudeRequest(model, opts)
@@ -104,6 +135,96 @@ export async function claudeGenerateText(opts: {
       if (!isClaudeModelNotFoundError(err.message)) throw err
     }
   }
-
   throw lastError ?? new Error('Claude: все модели недоступны')
+}
+
+export async function claudeGenerateText(opts: {
+  systemPrompt: string
+  userPrompt: string
+  json?: boolean
+}): Promise<string> {
+  return claudeRequestWithFallback(
+    {
+      systemPrompt: opts.systemPrompt,
+      userContent: [{ type: 'text', text: opts.userPrompt }],
+      json: opts.json,
+    },
+    claudeModelCandidates(process.env.CLAUDE_MODEL?.trim()),
+  )
+}
+
+export async function claudeGenerateTextForExtraction(opts: {
+  systemPrompt: string
+  userPrompt: string
+}): Promise<string> {
+  const models: string[] = [...CLAUDE_EXTRACTION_MODEL_CANDIDATES]
+  const preferred = process.env.CLAUDE_EXTRACTION_MODEL?.trim()
+  if (preferred) models.unshift(preferred)
+  return claudeRequestWithFallback(
+    {
+      systemPrompt: opts.systemPrompt,
+      userContent: [{ type: 'text', text: opts.userPrompt }],
+      json: true,
+      maxTokens: 32768,
+    },
+    [...new Set(models)],
+  )
+}
+
+export async function claudeGenerateTextForComplexExtraction(opts: {
+  systemPrompt: string
+  userPrompt: string
+}): Promise<string> {
+  const models: string[] = [...CLAUDE_COMPLEX_EXTRACTION_MODEL_CANDIDATES]
+  const preferred = process.env.CLAUDE_COMPLEX_EXTRACTION_MODEL?.trim()
+  if (preferred) models.unshift(preferred)
+  return claudeRequestWithFallback(
+    {
+      systemPrompt: opts.systemPrompt,
+      userContent: [{ type: 'text', text: opts.userPrompt }],
+      json: true,
+      maxTokens: 64000,
+    },
+    [...new Set(models)],
+  )
+}
+
+export async function claudeGenerateWithFileForExtraction(opts: {
+  systemPrompt: string
+  userPrompt: string
+  mimeType: string
+  dataBase64: string
+  complex?: boolean
+}): Promise<string> {
+  const models: string[] = opts.complex
+    ? [...CLAUDE_COMPLEX_EXTRACTION_MODEL_CANDIDATES]
+    : [...CLAUDE_EXTRACTION_MODEL_CANDIDATES]
+  const preferred = process.env.CLAUDE_EXTRACTION_MODEL?.trim()
+  if (preferred && !opts.complex) {
+    models.unshift(preferred)
+  }
+  const complexPreferred = process.env.CLAUDE_COMPLEX_EXTRACTION_MODEL?.trim()
+  if (complexPreferred && opts.complex) {
+    models.unshift(complexPreferred)
+  }
+  const data = opts.dataBase64.replace(/\s+/g, '')
+  return claudeRequestWithFallback(
+    {
+      systemPrompt: opts.systemPrompt,
+      userContent: [
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: opts.mimeType,
+            data,
+          },
+        },
+        { type: 'text', text: opts.userPrompt },
+      ],
+      json: true,
+      maxTokens: 64000,
+    },
+    [...new Set(models)],
+  )
 }

@@ -19,7 +19,9 @@ export async function generateNeboshRiskAssessmentFromPpr(
   meta?: { contractorOrg?: string },
 ): Promise<NeboshRiskAssessmentPayload> {
   if (!isAiClientReady()) {
-    throw new Error('Для генерации NEBOSH нужен ключ Claude (VITE_ANTHROPIC_API_KEY) в .env')
+    throw new Error(
+      'Для генерации NEBOSH нужен Claude на сервере (deploy functions + ANTHROPIC_API_KEY) или VITE_ANTHROPIC_API_KEY для локальной разработки.',
+    )
   }
 
   const ctx = await buildPprRiskAssessmentContext(ppr)

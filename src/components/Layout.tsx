@@ -29,16 +29,15 @@ import {
 const MAIN_NAV_BASE: {
   to: string
   end?: boolean
-  labelKey: 'journal' | 'ndpr' | 'ppr' | 'risk' | 'permissions' | 'matrix'
-  tabKey: 'journal' | 'ndpr' | 'ppr' | 'risk' | 'permissions' | 'matrix'
-  icon: 'journal' | 'new' | 'ppr' | 'asor' | 'matrix' | 'certificates' | 'permissions'
+  labelKey: 'journal' | 'ndpr' | 'ppr' | 'risk' | 'permissions'
+  tabKey: 'journal' | 'ndpr' | 'ppr' | 'risk' | 'permissions'
+  icon: 'journal' | 'new' | 'ppr' | 'asor' | 'certificates' | 'permissions'
 }[] = [
   { to: '/', end: true, labelKey: 'journal', tabKey: 'journal', icon: 'journal' },
   { to: '/ppr', labelKey: 'ppr', tabKey: 'ppr', icon: 'ppr' },
   { to: '/new', labelKey: 'ndpr', tabKey: 'ndpr', icon: 'new' },
   { to: '/risk-assessment', labelKey: 'risk', tabKey: 'risk', icon: 'asor' },
   { to: '/permissions', labelKey: 'permissions', tabKey: 'permissions', icon: 'permissions' },
-  { to: '/matrix', labelKey: 'matrix', tabKey: 'matrix', icon: 'matrix' },
 ]
 
 function buildMainNav(showPermissions: boolean) {

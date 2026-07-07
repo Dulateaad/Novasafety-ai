@@ -294,7 +294,7 @@ export const ru: Locale = {
   lang: 'ru',
   langLabel: 'Русский',
   nav: {
-    journal: 'Журнал НД',
+    journal: 'Журнал НДПР',
     ndpr: 'НДПР',
     ppr: 'Исходный документ',
     risk: 'Оценка Риска',
@@ -302,7 +302,7 @@ export const ru: Locale = {
     matrix: 'Матрица НД',
   },
   navTab: {
-    journal: 'Журнал',
+    journal: 'Журнал НДПР',
     ndpr: 'НДПР',
     ppr: 'Исходный документ',
     risk: 'Оценка Риска',
@@ -316,7 +316,7 @@ export const ru: Locale = {
     offlineSync: ' Изменения сохраняются локально и отправятся при восстановлении связи.',
     offlineLimited: ' Часть данных может быть недоступна до подключения к интернету.',
     appNav: 'Разделы приложения',
-    homeAria: 'Журнал НД — главная',
+    homeAria: 'Журнал НДПР — главная',
     pushEnable: 'Включить push-уведомления',
     pushDisable: 'Отключить push-уведомления',
     pushOn: 'Push ✓',
@@ -502,7 +502,7 @@ export const ru: Locale = {
     openGasTest: 'Открыть газотест',
   },
   journal: {
-    title: 'Журнал НД',
+    title: 'Журнал НДПР',
     subtitle: 'Наряды-допуски на объекте',
     createPermit: 'Создать НДПР',
     deleteAll: 'Удалить все',

@@ -1,12 +1,16 @@
-import { restoreNewPermitDraftFromSession } from './newPermitDraftAutosave'
+import { isPprAnalysisComplete, loadPprForm, pprHasNdprSource } from './pprAutosave'
+import { isPprGatePassed } from './pprGate'
 import { isRiskGatePassed } from './riskGate'
-import { requiresWorkPermissions } from './workPermissions'
+import { pprRequiresSpecialPermissions } from './workPermissions'
 
-/** Вкладка «Разрешения» — только если в НДПР выбраны виды работ, требующие спецразрешений. */
+/** Вкладка «Разрешения» — только после анализа ППР и если нужны ГО/ОР/ЗП. */
 export function isPermissionsTabRelevant(): boolean {
   try {
-    const draft = restoreNewPermitDraftFromSession()
-    return requiresWorkPermissions(draft)
+    if (!isPprGatePassed()) return false
+    const ppr = loadPprForm()
+    if (!pprHasNdprSource(ppr)) return false
+    if (!isPprAnalysisComplete(ppr)) return false
+    return pprRequiresSpecialPermissions(ppr)
   } catch {
     return false
   }

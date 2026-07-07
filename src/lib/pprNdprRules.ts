@@ -19,6 +19,7 @@ import {
 import { matchPtwSiteFromText } from '../config/ptwSites'
 import { buildPprTextHaystack, inferSpecialWorkActivitiesFromPpr } from './inferSpecialWorkActivityFromPpr'
 import { inferContractorOrgFromPpr, inferCustomerOrgFromPpr } from './inferContractorOrgFromPpr'
+import { inferPprFileNameHints } from './inferPprFileNameHints'
 import { normalizePprWorkTitle } from './narjadTitle'
 
 function sliceBetweenAt(
@@ -288,8 +289,14 @@ function stagesFromControlMeasures(ppr: PprForm): string {
 
 /** Синхронно дополняет пустые поля НДПР из мер контроля и заголовка. */
 export function enrichPprNdprFieldsSync(ppr: PprForm): PprForm {
+  const fileHints = ppr.attachment?.fileName
+    ? inferPprFileNameHints(ppr.attachment.fileName)
+    : null
   const title = normalizePprWorkTitle(
-    ppr.workTitle.trim() || ppr.controlMeasures?.workTitle.trim() || '',
+    ppr.workTitle.trim() ||
+      ppr.controlMeasures?.workTitle.trim() ||
+      fileHints?.workTitle ||
+      '',
   )
   let workStagesText =
     ppr.workStagesText.trim() || formatWorkStagesWithDescriptions(ppr.tasks)
@@ -309,7 +316,10 @@ export function enrichPprNdprFieldsSync(ppr: PprForm): PprForm {
   ])
   let siteName = ppr.siteName.trim()
   if (!siteName) {
-    siteName = matchPtwSiteFromText(buildPprTextHaystack(ppr)) ?? ''
+    siteName =
+      matchPtwSiteFromText(buildPprTextHaystack(ppr)) ??
+      fileHints?.siteName ??
+      ''
   }
   let contractorOrg = ppr.contractorOrg.trim()
   if (!contractorOrg) {
@@ -317,11 +327,28 @@ export function enrichPprNdprFieldsSync(ppr: PprForm): PprForm {
   }
   let customerOrg = ppr.customerOrg.trim()
   if (!customerOrg) {
-    customerOrg = inferCustomerOrgFromPpr(ppr)
+    customerOrg =
+      inferCustomerOrgFromPpr(ppr) || fileHints?.customerOrg || ''
   }
   let specialWorkActivities = ppr.specialWorkActivities.filter(Boolean)
   if (!specialWorkActivities.length) {
-    specialWorkActivities = inferSpecialWorkActivitiesFromPpr(ppr)
+    specialWorkActivities =
+      inferSpecialWorkActivitiesFromPpr(ppr) || fileHints?.specialWorkActivities || []
+  }
+  if (
+    !tasks.some((t) => t.taskTitle.trim() || t.workContent.trim()) &&
+    fileHints?.workTasks.length
+  ) {
+    tasks = fileHints.workTasks.map((row, i) => ({
+      id: crypto.randomUUID(),
+      ordinal: i + 1,
+      taskTitle: row.taskTitle,
+      workContent: row.workContent,
+      safetyMeasures: '',
+    }))
+    if (!workStagesText) {
+      workStagesText = formatWorkStagesWithDescriptions(tasks)
+    }
   }
 
   return {

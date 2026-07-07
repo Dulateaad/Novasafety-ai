@@ -53,9 +53,9 @@ export function nextRegistrationNumber(permits: Permit[]): string {
   return formatRegistrationNumber(maxRegistrationSequence(permits) + 1)
 }
 
-/** Номер из черновика, возобновлённого наряда или следующий свободный рег. номер (не № бейджа). */
+/** Номер из возобновлённого наряда или следующий свободный рег. номер (не № бейджа). */
 export function resolveRegistrationRefNo(
-  draft: PermitDraft,
+  _draft: PermitDraft,
   permits: Permit[],
   resumePermitId?: string | null,
 ): string {
@@ -65,13 +65,8 @@ export function resolveRegistrationRefNo(
   const resumedRef = resumed?.registrationRefNo?.trim()
   if (resumedRef) return resumedRef
 
-  const manual = draft.registrationRefNo?.trim()
-  if (manual && /^\d+$/.test(manual)) {
-    const formatted = formatRegistrationNumber(parseInt(manual, 10))
-    if (!permits.some((p) => p.registrationRefNo === formatted)) {
-      return formatted
-    }
-  }
+  // Не подставляем registrationRefNo из sessionStorage: после удаления нарядов
+  // в черновике мог остаться «003», хотя в журнале уже пусто и нужен «001».
   return nextRegistrationNumber(permits)
 }
 

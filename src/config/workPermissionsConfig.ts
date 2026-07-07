@@ -51,9 +51,9 @@ export const WORK_PERMISSION_TEMPLATES: WorkPermissionTemplateMeta[] = [
     shortLabel: 'Замкнутое пространство',
     style: 'blue',
     templateFile: 'Разрешение_на_вход_в_замкнутое_пространство__RU_.docx',
-    requiresGasTests: false,
+    requiresGasTests: true,
     gasTestHint:
-      'Газоанализ перед входом — по процедуре объекта (без блока ERT на этом разрешении).',
+      'Раздел 2 (отбор проб) заполняет газотестировщик (ПАС / ERT) перед входом в замкнутое пространство.',
     selectionNotice:
       'Для входа в замкнутое пространство требуется отдельное разрешение и газоанализ.',
   },

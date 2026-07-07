@@ -8,6 +8,7 @@ import {
 } from '../types/ppr'
 import { clearPprRiskAssessmentContextCache } from './pprRiskContext'
 import { NEW_PERMIT_DRAFT_AUTOSAVE_KEY } from './newPermitDraftAutosave'
+import { notifyNavGatesChanged } from './navGates'
 import { isLikelyFileNameTitle, normalizePprWorkTitle } from './narjadTitle'
 
 export function loadPprForm(): PprForm {
@@ -36,6 +37,7 @@ export function savePprForm(form: PprForm): void {
     }
     sessionStorage.setItem(PPR_FORM_STORAGE_KEY, JSON.stringify(toSave))
     clearPprRiskAssessmentContextCache()
+    notifyNavGatesChanged()
   } catch {
     /* ignore quota */
   }

@@ -513,10 +513,12 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
   }
 
   if (!nums.useCompactLayout) {
-    for (const role of WORK_PERMISSION_SIGN_ROLES) {
-      const num =
-        role === 'issuer' ? nums.issuer : role === 'performer' ? nums.performer : nums.permitter
-      content.push(...signBlock(num, palette, role, doc))
+    if (!nums.skipSignatureBlocks) {
+      for (const role of WORK_PERMISSION_SIGN_ROLES) {
+        const num =
+          role === 'issuer' ? nums.issuer : role === 'performer' ? nums.performer : nums.permitter
+        content.push(...signBlock(num, palette, role, doc))
+      }
     }
     content.push(...extensionTable(nums.extension, palette))
     if (opts?.includeClosureSection) {

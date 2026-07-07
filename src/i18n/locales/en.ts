@@ -7,7 +7,7 @@ export const en: Locale = {
   lang: 'en',
   langLabel: 'English',
   nav: {
-    journal: 'PTW journal',
+    journal: 'NDPR journal',
     ndpr: 'Work permit',
     ppr: 'Source document',
     risk: 'Risk assessment',
@@ -15,7 +15,7 @@ export const en: Locale = {
     matrix: 'Hazard matrix',
   },
   navTab: {
-    journal: 'Journal',
+    journal: 'NDPR journal',
     ndpr: 'Permit',
     ppr: 'Source document',
     risk: 'Risk assessment',
@@ -29,7 +29,7 @@ export const en: Locale = {
     offlineSync: ' Changes are saved locally and sync when back online.',
     offlineLimited: ' Some data may be unavailable until you reconnect.',
     appNav: 'App sections',
-    homeAria: 'PTW journal — home',
+    homeAria: 'NDPR journal — home',
     pushEnable: 'Enable push notifications',
     pushDisable: 'Disable push notifications',
     pushOn: 'Push ✓',
@@ -215,7 +215,7 @@ export const en: Locale = {
     openGasTest: 'Open gas test',
   },
   journal: {
-    title: 'PTW journal',
+    title: 'NDPR journal',
     subtitle: 'Work permits on site',
     createPermit: 'Create work permit',
     deleteAll: 'Delete all',

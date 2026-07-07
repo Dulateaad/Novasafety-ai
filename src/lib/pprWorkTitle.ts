@@ -374,10 +374,14 @@ function titleFromFileStem(fileName: string): string {
   let t = fileName.trim()
   t = t.replace(/^.*[\\/]/, '')
   t = t.replace(/\.[^.]+$/, '')
+  t = t.replace(/\s*\(\d+\)\s*$/, '')
   t = sanitizeWorkTitleCandidate(t)
   t = t.replace(/^PPR[_\s.-]+/i, '')
+  t = t.replace(/^ППР[_\s.-]+/i, '')
   t = t.replace(/^ПОР\s+по\s+/i, '')
   t = t.replace(/^POR\s+(?:po|for)\s+/i, '')
-  t = t.replace(/[_-]+/g, ' ')
+  const tokens = t.split(/[_\s]+/).filter(Boolean)
+  const workTokens = tokens.filter((tok) => !/^(?:tgtu|тгту|hkok|hkdk|нкок|nkok)$/i.test(tok))
+  t = workTokens.join(' ').replace(/[_-]+/g, ' ')
   return cleanPprWorkTitle(t) || t
 }

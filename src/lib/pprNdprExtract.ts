@@ -16,8 +16,8 @@ import {
 } from './newPermitDraftAutosave'
 import { enrichPprNdprFieldsSync } from './pprNdprRules'
 import { inferPtwSiteFromPpr } from './inferPtwSiteFromPpr'
+import { inferPprFileNameHints } from './inferPprFileNameHints'
 import {
-  inferPermissionActivitiesFromText,
   inferSpecialWorkActivitiesFromPpr,
   inferSpecialWorkActivitiesFromText,
   mergeSpecialWorkActivities,
@@ -296,20 +296,14 @@ export function normalizeNdprFromPayload(
     ...tasks.map((t) => t.taskTitle),
     ...tasks.map((t) => t.workContent),
   ].join('\n')
-  if (specialWorkActivities.length) {
-    specialWorkActivities = mergeSpecialWorkActivities(
-      specialWorkActivities,
-      inferPermissionActivitiesFromText(activityHaystack),
-    )
-  } else {
+  if (!specialWorkActivities.length) {
     specialWorkActivities = mergeSpecialWorkActivities(
       inferSpecialWorkActivitiesFromText(activityHaystack),
-      inferPermissionActivitiesFromText(activityHaystack),
     )
-  }
-  if (!specialWorkActivities.length) {
-    specialWorkActivities =
-      activityHaystack.trim().length >= 30 ? ['cold_works'] : []
+    if (!specialWorkActivities.length) {
+      specialWorkActivities =
+        activityHaystack.trim().length >= 30 ? ['cold_works'] : []
+    }
   }
   const specialWorkActivity = primarySpecialWorkActivity(specialWorkActivities)
 
@@ -382,6 +376,9 @@ export function ndprPatchFromPpr(
   const inferredSite = inferPtwSiteFromPpr(ppr, opts?.docText)
   if (inferredSite) {
     patch.siteName = inferredSite
+  } else if (ppr.attachment?.fileName) {
+    const fromFile = inferPprFileNameHints(ppr.attachment.fileName).siteName
+    if (fromFile) patch.siteName = fromFile
   }
 
   const zoneClass = inferZoneClassFromPpr(ppr, opts?.docText)

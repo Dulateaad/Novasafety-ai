@@ -87,12 +87,12 @@ export function buildControlMeasuresPdfUserPrompt(fileName: string): string {
 При необходимости дублируй меры в pdfDocument.blocks (списки ul).`
 }
 
-/** Укороченный повторный запрос, если items пустой. */
+/** Укороченный повторный запрос, если первая попытка дала мало данных. */
 export function buildControlMeasuresPdfRetryPrompt(fileName: string): string {
   return `Файл: ${fileName}
 
-PDF ППР. Верни ТОЛЬКО JSON с полем items — массив из разделов «Техника безопасности», «Опасные зоны», технологических подразделов 3.x.
-Каждый элемент: section, hazard, controlMeasures (массив строк, не менее 2 мер на блок). Минимум 4 блока items. workTitle — кратко.`
+PDF ППР. Верни полный JSON по схеме из системного промпта.
+Обязательно заполни: workTitle, siteName, customerOrg, contractorOrg, zoneClass, specialWorkActivities, workTasks (все этапы из разделов 2–3 и 3.x с workContent), toolsAndEquipment, items (минимум 4 блока мер контроля из «Техника безопасности» и «Опасные зоны»).`
 }
 
 export function buildControlMeasuresUserPrompt(docText: string, fileName: string): string {
