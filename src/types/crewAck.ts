@@ -7,7 +7,7 @@ export type StoredCrewAckSignature = {
   signerIin?: string | null
   documentHash: string
   cmsBase64: string
-  provider: 'egov_mobile' | 'unknown'
+  provider: 'egov_mobile' | 'ncalayer' | 'unknown'
 }
 
 export type CrewAckSignaturesMap = Partial<Record<string, StoredCrewAckSignature>>

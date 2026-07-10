@@ -27,6 +27,7 @@ export interface UserProfileDocument {
   displayName: string
   role: UserRole | string
   email?: string
+  notificationEmail?: string
 }
 
 export function profileDocToDemoUser(
@@ -40,14 +41,18 @@ export function profileDocToDemoUser(
       : 'Пользователь'
   const email =
     typeof data.email === 'string' && data.email.trim()
-      ? data.email.trim(
-      )
+      ? data.email.trim()
       : fallbackEmail
+  const notificationEmail =
+    typeof data.notificationEmail === 'string' && data.notificationEmail.trim()
+      ? data.notificationEmail.trim()
+      : undefined
   return {
     id: uid,
     displayName,
     email,
     role: normalizeUserRole(data.role),
+    ...(notificationEmail ? { notificationEmail } : {}),
   }
 }
 

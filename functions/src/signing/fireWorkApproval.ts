@@ -1,8 +1,19 @@
 import type { DocumentData } from 'firebase-admin/firestore'
 
-const ERT_APPROVAL_ACTIVITIES = new Set(['open_flame_fire'])
+const ERT_APPROVAL_ACTIVITIES = new Set(['open_flame_fire', 'gas_hazard'])
 
-/** Огневые работы — ERT (ПАС) в очереди согласования и газотест. */
+function hasErtWorkPermission(permit: DocumentData): boolean {
+  const bundle = permit.workPermissions as
+    | { documents?: { kind?: string }[] }
+    | undefined
+  const docs = Array.isArray(bundle?.documents) ? bundle!.documents! : []
+  return docs.some((d) => {
+    const kind = String(d?.kind ?? '')
+    return kind === 'open_flame_fire' || kind === 'gas_hazard'
+  })
+}
+
+/** Огневые и газоопасные работы — ERT (ПАС) в очереди согласования и газотест. */
 export function permitRequiresErtApproval(permit: DocumentData): boolean {
   if (String(permit.permitType ?? '') === 'fire') return true
   const single = String(permit.specialWorkActivity ?? '')
@@ -10,5 +21,6 @@ export function permitRequiresErtApproval(permit: DocumentData): boolean {
   const activities = Array.isArray(permit.specialWorkActivities)
     ? permit.specialWorkActivities
     : []
-  return activities.some((a) => ERT_APPROVAL_ACTIVITIES.has(String(a)))
+  if (activities.some((a) => ERT_APPROVAL_ACTIVITIES.has(String(a)))) return true
+  return hasErtWorkPermission(permit)
 }

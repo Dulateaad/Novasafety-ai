@@ -7,8 +7,12 @@ import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import {
   canErtEditGasTests,
   ertGasTestBlockedHint,
+  ertGasTestComplete,
   gasTestDocFilled,
 } from '../lib/ertGasTestHints'
+import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
+import { provisionPermitSignersClient } from '../lib/provisionSigners'
+import { isRoleSigned } from '../lib/signatureStatus'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import { patchWorkPermissionDocument, syncWorkPermissionsLive } from '../lib/syncWorkPermissionsLive'
 import {
@@ -18,6 +22,7 @@ import {
   type WorkPermissionsBundle,
 } from '../types/workPermissions'
 import { useLanguage } from '../context/LanguageContext'
+import { useToast } from '../context/ToastContext'
 import { LoadingProgress } from './LoadingProgress'
 
 export function ErtGasTestLivePanel(props: {
@@ -31,6 +36,7 @@ export function ErtGasTestLivePanel(props: {
   refresh?: () => Promise<void>
 }) {
   const { t } = useLanguage()
+  const { showSuccess, showError } = useToast()
   const wp = t.workPermission
   const gt = t.gasTest
   const c = t.common
@@ -46,7 +52,7 @@ export function ErtGasTestLivePanel(props: {
   } = props
   const serverBundle = permit.workPermissions
   const isErt = actor.role === 'ert'
-  const canEdit = isErt && canErtEditGasTests(permit)
+  const canEdit = isErt && canErtEditGasTests(permit, userDirectory)
   const [localBundle, setLocalBundle] = useState<WorkPermissionsBundle | null>(serverBundle ?? null)
   const [dirty, setDirty] = useState(false)
   const [dirtyKinds, setDirtyKinds] = useState<WorkPermissionKind[]>([])
@@ -81,8 +87,24 @@ export function ErtGasTestLivePanel(props: {
       if (refresh) await refresh()
       setLastSavedAt(Date.now())
       setStatus(wp.savedPermPdf)
+      showSuccess(gt.savedConfirm)
+      const savedPermit: Permit = { ...permit, workPermissions: updated }
+      if (
+        ertGasTestComplete(savedPermit) &&
+        savedPermit.status === 'on_approval' &&
+        !isRoleSigned(savedPermit, 'ert', userDirectory)
+      ) {
+        try {
+          await provisionPermitSignersClient(permit.id)
+          notifySigningInvitesRefresh()
+        } catch (e) {
+          console.warn('[NOVA] provision ERT sign after gas test', e)
+        }
+      }
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : String(e))
+      const msg = e instanceof Error ? e.message : String(e)
+      setStatus(msg)
+      showError(msg)
     } finally {
       setBusy(false)
       window.setTimeout(() => setStatus(null), 4000)
@@ -98,11 +120,14 @@ export function ErtGasTestLivePanel(props: {
     onSaved,
     refresh,
     wp,
+    gt,
+    showSuccess,
+    showError,
   ])
 
   if (!localBundle?.documents?.length) return null
   if (!isErt) return null
-  if (!canErtEditGasTests(permit)) return null
+  if (!canErtEditGasTests(permit, userDirectory)) return null
 
   const visibleDocs = localBundle.documents.filter((doc) => {
     const meta = WORK_PERMISSION_BY_KIND[doc.kind]
@@ -171,7 +196,7 @@ export function ErtGasTestLivePanel(props: {
           <li>{gt.stepPdf}</li>
         </ol>
       ) : (
-        <p className="work-perm-ert-panel__blocked small">{ertGasTestBlockedHint(permit.status)}</p>
+        <p className="work-perm-ert-panel__blocked small">{ertGasTestBlockedHint(permit, userDirectory)}</p>
       )}
 
       {visibleDocs.map((doc) => {

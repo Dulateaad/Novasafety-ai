@@ -25,8 +25,8 @@ messaging.onBackgroundMessage((payload) => {
   const url = data.permitId ? `/p/${data.permitId}` : '/'
   self.registration.showNotification(title, {
     body: data.body || '',
-    icon: '/pwa-192.png',
-    badge: '/pwa-192.png',
+    icon: '/nova-icon-192.png',
+    badge: '/nova-icon-192.png',
     tag: data.permitId || 'nova-notice',
     data: { url },
   })

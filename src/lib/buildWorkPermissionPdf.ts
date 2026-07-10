@@ -21,6 +21,11 @@ import {
 } from '../types/workPermissions'
 import { initPdfMake, pdfBase64Async } from './pdfMakeEngine'
 import { gasTestReadingFilled } from './ertGasTestHints'
+import {
+  buildPdfCheckboxCell,
+  buildPdfCheckboxChoiceCell,
+  buildPdfCheckboxLine,
+} from './pdfCheckboxCell'
 import { listWorkStageTitles } from './formatWorkStagesDisplay'
 import { parseToolsAndEquipmentList } from './toolsAndEquipmentFormat'
 
@@ -97,8 +102,8 @@ function sectionTitle(text: string): PdfBlock {
   return { text, bold: true, fontSize: FS_SECTION, margin: [0, 8, 0, 4] }
 }
 
-function checkboxMark(checked: boolean): string {
-  return checked ? '[X]' : '[ ]'
+function markCell(checked: boolean, palette: WorkPermissionPdfPalette): PdfCell {
+  return buildPdfCheckboxCell(checked, palette.white, palette.accent) as PdfCell
 }
 
 function permissionWorkTitles(doc: WorkPermissionDocument): string[] {
@@ -149,26 +154,18 @@ function itemById(items: WorkPermissionCheckboxItem[], id: string): WorkPermissi
   return items.find((i) => i.id === id)
 }
 
-function checkMark(items: WorkPermissionCheckboxItem[], id: string): string {
-  const hit = itemById(items, id)
-  return hit?.checked ? '[X]' : '[ ]'
-}
-
-function requiredMark(items: WorkPermissionCheckboxItem[], id: string): string {
-  const hit = itemById(items, id)
-  return hit?.required ? '[X]' : '[ ]'
-}
-
-function checkboxLines(group: WorkPermissionCheckboxGroup | undefined): PdfBlock[] {
+function checkboxLines(
+  group: WorkPermissionCheckboxGroup | undefined,
+  palette: WorkPermissionPdfPalette,
+): PdfBlock[] {
   if (!group?.items?.length) return []
-  return group.items.map((item) => {
-    const note = item.note.trim() ? ` ${item.note.trim()}` : ''
-    return {
-      text: `${checkboxMark(item.checked)}  ${item.label}${note}`,
+  return group.items.map((item) =>
+    buildPdfCheckboxLine(item.checked, item.label, {
       fontSize: FS,
-      margin: [0, 0, 0, 2],
-    }
-  })
+      accentColor: palette.accent,
+      note: item.note,
+    }) as PdfBlock,
+  )
 }
 
 function titleTable(doc: WorkPermissionDocument, palette: WorkPermissionPdfPalette): PdfBlock {
@@ -192,8 +189,13 @@ function metaHeaderTable(
   const date = new Date().toLocaleDateString('ru-RU')
   const ndRef = headerRef(f.pprRef)
   if (kind === 'open_flame_fire') {
-    const cat =
-      f.fireCategory === '1' ? '[X]  1          [ ]  2' : f.fireCategory === '2' ? '[ ]  1          [X]  2' : '[ ]  1          [ ]  2'
+    const categoryCell = buildPdfCheckboxChoiceCell(
+      [
+        { label: '1', checked: f.fireCategory === '1' },
+        { label: '2', checked: f.fireCategory === '2' },
+      ],
+      { fillColor: palette.white, accentColor: palette.accent, fontSize: FS },
+    ) as PdfCell
     return [
       {
         table: {
@@ -215,7 +217,7 @@ function metaHeaderTable(
           widths: ['*', '*'],
           body: [
             [hdr('№ наряд-допуска / № сопутств. Н-Д', palette), hdr('Категория разрешения', palette)],
-            [cell(ndRef, palette), cell(cat, palette, { align: 'center' })],
+            [cell(ndRef, palette), categoryCell],
           ],
         },
         layout: TABLE_LAYOUT,
@@ -366,11 +368,11 @@ function dualChecksTable(
     ],
     ...pairs.map((p) => [
       cell(p.left, palette),
-      cell(requiredMark(items, p.leftId), palette, { align: 'center' }),
-      cell(checkMark(items, p.leftId), palette, { align: 'center' }),
+      markCell(Boolean(itemById(items, p.leftId)?.required), palette),
+      markCell(Boolean(itemById(items, p.leftId)?.checked), palette),
       cell(p.right, palette),
-      cell(requiredMark(items, p.rightId), palette, { align: 'center' }),
-      cell(checkMark(items, p.rightId), palette, { align: 'center' }),
+      markCell(Boolean(itemById(items, p.rightId)?.required), palette),
+      markCell(Boolean(itemById(items, p.rightId)?.checked), palette),
     ]),
   ]
   return { table: { widths: ['*', '9%', '9%', '*', '9%', '9%'], body }, layout: TABLE_LAYOUT }
@@ -428,21 +430,18 @@ export type BuildWorkPermissionPdfOptions = {
 function closureSection(
   sectionNum: number,
   closureChecks: WorkPermissionCheckboxGroup | undefined,
+  palette: WorkPermissionPdfPalette,
 ): PdfBlock[] {
   const items = closureChecks?.items ?? []
-  const lineFor = (index: number) => {
-    const item = items[index]
-    const label = CLOSURE_CHECKBOX_LINES[index] ?? item?.label ?? ''
-    return `${checkboxMark(item?.checked ?? false)}  ${label}`
-  }
   return [
     sectionTitle(`${sectionNum}.  Передача рабочего участка / возврат оборудования / закрытие разрешения`),
     { text: 'Работы / оборудование, указанные в разделе 1', fontSize: FS, margin: [0, 0, 0, 4] },
-    ...CLOSURE_CHECKBOX_LINES.map((_, index) => ({
-      text: lineFor(index),
-      fontSize: FS,
-      margin: [0, 0, 0, 2],
-    })),
+    ...CLOSURE_CHECKBOX_LINES.map((label, index) =>
+      buildPdfCheckboxLine(items[index]?.checked ?? false, label, {
+        fontSize: FS,
+        accentColor: palette.accent,
+      }) as PdfBlock,
+    ),
   ]
 }
 
@@ -450,7 +449,7 @@ function confinedSpaceMiddleSections(doc: WorkPermissionDocument, palette: WorkP
   const f = doc.form
   return [
     sectionTitle('3.  Тип замкнутого пространства (обозначить входы-выходы)'),
-    ...checkboxLines(f.confinedSpaceTypes),
+    ...checkboxLines(f.confinedSpaceTypes, palette),
     { text: 'Ф.И.О. дежурного наблюдателя:', bold: true, fontSize: FS, margin: [0, 4, 0, 2] },
     observerTable(f.confinedSpaceNotes, palette),
   ]
@@ -544,7 +543,7 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
     }
     content.push(...extensionTable(nums.extension, palette))
     if (opts?.includeClosureSection) {
-      content.push(...closureSection(nums.closure, f.closureChecks))
+      content.push(...closureSection(nums.closure, f.closureChecks, palette))
     }
   } else {
     content.push(...compactExtensionTable(nums.extension, palette))
@@ -552,6 +551,7 @@ function buildContent(doc: WorkPermissionDocument, opts?: BuildWorkPermissionPdf
       ...closureSection(
         nums.closure,
         opts?.includeClosureSection ? f.closureChecks : undefined,
+        palette,
       ),
     )
   }

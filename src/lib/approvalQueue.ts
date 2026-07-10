@@ -3,9 +3,11 @@ import { uidMatchesAccount } from './permitAccess'
 import { canUserTriggerStatus, validateTransition } from './transitions'
 import { localeMessages } from '../i18n/getLocale'
 import { permitSigningPhaseActive } from './approvalSequence'
+import { permitRequiresErtApproval } from './fireWorkApproval'
 import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
 import { isRoleSigned } from './signatureStatus'
 import { allCrewAcknowledged } from './crewAckComplete'
+import { ertGasTestComplete } from './ertGasTestHints'
 
 export type ApprovalAction =
   | 'sign_performer'
@@ -80,6 +82,23 @@ export function pendingApprovalsForUser(
       priority: 0,
     })
 
+    if (
+      isRoleSigned(p, 'performer', directory) &&
+      allCrewAcknowledged(p, directory) &&
+      permitRequiresErtApproval(p) &&
+      ertGasTestComplete(p)
+    ) {
+      pushSignItem(items, p, user, directory, {
+        role: 'ert',
+        assigneeUid: p.ertUid ?? 'u-ert',
+        signed: isRoleSigned(p, 'ert', directory),
+        action: 'sign_ert',
+        labelSelf: 'Подписать ЭЦП (ПАС / ERT)',
+        labelCoord: 'Ожидает ЭЦП ПАС (ERT)',
+        priority: 1,
+      })
+    }
+
     if (permitterOnApprovalUnlocked(p, directory)) {
       pushSignItem(items, p, user, directory, {
         role: 'permitter',
@@ -88,7 +107,7 @@ export function pendingApprovalsForUser(
         action: 'sign_permitter',
         labelSelf: 'Поставить подпись допускающего',
         labelCoord: 'Ожидает подпись допускающего',
-        priority: 1,
+        priority: 2,
       })
     }
 
@@ -99,7 +118,7 @@ export function pendingApprovalsForUser(
       action: 'sign_issuer',
       labelSelf: 'Поставить подпись выдающего',
       labelCoord: 'Ожидает подпись выдающего',
-      priority: 2,
+      priority: 3,
     })
 
     if (p.category === 1) {
@@ -110,12 +129,13 @@ export function pendingApprovalsForUser(
         action: 'sign_lead_expert',
         labelSelf: 'Поставить подпись утверждающего НД',
         labelCoord: 'Ожидает подпись утверждающего НД',
-        priority: 3,
+        priority: 4,
       })
     }
 
     const signaturesComplete =
       isRoleSigned(p, 'performer', directory) &&
+      (!permitRequiresErtApproval(p) || isRoleSigned(p, 'ert', directory)) &&
       allCrewAcknowledged(p, directory) &&
       isRoleSigned(p, 'permitter', directory) &&
       isRoleSigned(p, 'issuer', directory) &&
@@ -134,7 +154,7 @@ export function pendingApprovalsForUser(
           user.role === 'coordinator'
             ? localeMessages().approval.hints.issueCoordinator
             : localeMessages().approval.hints.issueIssuer,
-        priority: 4,
+        priority: 5,
       })
     }
   }
@@ -163,6 +183,8 @@ export function approvalActionHint(action: ApprovalAction): string {
       return 'Раздел «Подписи и согласования» → отметьте подпись выдающего.'
     case 'sign_lead_expert':
       return 'Раздел «Подписи и согласования» → отметьте подпись утверждающего НД.'
+    case 'sign_ert':
+      return 'После заполнения и сохранения таблицы газотеста → «Согласовать (ЭЦП eGov)».'
     case 'issue_permit':
       return 'Все подписи собраны — нажмите «→ Выдан» в разделе «Смена статуса».'
     default:

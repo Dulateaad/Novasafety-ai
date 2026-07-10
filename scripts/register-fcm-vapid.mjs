@@ -1,13 +1,11 @@
 /**
  * Дописывает VITE_FIREBASE_VAPID_KEY в .env.
  *
- * Public key берётся из Firebase Console:
- *   Project settings → Cloud Messaging → Web Push certificates → Key pair
- *
  *   node scripts/register-fcm-vapid.mjs <PUBLIC_KEY>
- *   node scripts/register-fcm-vapid.mjs --print-env-line <PUBLIC_KEY>
+ *   node scripts/register-fcm-vapid.mjs --generate
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -35,23 +33,49 @@ function upsertEnv(publicKey) {
   return line
 }
 
-const args = process.argv.slice(2).filter((a) => a !== '--print-env-line')
-const publicKey = args[0]?.trim()
+function generatePair() {
+  const r = spawnSync(
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    ['--yes', 'web-push', 'generate-vapid-keys', '--json'],
+    { cwd: root, encoding: 'utf8' },
+  )
+  if (r.status !== 0) {
+    throw new Error(r.stderr || r.stdout || 'web-push generate failed')
+  }
+  return JSON.parse(r.stdout.trim())
+}
+
+const args = process.argv.slice(2)
+const generate = args.includes('--generate')
+const publicKey = args.find((a) => !a.startsWith('--'))?.trim()
+
+if (generate) {
+  const pair = generatePair()
+  const line = upsertEnv(pair.publicKey)
+  console.log(`OK: ${line}`)
+  console.log('')
+  console.log('Импортируйте private key в Firebase Console (один раз):')
+  console.log('  naryad-67194 → ⚙ Project settings → Cloud Messaging')
+  console.log('  → Web Push certificates → Import key pair')
+  console.log('')
+  console.log(`Public:  ${pair.publicKey}`)
+  console.log(`Private: ${pair.privateKey}`)
+  console.log('')
+  console.log('Дальше: npm run build && firebase deploy --only hosting')
+  process.exit(0)
+}
 
 if (!publicKey) {
   console.error(`Usage:
   node scripts/register-fcm-vapid.mjs <VAPID_PUBLIC_KEY>
+  node scripts/register-fcm-vapid.mjs --generate
 
-Получить ключ:
-  Firebase Console → naryad-67194 → ⚙ Project settings → Cloud Messaging
-  → Web Push certificates → Generate key pair (или скопируйте существующий public key)`)
+Получить ключ из Console:
+  Firebase → naryad-67194 → Project settings → Cloud Messaging
+  → Web Push certificates → Generate key pair`)
   process.exit(1)
 }
 
 const line = upsertEnv(publicKey)
-if (process.argv.includes('--print-env-line')) {
-  console.log(line)
-} else {
-  console.log(`OK: ${line}`)
-  console.log('Дальше: npm run build && firebase deploy --only hosting')
-}
+console.log(`OK: ${line}`)
+console.log('Дальше: npm run build && firebase deploy --only hosting')

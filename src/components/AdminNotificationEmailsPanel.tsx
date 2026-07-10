@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import type { DemoUser, UserRole } from '../types/domain'
 import { db, firebaseConfigured } from '../lib/firebase'
@@ -39,6 +39,7 @@ export function AdminNotificationEmailsPanel() {
   const [rows, setRows] = useState<EmailRow[]>([])
   const [loading, setLoading] = useState(true)
   const [savingUid, setSavingUid] = useState<string | null>(null)
+  const draftsRef = useRef<Record<string, string>>({})
 
   const loadRows = useCallback(async () => {
     if (!firebaseConfigured || !db) {
@@ -50,13 +51,16 @@ export function AdminNotificationEmailsPanel() {
     try {
       const snap = await getDocs(collection(db, 'users'))
       const next: EmailRow[] = []
+      const drafts: Record<string, string> = {}
       snap.forEach((d) => {
-        const user = profileDocToDemoUser(
-          d.id,
-          d.data() as Record<string, unknown>,
-          String((d.data() as { email?: string }).email ?? ''),
-        )
-        const notify = user.notificationEmail ?? ''
+        const raw = d.data() as Record<string, unknown>
+        const user = profileDocToDemoUser(d.id, raw, String(raw.email ?? ''))
+        const notify =
+          user.notificationEmail ??
+          (typeof raw.notificationEmail === 'string'
+            ? raw.notificationEmail.trim()
+            : '')
+        drafts[d.id] = notify
         next.push({ ...user, draftEmail: notify })
       })
       next.sort((a, b) => {
@@ -64,6 +68,7 @@ export function AdminNotificationEmailsPanel() {
         if (byRole !== 0) return byRole
         return a.displayName.localeCompare(b.displayName, 'ru')
       })
+      draftsRef.current = drafts
       setRows(next)
     } catch (e) {
       showError(e instanceof Error ? e.message : String(e))
@@ -87,24 +92,33 @@ export function AdminNotificationEmailsPanel() {
   )
 
   function setDraft(uid: string, draftEmail: string) {
+    draftsRef.current[uid] = draftEmail
     setRows((prev) =>
       prev.map((r) => (r.id === uid ? { ...r, draftEmail } : r)),
     )
   }
 
-  async function saveRow(row: EmailRow) {
-    if (!isNotificationEmailValid(row.draftEmail)) {
+  async function saveByUid(uid: string) {
+    const row = rows.find((r) => r.id === uid)
+    if (!row) return
+    const draft = draftsRef.current[uid] ?? row.draftEmail
+    if (!isNotificationEmailValid(draft)) {
       showError(ne.invalid)
       return
     }
-    setSavingUid(row.id)
+    setSavingUid(uid)
     try {
-      await saveNotificationEmail(row.id, row.draftEmail)
-      const trimmed = row.draftEmail.trim()
+      const trimmed = draft.trim()
+      await saveNotificationEmail(uid, trimmed)
+      draftsRef.current[uid] = trimmed
       setRows((prev) =>
         prev.map((r) =>
-          r.id === row.id
-            ? { ...r, notificationEmail: trimmed || undefined, draftEmail: trimmed }
+          r.id === uid
+            ? {
+                ...r,
+                notificationEmail: trimmed || undefined,
+                draftEmail: trimmed,
+              }
             : r,
         ),
       )
@@ -120,7 +134,7 @@ export function AdminNotificationEmailsPanel() {
     }
   }
 
-  function renderTable(items: EmailRow[], readOnly = false) {
+  function renderTable(items: EmailRow[]) {
     if (items.length === 0) return null
     return (
       <div className="admin-notification-emails__table-wrap">
@@ -143,34 +157,31 @@ export function AdminNotificationEmailsPanel() {
                   <td className="muted small">{roleLabel(row.role, language)}</td>
                   <td className="muted small">{row.email}</td>
                   <td>
-                    {readOnly ? (
-                      <span className="muted xsmall">{ne.adminExecutorNote}</span>
-                    ) : (
-                      <input
-                        type="email"
-                        className="admin-notification-emails__input"
-                        value={row.draftEmail}
-                        placeholder={ne.placeholder}
-                        autoComplete="email"
-                        disabled={busy}
-                        onChange={(e) => setDraft(row.id, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void saveRow(row)
-                        }}
-                      />
-                    )}
+                    <input
+                      type="email"
+                      className="admin-notification-emails__input"
+                      value={row.draftEmail}
+                      placeholder={ne.placeholder}
+                      autoComplete="email"
+                      disabled={busy}
+                      onChange={(e) => setDraft(row.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void saveByUid(row.id)
+                        }
+                      }}
+                    />
                   </td>
                   <td>
-                    {readOnly ? null : (
-                      <button
-                        type="button"
-                        className="btn ghost small"
-                        disabled={busy}
-                        onClick={() => void saveRow(row)}
-                      >
-                        {busy ? ne.saving : ne.save}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="btn ghost small"
+                      disabled={busy}
+                      onClick={() => void saveByUid(row.id)}
+                    >
+                      {busy ? ne.saving : ne.save}
+                    </button>
                   </td>
                 </tr>
               )
@@ -194,7 +205,7 @@ export function AdminNotificationEmailsPanel() {
       ) : (
         <>
           {renderTable(approverRows)}
-          {renderTable(executorRows, true)}
+          {renderTable(executorRows)}
         </>
       )}
     </section>

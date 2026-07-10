@@ -105,6 +105,14 @@ export function EgovSignatureRoleRow(props: {
         </>
       )}
 
+      {!canSign && canReject && !signed && !rejected && onReject && (
+        <div className="btn-row" style={{ marginTop: '0.35rem' }}>
+          <button type="button" className="btn ghost small" onClick={onReject}>
+            {ui.reject}
+          </button>
+        </div>
+      )}
+
       {!canSign && !signed && rejected && (
         <div className="alert error xsmall" style={{ marginTop: '0.35rem' }}>
           <strong>

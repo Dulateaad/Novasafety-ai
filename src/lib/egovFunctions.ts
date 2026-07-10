@@ -1,6 +1,6 @@
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { app, firebaseConfigured } from './firebase'
-import type { EgovSignRole } from '../types/egovSignature'
+import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import type {
   SigningDocumentResponse,
   SubmitSignatureResponse,
@@ -44,15 +44,16 @@ export async function fetchSigningDocument(
 export async function submitEgovSignatureToServer(
   sessionId: string,
   cmsBase64: string,
+  provider: StoredEgovSignature['provider'] = 'egov_mobile',
 ): Promise<StoredEgovSignature> {
   if (!firebaseConfigured) {
     throw new Error('submitEgovSignature: нужен Firebase')
   }
   const fn = httpsCallable<
-    { sessionId: string; cmsBase64: string },
+    { sessionId: string; cmsBase64: string; provider?: string },
     SubmitSignatureResponse
   >(functionsInstance(), 'submitEgovSignature')
-  const res = await fn({ sessionId, cmsBase64 })
+  const res = await fn({ sessionId, cmsBase64, provider })
   return res.data.signature
 }
 
@@ -78,16 +79,15 @@ export async function fetchCrewAckDocument(
 export async function submitCrewAcknowledgmentToServer(
   sessionId: string,
   cmsBase64: string,
+  provider: import('../types/crewAck').StoredCrewAckSignature['provider'] = 'egov_mobile',
 ): Promise<import('../types/crewAck').StoredCrewAckSignature> {
   if (!firebaseConfigured) {
     throw new Error('submitCrewAcknowledgment: нужен Firebase')
   }
   const fn = httpsCallable<
-    { sessionId: string; cmsBase64: string },
+    { sessionId: string; cmsBase64: string; provider?: string },
     { ok: boolean; signature: import('../types/crewAck').StoredCrewAckSignature }
   >(functionsInstance(), 'submitCrewAcknowledgment')
-  const res = await fn({ sessionId, cmsBase64 })
+  const res = await fn({ sessionId, cmsBase64, provider })
   return res.data.signature
 }
-
-import type { StoredEgovSignature } from '../types/egovSignature'

@@ -58,14 +58,16 @@ export const en: Locale = {
     cleared: 'Notification email removed',
     invalid: 'Use a real email address (not @nova.local)',
     bannerHint: 'Permit and signing alerts are sent to this address.',
+    executorBannerHint:
+      'Set your personal email and enable Push in the header to receive permit and briefing alerts.',
     adminTitle: 'Admin · notification emails',
     adminHint:
-      'Set email for approvers, permit authorities, issuers, ERT, safety inspector, etc. Workers do not receive email.',
+      'Set email for all participants, including workers. @nova.local logins need a separate real address.',
     adminColName: 'Name',
     adminColRole: 'Role',
     adminColLogin: 'Login',
     adminColNotify: 'Notification email',
-    adminExecutorNote: 'workers do not receive email',
+    adminExecutorNote: 'set a real email',
     adminSavedFor: 'Saved for {name}',
   },
   common: {
@@ -129,6 +131,19 @@ export const en: Locale = {
     approvalCancelled: 'Approval cancelled',
     reasonNotSpecified: 'No reason specified.',
     waitingDefault: 'The assigned person signs when it is their turn.',
+    signMethodTabs: 'Signing method',
+    tabQrMobile: 'eGov Mobile (QR)',
+    tabNcaLayer: 'File key (NCALayer)',
+    waitingQrScan: 'Scan the QR code in eGov Mobile and confirm on your phone.',
+    ncalayerHint:
+      'Sign via NCALayer on this PC using a key file (.p12) or NCA RK token. The key never leaves your machine — only the CMS signature is sent.',
+    ncalayerStepInstall: 'Install NCALayer from pki.gov.kz if not already installed.',
+    ncalayerStepLaunch: 'Start NCALayer — the tray icon should be active.',
+    ncalayerStepSign: 'Click the button below → select key file → enter password → signature saves automatically.',
+    ncalayerStepSignShort: 'File key',
+    ncalayerSignBtn: 'Select key file and sign',
+    ncalayerNotRunning: 'NCALayer is not responding. Start NCALayer on this PC and try again.',
+    ncalayerCancelled: 'Signing cancelled in NCALayer.',
   },
   signEligibility: {
     notOnApproval: 'Permit is not on approval.',
@@ -193,9 +208,13 @@ export const en: Locale = {
     loginPrefix: 'login:',
     rejectedTitle: 'Approval rejected',
     rejectedHint:
-      'The WP package was rejected during approval. Your signature is no longer required — see reason below.',
+      'The WP package was rejected during approval. The work supervisor can fix the comments on the same permit and resubmit for approval.',
     rejectedBadge: '✕ Rejected',
     rejectedReasonFallback: 'See rejection reason on the permit card.',
+    resubmitEdit: 'Fix and resubmit',
+    resubmitBusy: 'Opening draft…',
+    resubmitPerformerHint:
+      'Address the rejection comments, then submit the package for approval again.',
   },
   notices: {
     issuedTitle: 'Permit open to all',

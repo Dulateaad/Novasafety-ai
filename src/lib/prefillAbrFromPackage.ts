@@ -134,9 +134,10 @@ export function mergeAbrPeopleFromNd(
   })
   return {
     ...abr,
-    crewAcknowledgments: abr.crewAcknowledgments.some((p) => p.fullName.trim())
-      ? abr.crewAcknowledgments
-      : fresh.crewAcknowledgments,
+    crewAcknowledgments:
+      fresh.crewAcknowledgments.length > 0
+        ? fresh.crewAcknowledgments
+        : abr.crewAcknowledgments,
     approvalSigners,
     workSupervisor: mergeNamedPerson(
       abr.workSupervisor,

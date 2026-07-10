@@ -2,7 +2,7 @@ import type { DemoUser, Permit } from '../types/domain'
 import { uidMatchesAccount } from './permitAccess'
 import { resolveWorkerUid } from './resolveWorkerUid'
 
-function crewAccountIds(executorUid: string, directory: DemoUser[] = []): Set<string> {
+export function crewAccountIds(executorUid: string, directory: DemoUser[] = []): Set<string> {
   const ids = new Set<string>()
   const id = executorUid.trim()
   if (!id) return ids
@@ -13,6 +13,32 @@ function crewAccountIds(executorUid: string, directory: DemoUser[] = []): Set<st
     if (uidMatchesAccount(id, u, directory)) ids.add(u.id)
   }
   return ids
+}
+
+/** ФИО из ЭЦП ознакомления бригады (учёт alias uid в справочнике). */
+export function crewAckSignerDisplayName(
+  permit: Permit,
+  uid: string,
+  directory: DemoUser[] = [],
+): string {
+  const id = uid.trim()
+  if (!id) return ''
+  const accountIds = crewAccountIds(id, directory)
+  const sigs = permit.crewAckSignatures ?? {}
+
+  for (const accountId of accountIds) {
+    const name = sigs[accountId]?.signedByDisplayName?.trim()
+    if (name) return name
+  }
+
+  for (const sig of Object.values(sigs)) {
+    if (!sig?.signedByDisplayName?.trim()) continue
+    if (sig.signedByUid && accountIds.has(sig.signedByUid)) {
+      return sig.signedByDisplayName.trim()
+    }
+  }
+
+  return ''
 }
 
 /** Ознакомление работника: ЭЦП (Firebase uid) или флаг в строке executors. */

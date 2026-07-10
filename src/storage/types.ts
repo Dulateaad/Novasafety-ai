@@ -58,6 +58,8 @@ export interface PermitRepository {
     params: RejectedPermitResolveParams,
     actor: DemoUser,
   ): Promise<Permit>
+  /** Сброс отклонённого пакета в черновик для правки и повторной отправки. */
+  resetRejectedPermitToDraft(id: string, actor: DemoUser): Promise<Permit>
   deletePermit(id: string, actor: DemoUser): Promise<void>
   deleteAllPermits(actor: DemoUser): Promise<void>
   subscribePermits(cb: (permits: Permit[]) => void): Unsubscribe

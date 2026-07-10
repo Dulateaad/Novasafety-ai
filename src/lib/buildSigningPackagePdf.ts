@@ -56,10 +56,11 @@ function prepareNeboshForPermit(
 async function buildNdprSectionBase64(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[] = [],
   opts?: { role?: EgovSignRole; signerName?: string },
 ): Promise<string> {
   const pdfMake = await initPdfMake()
-  const content = buildFormalPackagePdfContent(permit, resolveUser)
+  const content = buildFormalPackagePdfContent(permit, resolveUser, directory)
 
   if (opts?.role && opts.signerName) {
     content.push({
@@ -122,7 +123,7 @@ export async function buildPermitPackagePartPdf(
   const reg = regSlug(permit)
 
   if (part === 'ndpr') {
-    const pdfBase64 = await buildNdprSectionBase64(permit, resolveUser)
+    const pdfBase64 = await buildNdprSectionBase64(permit, resolveUser, directory)
     return {
       fileName: `NDPR-${reg}-НДПР.pdf`,
       generatedAtIso: new Date().toISOString(),
@@ -152,7 +153,11 @@ export async function buildPermitPackagePartPdf(
     throw new Error('Оценка Риска не оформлена для этого наряда')
   }
   const title = asor.shortTitleForNarjad || permit.title || 'Оценка Риска'
-  const { base64, fileName } = await buildNeboshRiskPdf(asor, title, { permit, resolveUser })
+  const { base64, fileName } = await buildNeboshRiskPdf(asor, title, {
+    permit,
+    resolveUser,
+    directory,
+  })
   return {
     fileName,
     generatedAtIso: new Date().toISOString(),
@@ -175,7 +180,7 @@ export async function buildSigningPackagePdf(
   const permDocs = workPermissionDocumentsForSigningPackage(permit)
 
   const [ndprBase64, abrResult, riskResult, permBase64s] = await Promise.all([
-    buildNdprSectionBase64(permit, resolveUser, opts),
+    buildNdprSectionBase64(permit, resolveUser, directory, opts),
     abr
       ? buildAbrPdf(abr, permit.abrDailyAcks, { permit, resolveUser, directory }).then(
           (r) => r.base64,
@@ -185,7 +190,7 @@ export async function buildSigningPackagePdf(
       ? buildNeboshRiskPdf(
           asor,
           asor.shortTitleForNarjad || permit.title || 'Оценка Риска',
-          { permit, resolveUser },
+          { permit, resolveUser, directory },
         ).then((r) => r.base64)
       : Promise.resolve(null as string | null),
     (async () => {

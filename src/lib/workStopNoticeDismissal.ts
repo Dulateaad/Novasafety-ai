@@ -1,6 +1,7 @@
 import type { Permit } from '../types/domain'
+import { loadUserDismissals, persistUserDismissal } from './userDismissals'
 
-const STORAGE_KEY = 'nova.dismissedWorkStopResolutionNotices'
+const KIND = 'workStopResolution'
 
 export function workStopResolutionDismissKey(permit: Permit): string | null {
   const ws = permit.workStop
@@ -9,52 +10,43 @@ export function workStopResolutionDismissKey(permit: Permit): string | null {
   return `${permit.id}::${ws.resolvedAtIso}`
 }
 
-function readStore(): Record<string, string[]> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as unknown
-    if (!parsed || typeof parsed !== 'object') return {}
-    return parsed as Record<string, string[]>
-  } catch {
-    return {}
+export async function loadDismissedWorkStopResolutionKeys(
+  userId: string,
+): Promise<Set<string>> {
+  const all = await loadUserDismissals(userId)
+  const keys = new Set<string>()
+  for (const k of all) {
+    if (k.startsWith(`${KIND}:`)) keys.add(k.slice(KIND.length + 1))
   }
-}
-
-function writeStore(store: Record<string, string[]>) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    const raw = localStorage.getItem('nova.dismissedWorkStopResolutionNotices')
+    if (raw) {
+      const store = JSON.parse(raw) as Record<string, string[]>
+      const list = store[userId]
+      if (Array.isArray(list)) list.forEach((x) => keys.add(x))
+    }
   } catch {
-    /* storage full / private mode */
+    /* ignore */
   }
+  return keys
 }
 
-export function loadDismissedWorkStopResolutionKeys(userId: string): Set<string> {
-  const store = readStore()
-  const list = store[userId]
-  return new Set(Array.isArray(list) ? list : [])
-}
-
-export function isWorkStopResolutionDismissed(
+export async function isWorkStopResolutionDismissed(
   userId: string,
   permit: Permit,
-): boolean {
+): Promise<boolean> {
   const key = workStopResolutionDismissKey(permit)
   if (!key) return false
-  return loadDismissedWorkStopResolutionKeys(userId).has(key)
+  const keys = await loadDismissedWorkStopResolutionKeys(userId)
+  return keys.has(key)
 }
 
-export function dismissWorkStopResolutionNotice(
+export async function dismissWorkStopResolutionNotice(
   userId: string,
   permit: Permit,
-): Set<string> {
+): Promise<Set<string>> {
   const key = workStopResolutionDismissKey(permit)
   if (!key) return loadDismissedWorkStopResolutionKeys(userId)
-
-  const store = readStore()
-  const prev = new Set(Array.isArray(store[userId]) ? store[userId]! : [])
-  prev.add(key)
-  store[userId] = [...prev]
-  writeStore(store)
-  return prev
+  await persistUserDismissal(userId, KIND, key)
+  return loadDismissedWorkStopResolutionKeys(userId)
 }

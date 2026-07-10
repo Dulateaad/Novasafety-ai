@@ -50,7 +50,7 @@ function buildResponsibleRows(
   ]
 
   if (signingRoleOrder(permit).includes('ert')) {
-    roleMeta.splice(1, 0, { role: 'ert', label: 'ПАС (Пожарно-аварийная служба)' })
+    roleMeta.push({ role: 'ert', label: 'ПАС (Пожарно-аварийная служба)' })
   }
 
   for (const { role, label } of roleMeta) {

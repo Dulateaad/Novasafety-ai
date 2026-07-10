@@ -1,4 +1,8 @@
-import { enrichUserDirectoryWithDefaultSigners, resolveErtSignerUid, resolveNdprSignerUid } from '../config/defaultNdprSigners'
+import {
+  enrichUserDirectoryWithDefaultSigners,
+  resolveErtSignerUid,
+  resolveNdprSignerUid,
+} from '../config/defaultNdprSigners'
 import type { DemoUser, Permit } from '../types/domain'
 import type { EgovSignRole, EgovSignaturesMap, StoredEgovSignature } from '../types/egovSignature'
 import { approvalIndexForRole, requiredSignRoles } from './approvalSequence'
@@ -65,7 +69,6 @@ export function validEgovRoleSignature(
   const dir = signingDirectory(directory)
   const sig = getEgovSignatures(permit)[role]
   if (!sig?.cmsBase64?.trim()) return false
-  if (!strictEgovSigningPhase(permit)) return true
   return egovSignatureMatchesAssignee(permit, role, sig, dir)
 }
 
@@ -168,4 +171,16 @@ export function roleSignedByLabel(
   const idx = approvalIndexForRole(role)
   const asorName = idx >= 0 ? permit.asor?.approvals?.[idx]?.fullNamePrinted?.trim() : ''
   return asorName || null
+}
+
+/** Подпись роли для PDF: только действующая ЭЦП или подтверждённый legacy-флаг. */
+export function pdfApprovalRoleSigned(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  const dir = signingDirectory(directory)
+  if (validEgovRoleSignature(permit, role, dir)) return true
+  if (strictEgovSigningPhase(permit)) return false
+  return isRoleSigned(permit, role, dir)
 }

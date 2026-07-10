@@ -19,7 +19,7 @@ export function NotificationEmailField(props: { user: DemoUser }) {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!firebaseConfigured || !db || user.role === 'executor') {
+    if (!firebaseConfigured || !db) {
       setLoaded(true)
       return
     }
@@ -39,9 +39,9 @@ export function NotificationEmailField(props: { user: DemoUser }) {
     return () => {
       cancelled = true
     }
-  }, [user.id, user.role])
+  }, [user.id])
 
-  if (user.role === 'executor' || !firebaseConfigured || !loaded) return null
+  if (!firebaseConfigured || !loaded) return null
 
   async function save() {
     if (!isNotificationEmailValid(value)) {

@@ -7,6 +7,7 @@ import { fillTemplate } from '../i18n/getLocale'
 import { isUserOnPermitCrew, uidMatchesAccount } from '../lib/permitAccess'
 import {
   buildAbrDailyAckEntry,
+  currentShiftDateIso,
   hasValidAbrDailyAck,
   isAbrDailyAckPeriodActive,
   latestAbrDailyAckForUser,
@@ -14,7 +15,6 @@ import {
   normalizeAbrDailyAcks,
   pendingAbrDailyAckUids,
   resolveExecutorDisplayName,
-  todayDateIso,
 } from '../lib/abrDailyAck'
 import { abrDailyAckSignaturePdfText } from '../lib/abrDailyAckSignaturePdfText'
 import { AbrDailyAckSignModal } from './AbrDailyAckSignModal'
@@ -31,7 +31,7 @@ export function AbrDailyAckPanel(props: {
   const ui = t.signingUi
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
-  const today = todayDateIso()
+  const today = currentShiftDateIso()
   const actorInCrew = isUserOnPermitCrew(permit, actor.id, actor, userDirectory)
   const actorNeedsSign = permit.executors.some((ex) => {
     const uid = ex.userUid.trim()

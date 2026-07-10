@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useSession, useJournal } from '../context/SessionContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useToast } from '../context/ToastContext'
 import { StatusBadge } from '../components/StatusBadge'
 import { EgovSignatureRoleRow } from '../components/EgovSignatureRoleRow'
 import { CrewAckSignRow } from '../components/CrewAckSignRow'
 import { WorkerCrewAckPanel } from '../components/WorkerCrewAckPanel'
 import { PermitOnApprovalSummary } from '../components/PermitOnApprovalSummary'
+import { ResubmitRejectedPermitButton } from '../components/ResubmitRejectedPermitButton'
 import { WorkStopActionCard } from '../components/WorkStopActionCard'
 import { WorkStopModal } from '../components/WorkStopModal'
 import {
@@ -45,6 +47,7 @@ import {
 } from '../lib/permitAccess'
 import { isCrewAckPeriodActive } from '../lib/crewAckEligibility'
 import { isPermitSigningRejected } from '../lib/permitRejectionDisplay'
+import { canUserResubmitRejectedPermit } from '../lib/resubmitRejectedPermit'
 import {
   restorePackageSessionFromPermit,
   resolvePackageResumeRoute,
@@ -56,7 +59,6 @@ import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
 import {
   signingRoleOrder,
   mergePermitAfterEgovSign,
-  canSignRoleNow,
   approvalStepLabel,
   waitingHint,
   permitSigningPhaseActive,
@@ -68,11 +70,9 @@ import { canUserRejectPermit, rejectionPatch } from '../lib/approvalActions'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
 import { scrollAppToTopWithRetries, scrollToElementWithRetries } from '../lib/scrollAppToTop'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
-import { allCrewAcknowledged } from '../lib/crewAckComplete'
 import { permitVisibleToPermitter } from '../lib/permitterApprovalGate'
 import { canUserSignCrewAck } from '../lib/crewAckEligibility'
 import { resolveWorkerUid } from '../lib/resolveWorkerUid'
-import { provisionPermitSignersClient } from '../lib/provisionSigners'
 import { canUserDeletePermit } from '../lib/permitDelete'
 import {
   buildPackagePdf,
@@ -123,6 +123,7 @@ export function PermitDetailPage() {
     resolveRejectedPermit,
   } = useSession()
   const { t, language } = useLanguage()
+  const { showSuccess } = useToast()
   const dp = t.detailPage
   const df = t.detailForm
   const c = t.common
@@ -330,6 +331,7 @@ export function PermitDetailPage() {
   const showInspectorWorkStop = p.workStop?.status === 'pending'
   const showInspectorRejected =
     isInspectorUser(actor) && isPermitSigningRejected(p) && Boolean(p.lastRejection)
+  const showPerformerResubmit = canUserResubmitRejectedPermit(p, actor)
 
   const workStopInspectorBlock = (
     <>
@@ -407,6 +409,11 @@ export function PermitDetailPage() {
       await resolveWorkStop(p.id, action, comment)
       notifyWorkStopAlertsRefresh()
       await refresh()
+      showSuccess(
+        action === 'lift'
+          ? t.workStop.lifted
+          : t.workStop.annulled,
+      )
     } catch (e) {
       window.alert(e instanceof Error ? e.message : String(e))
     } finally {
@@ -465,26 +472,52 @@ export function PermitDetailPage() {
 
   function canRejectAs(role: EgovSignRole): boolean {
     if (!canUserRejectPermit(signingP, actor, userDirectory)) return false
-    if (actor.role === 'coordinator') return canSignRoleNow(signingP, role, userDirectory)
-    return (
-      actorMatchesAssigneeForRole(signingP, role, actor, userDirectory) &&
-      canSignRoleNow(signingP, role, userDirectory)
-    )
+    if (actor.role === 'coordinator' || actor.role === 'safety') return true
+    const roleMap: Partial<Record<EgovSignRole, typeof actor.role>> = {
+      performer: 'performer',
+      permitter: 'permitter',
+      issuer: 'issuer',
+      leadExpert: 'leadExpert',
+      ert: 'ert',
+    }
+    if (roleMap[role] === actor.role) return true
+    return actorMatchesAssigneeForRole(signingP, role, actor, userDirectory)
   }
+
+  const canRejectPermitNow =
+    showApprovalFlow &&
+    !isPermitSigningRejected(p) &&
+    canUserRejectPermit(p, actor, userDirectory)
+
+  const rejectPermitButton = canRejectPermitNow ? (
+    <button type="button" className="btn ghost" onClick={() => void rejectPermit()}>
+      {t.signing.rejectPackage}
+    </button>
+  ) : null
 
 
   const resolveBadge = (uid: string) => resolveUserBadgeNo(uid, userDirectory)
 
   function saveEgovSignature(role: EgovSignRole, sig: StoredEgovSignature) {
+    // В Firebase подпись уже записана Cloud Function submitEgovSignature.
+    // Повторный updatePermit со stale `p` затирал CMS и мог испортить очередь подписей.
+    if (authMode === 'firebase') {
+      void refresh().then(() => notifySigningInvitesRefresh())
+      return
+    }
     void updatePermit(p.id, mergePermitAfterEgovSign(p, role, sig, resolveBadge)).then(
       () => {
         notifySigningInvitesRefresh()
       },
     )
-    if (authMode === 'firebase') void refresh()
   }
 
   function saveCrewAck(sig: StoredCrewAckSignature) {
+    if (authMode === 'firebase') {
+      void refresh().then(() => notifySigningInvitesRefresh())
+      return
+    }
+
     const signerUid = sig.signedByUid.trim()
     const nextExecutors = p.executors.map((ex) => {
       const raw = ex.userUid.trim()
@@ -524,24 +557,9 @@ export function PermitDetailPage() {
         },
         userDirectory,
       ),
-    }).then(async () => {
+    }).then(() => {
       notifySigningInvitesRefresh()
-      if (
-        authMode === 'firebase' &&
-        allCrewAcknowledged(
-          {
-            ...p,
-            executors: nextExecutors,
-            crewAckSignatures: nextCrewAck,
-          },
-          userDirectory,
-        )
-      ) {
-        await provisionPermitSignersClient(p.id)
-        notifySigningInvitesRefresh()
-      }
     })
-    if (authMode === 'firebase') void refresh()
   }
 
   function canSignCrewAck(): boolean {
@@ -635,6 +653,7 @@ export function PermitDetailPage() {
           canSign={canSignCrewAck()}
           userDirectory={userDirectory}
           onSigned={saveCrewAck}
+          onReject={canRejectPermitNow ? () => void rejectPermit() : undefined}
         />
       ) : showCrewAckSection ? (
         <section className="card" id="crew-ack-section">
@@ -669,12 +688,23 @@ export function PermitDetailPage() {
         />
       ) : null}
 
+      {showPerformerResubmit ? (
+        <section className="card" style={{ marginBottom: '1rem' }}>
+          <h2 style={{ marginTop: 0 }}>{t.invites.rejectedTitle}</h2>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            {t.invites.resubmitPerformerHint}
+          </p>
+          <ResubmitRejectedPermitButton permit={p} className="btn primary" />
+        </section>
+      ) : null}
+
       {showInteractiveApproval || showApprovalHistory ? (
         <>
           <PermitOnApprovalSummary
             permit={signingP}
             resolveUser={resolveUser}
             userDirectory={userDirectory}
+            rejectAction={rejectPermitButton}
             crewAckAction={
               canSignCrewAck() ? (
                 <CrewAckSignRow
@@ -756,7 +786,7 @@ export function PermitDetailPage() {
       ) : null}
 
       {actor.role === 'ert' &&
-      canErtEditGasTests(p) &&
+      canErtEditGasTests(p, userDirectory) &&
       permitHasGasTestDocuments(p) &&
       p.workPermissions?.documents?.length ? (
         <ErtGasTestLivePanel

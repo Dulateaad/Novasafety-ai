@@ -207,6 +207,15 @@ export class LocalPermitRepository implements PermitRepository {
         },
       }
     }
+    if (
+      patch.performerUid &&
+      patch.performerUid !== prev.performerUid &&
+      patch.signatures?.performerSigned === false
+    ) {
+      const egov = { ...(next.egovSignatures ?? {}) }
+      delete egov.performer
+      next = { ...next, egovSignatures: egov }
+    }
     if (patch.crewAckSignatures !== undefined) {
       next = {
         ...next,
@@ -530,6 +539,40 @@ export class LocalPermitRepository implements PermitRepository {
       kind: 'status_change',
       message: inspectorRejectedJournalMessage(params.action, note),
       meta: { from: permit.status, to: nextStatus, inspectorDecision: params.action },
+    })
+    saveShape(s)
+    notify()
+    return updated
+  }
+
+  async resetRejectedPermitToDraft(id: string, actor: DemoUser): Promise<Permit> {
+    const { canUserResubmitRejectedPermit, rejectedPermitResubmitFields } =
+      await import('../lib/resubmitRejectedPermit')
+    const s = loadShape()
+    const idx = s.permits.findIndex((p) => p.id === id)
+    if (idx === -1) throw new Error('Permit not found')
+    const permit = s.permits[idx]
+    if (!canUserResubmitRejectedPermit(permit, actor)) {
+      throw new Error('Исправить отклонённый пакет может производитель работ по наряду')
+    }
+    const atIso = nowIso()
+    const fields = rejectedPermitResubmitFields()
+    const { lastRejection: _drop, ...rest } = permit
+    const updated: Permit = {
+      ...rest,
+      ...fields,
+      updatedAtIso: atIso,
+    }
+    s.permits[idx] = updated
+    s.journal.push({
+      id: uid(),
+      permitId: id,
+      atIso,
+      actorUid: actor.id,
+      actorRole: actor.role,
+      kind: 'status_change',
+      message: 'Отклонённый пакет возвращён в черновик для исправления и повторной отправки',
+      meta: { from: permit.status, to: 'draft', resubmit: true },
     })
     saveShape(s)
     notify()

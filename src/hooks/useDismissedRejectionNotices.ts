@@ -6,18 +6,30 @@ import {
 } from '../lib/rejectionNoticeDismissal'
 
 export function useDismissedRejectionNotices(userId: string | undefined) {
-  const [dismissed, setDismissed] = useState<Set<string>>(() =>
-    userId ? loadDismissedRejectionKeys(userId) : new Set(),
-  )
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setDismissed(userId ? loadDismissedRejectionKeys(userId) : new Set())
+    let cancelled = false
+    if (!userId) {
+      setDismissed(new Set())
+      return
+    }
+    void loadDismissedRejectionKeys(userId).then((keys) => {
+      if (!cancelled) setDismissed(keys)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [userId])
 
   const dismiss = useCallback(
     (permit: Permit) => {
       if (!userId) return
-      setDismissed(dismissRejectionNotice(userId, permit))
+      const key = `${permit.id}::${permit.lastRejection?.atIso ?? ''}`
+      if (permit.lastRejection?.atIso) {
+        setDismissed((prev) => new Set(prev).add(key))
+      }
+      void dismissRejectionNotice(userId, permit).then(setDismissed)
     },
     [userId],
   )

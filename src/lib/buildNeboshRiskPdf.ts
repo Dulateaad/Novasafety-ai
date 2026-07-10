@@ -528,6 +528,7 @@ export async function buildNeboshRiskPdf(
   opts?: {
     permit?: Permit
     resolveUser?: (uid: string) => DemoUser | undefined
+    directory?: DemoUser[]
   },
 ): Promise<{ base64: string; fileName: string }> {
   const form = finalizeNeboshTasksForReady(rawForm)
@@ -617,8 +618,9 @@ export async function buildNeboshRiskPdf(
 
   const permit = opts?.permit
   const resolveUser = opts?.resolveUser
+  const directory = opts?.directory ?? []
   const crewFromPermit =
-    permit && resolveUser ? buildPermitCrewRows(permit, resolveUser) : []
+    permit && resolveUser ? buildPermitCrewRows(permit, resolveUser, directory) : []
 
   if (crewFromPermit.length > 0) {
     const crewBody: PdfCell[][] = [

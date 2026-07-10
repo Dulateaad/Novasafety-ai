@@ -10,7 +10,7 @@ export interface AbrDailyAckEntry {
   cmsBase64?: string
   signerIin?: string | null
   documentHash?: string
-  provider?: 'egov_mobile' | 'manual'
+  provider?: 'egov_mobile' | 'ncalayer' | 'manual'
 }
 
 export interface AbrDailyAckDay {

@@ -43,23 +43,48 @@ function sortInvites(list: SigningInvite[]): SigningInvite[] {
   })
 }
 
+function mergeInvitesById(lists: SigningInvite[][]): SigningInvite[] {
+  const byId = new Map<string, SigningInvite>()
+  for (const list of lists) {
+    for (const invite of list) {
+      byId.set(invite.id, invite)
+    }
+  }
+  return sortInvites([...byId.values()])
+}
+
 /** Без onSnapshot — иначе Firestore 12.x падает при permission-denied без error callback. */
 export async function fetchSigningInvites(
   db: Firestore,
   assigneeUid: string,
+  assigneeEmail?: string,
 ): Promise<SigningInvite[]> {
-  if (!assigneeUid.trim()) return []
+  const uid = assigneeUid.trim()
+  const email = assigneeEmail?.trim().toLowerCase() ?? ''
+  if (!uid && !email) return []
   try {
-    const q = query(
-      collection(db, 'signingInvites'),
-      where('assigneeUid', '==', assigneeUid),
-    )
-    const snap = await getDocs(q)
-    return sortInvites(
+    const queries = []
+    if (uid) {
+      queries.push(
+        getDocs(
+          query(collection(db, 'signingInvites'), where('assigneeUid', '==', uid)),
+        ),
+      )
+    }
+    if (email) {
+      queries.push(
+        getDocs(
+          query(collection(db, 'signingInvites'), where('assigneeEmail', '==', email)),
+        ),
+      )
+    }
+    const snaps = await Promise.all(queries)
+    const lists = snaps.map((snap) =>
       snap.docs.map((d) =>
         normalizeInvite(d.id, d.data() as Record<string, unknown>),
       ),
     )
+    return mergeInvitesById(lists)
   } catch (e) {
     console.warn('[NOVA] Не удалось загрузить signingInvites', e)
     return []

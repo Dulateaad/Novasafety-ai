@@ -70,9 +70,10 @@ const SPECIAL_IDS = new Set<string>(
   SPECIAL_WORK_ACTIVITY_ORDER as unknown as readonly string[],
 )
 
-/** Виды работ, для которых ERT (ПАС) согласует НД и заполняет газотест — только огневые. */
+/** Виды работ, для которых ERT (ПАС) согласует НД и заполняет газотест — огневые и газоопасные. */
 export const ERT_APPROVAL_ACTIVITIES: readonly SpecialWorkActivity[] = [
   'open_flame_fire',
+  'gas_hazard',
 ] as const satisfies readonly SpecialWorkActivity[]
 
 export function activitiesRequireErtApproval(
@@ -185,7 +186,9 @@ export function applyWorkActivitiesToDraft(
     permitType: derived.permitType,
     category: derived.category,
     ...(derived.permitType === 'cold' ? { f04: undefined } : {}),
-    ertUid: needsErt ? draft.ertUid?.trim() || undefined : undefined,
+    ertUid: needsErt
+      ? draft.ertUid?.trim() || 'u-ert'
+      : undefined,
   }
 }
 
@@ -376,6 +379,8 @@ export interface Permit extends PermitDraft {
   workStop?: WorkStopState
   /** Ежедневные подписи ознакомления с АБР по датам. */
   abrDailyAcks?: import('./abrDailyAck').AbrDailyAckDay[]
+  /** История замен производителя работ в действующем наряде. */
+  performerReplacements?: import('./performerReplacement').PerformerReplacement[]
 }
 
 export type JournalEventKind =

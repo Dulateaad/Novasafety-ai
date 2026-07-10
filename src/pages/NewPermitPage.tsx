@@ -25,7 +25,7 @@ import {
   ensureDefaultNdprSignersClient,
   type EnsureDefaultSignerAccount,
 } from '../lib/ensureDefaultNdprSigners'
-import { workerChoicesForRow } from '../lib/directoryUsers'
+import { executorAccountsConflict, hasAvailableWorkerForCrew, workerChoicesForRow } from '../lib/directoryUsers'
 import { isNdGatePassed, setNdGatePassed } from '../lib/ndGate'
 import {
   mergePreparedNdprDraftForSession,
@@ -360,16 +360,13 @@ export function NewPermitPage() {
   const f02 = draft.f02
   const isProducer = user?.role === 'performer'
 
-  const canAddWorker = useMemo(() => {
-    const used = new Set(draft.executors.map((e) => e.userUid).filter(Boolean))
-    const pool = directory.filter((u) => u.role === 'executor')
-    return pool.some((u) => !used.has(u.id))
-  }, [draft.executors, directory])
+  const canAddWorker = useMemo(
+    () => hasAvailableWorkerForCrew(directory, draft.executors),
+    [draft.executors, directory],
+  )
 
   function addExecutor() {
-    const used = new Set(draft.executors.map((e) => e.userUid).filter(Boolean))
-    const pool = directory.filter((u) => u.role === 'executor')
-    if (!pool.some((u) => !used.has(u.id))) return
+    if (!canAddWorker) return
     const row = {
       id: uid(),
       userUid: '',
@@ -403,9 +400,13 @@ export function NewPermitPage() {
       return
     }
     const activeUids = prepared.executors.map((ex) => ex.userUid).filter(Boolean)
-    if (new Set(activeUids).size !== activeUids.length) {
-      showError(ndprPage.duplicateWorker)
-      return
+    for (let i = 0; i < activeUids.length; i += 1) {
+      for (let j = i + 1; j < activeUids.length; j += 1) {
+        if (executorAccountsConflict(activeUids[i]!, activeUids[j]!, directory)) {
+          showError(ndprPage.duplicateWorker)
+          return
+        }
+      }
     }
     saveNewPermitDraftToSession(
       mergePreparedNdprDraftForSession(current, prepared),

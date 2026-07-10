@@ -63,9 +63,9 @@ export async function getUserRole(db: Firestore, uid: string): Promise<string | 
   return String(snap.data()?.role ?? '').trim() || null
 }
 
-/** Работникам (executor) email-уведомления не отправляем. */
-export function roleReceivesEmail(role: string | null | undefined): boolean {
-  return role !== 'executor'
+/** Все роли получают email, если указан notificationEmail. */
+export function roleReceivesEmail(_role: string | null | undefined): boolean {
+  return true
 }
 
 function publicAppUrl(): string {

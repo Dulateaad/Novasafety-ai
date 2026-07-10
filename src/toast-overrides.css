@@ -1,0 +1,28 @@
+/* Центральные уведомления об успешном сохранении */
+.toast-stack {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  width: min(24rem, calc(100vw - 2rem));
+  z-index: 1200;
+}
+
+.toast {
+  position: relative;
+  justify-content: center;
+  text-align: center;
+  padding-right: 2.25rem;
+}
+
+.toast__message {
+  flex: 1;
+  text-align: center;
+}
+
+.toast__close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+}

@@ -19,7 +19,7 @@ export interface StoredEgovSignature {
   documentFormat?: 'pdf' | 'text'
   /** CMS-подпись (base64) от SIGEX / eGov Mobile. */
   cmsBase64: string
-  provider: 'egov_mobile' | 'egov_business' | 'unknown'
+  provider: 'egov_mobile' | 'egov_business' | 'ncalayer' | 'unknown'
   sigexVerified?: boolean
 }
 

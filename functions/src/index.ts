@@ -55,6 +55,7 @@ import {
   getInspectorNotifyMode,
   inspectorAssigneeUids,
   createWorkStopAlertsAdmin,
+  isInspectorFirestoreUser,
   resolutionJournalMessage,
   resolveWorkStopAlertsAdmin,
   type WorkStopPhoto,
@@ -118,7 +119,7 @@ function assertBroadcastKind(raw: unknown): BroadcastNoticeKind {
   throw new HttpsError('invalid-argument', 'Недопустимый тип уведомления')
 }
 
-/** Push + email при информационном уведомлении по наряду (работникам email не уходит). */
+/** Push + email при информационном уведомлении по наряду. */
 export const pushOnPermitNotice = onDocumentCreated(
   { ...PUSH_TRIGGER_OPTIONS, document: 'permitNotices/{id}' },
   async (event) => {
@@ -272,8 +273,22 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
   }
   const sessionId = String(request.data?.sessionId ?? '')
   const cmsBase64 = String(request.data?.cmsBase64 ?? '')
+  const providerRaw = String(request.data?.provider ?? 'egov_mobile')
+  const provider =
+    providerRaw === 'ncalayer' || providerRaw === 'egov_business'
+      ? providerRaw
+      : 'egov_mobile'
   if (!sessionId || !cmsBase64.trim()) {
     throw new HttpsError('invalid-argument', 'sessionId и cmsBase64 обязательны')
+  }
+
+  const cmsNormalized = cmsBase64.replace(/\s+/g, '')
+  const cmsByteLength = Math.floor((cmsNormalized.length * 3) / 4)
+  if (cmsByteLength > 750_000) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Подпись слишком большая для сохранения. Используйте откреплённую подпись NCALayer (без вложенного PDF).',
+    )
   }
 
   const uid = request.auth.uid
@@ -317,7 +332,7 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
 
   let signerInfo
   try {
-    signerInfo = parseCmsSigner(cmsBase64)
+    signerInfo = parseCmsSigner(cmsNormalized)
   } catch (e) {
     throw new HttpsError(
       'invalid-argument',
@@ -326,7 +341,7 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
   }
   await assertSignerIdentityIfEnabled(user, signerInfo)
 
-  const sigexCheck = await verifyCmsViaSigex(cmsBase64, SIGEX_BASE)
+  const sigexCheck = await verifyCmsViaSigex(cmsNormalized, SIGEX_BASE)
   if (!sigexCheck.ok) {
     console.warn('SIGEX verify soft-fail:', sigexCheck.detail)
     // Не блокируем, если SIGEX недоступен — CMS уже разобран локально.
@@ -341,8 +356,8 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
     signerSubjectDn: signerInfo.subjectDn,
     documentHash: String(session.documentHash),
     documentFormat: 'pdf',
-    cmsBase64,
-    provider: 'egov_mobile',
+    cmsBase64: cmsNormalized,
+    provider,
     sigexVerified: sigexCheck.ok,
   }
 
@@ -378,7 +393,18 @@ export const submitEgovSignature = onCall(CALLABLE_OPTIONS, async (request) => {
     updatePayload.status = 'issued'
   }
 
-  await db.collection('permits').doc(permitId).update(updatePayload)
+  try {
+    await db.collection('permits').doc(permitId).update(updatePayload)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/longer than \d+ bytes|exceeds the maximum allowed size/i.test(msg)) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Документ наряда слишком большой для сохранения подписи. Попробуйте откреплённую подпись NCALayer.',
+      )
+    }
+    throw new HttpsError('internal', `Не удалось сохранить подпись: ${msg}`)
+  }
 
   if (autoIssuePatch) {
     await db.collection('permits').doc(permitId).collection('journal').add({
@@ -445,7 +471,12 @@ export const provisionPermitSignersFn = onCall(CALLABLE_OPTIONS, async (request)
     throw new HttpsError('permission-denied', 'Нет профиля пользователя')
   }
   const callerRole = String(callerSnap.data()?.role ?? '')
-  if (callerRole !== 'coordinator' && callerRole !== 'performer' && callerRole !== 'issuer') {
+  if (
+    callerRole !== 'coordinator' &&
+    callerRole !== 'performer' &&
+    callerRole !== 'issuer' &&
+    callerRole !== 'ert'
+  ) {
     throw new HttpsError(
       'permission-denied',
       'Только координатор или составитель может назначить подписантов',
@@ -723,8 +754,22 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
   }
   const sessionId = String(request.data?.sessionId ?? '')
   const cmsBase64 = String(request.data?.cmsBase64 ?? '')
+  const providerRaw = String(request.data?.provider ?? 'egov_mobile')
+  const provider =
+    providerRaw === 'ncalayer' || providerRaw === 'egov_business'
+      ? providerRaw
+      : 'egov_mobile'
   if (!sessionId || !cmsBase64.trim()) {
     throw new HttpsError('invalid-argument', 'sessionId и cmsBase64 обязательны')
+  }
+
+  const cmsNormalized = cmsBase64.replace(/\s+/g, '')
+  const cmsByteLength = Math.floor((cmsNormalized.length * 3) / 4)
+  if (cmsByteLength > 750_000) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Подпись слишком большая для сохранения. Используйте откреплённую подпись NCALayer.',
+    )
   }
 
   const uid = request.auth.uid
@@ -761,7 +806,7 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
 
   let signerInfo
   try {
-    signerInfo = parseCmsSigner(cmsBase64)
+    signerInfo = parseCmsSigner(cmsNormalized)
   } catch (e) {
     throw new HttpsError(
       'invalid-argument',
@@ -777,8 +822,8 @@ export const submitCrewAcknowledgment = onCall(CALLABLE_OPTIONS, async (request)
     signerIin: signerInfo.iin,
     signerSubjectDn: signerInfo.subjectDn,
     documentHash: String(session.documentHash),
-    cmsBase64,
-    provider: 'egov_mobile',
+    cmsBase64: cmsNormalized,
+    provider,
   }
 
   const executors = Array.isArray(permit.executors) ? [...permit.executors] : []
@@ -935,7 +980,7 @@ export const resolveWorkStopFn = onCall(CALLABLE_OPTIONS, async (request) => {
 
   const permit = permitSnap.data()!
   const user = userSnap.data()!
-  if (String(user.role ?? '') !== 'safety') {
+  if (!isInspectorFirestoreUser(user)) {
     throw new HttpsError(
       'permission-denied',
       'Аннулировать НДПР и снимать остановку может только Инженер по ОТ, ТБ и ООС',
@@ -961,7 +1006,12 @@ export const resolveWorkStopFn = onCall(CALLABLE_OPTIONS, async (request) => {
     inspectorComment: note,
     status: action === 'annul' ? 'annulled' : 'lifted',
   }
-  const nextStatus = action === 'annul' ? 'annulled' : String(ws.previousPermitStatus ?? 'in_progress')
+  const nextStatus =
+    action === 'annul'
+      ? 'annulled'
+      : ws.previousPermitStatus === 'issued' || ws.previousPermitStatus === 'in_progress'
+        ? ws.previousPermitStatus
+        : 'in_progress'
 
   await db.collection('permits').doc(permitId).set(
     {

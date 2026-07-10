@@ -80,26 +80,28 @@ export async function broadcastPermitNotice(
   const iso = new Date().toISOString()
 
   await Promise.all(
-    uids.map((assigneeUid) =>
-      db
-        .collection('permitNotices')
-        .doc(`${permitId}_${kind}_${assigneeUid}`)
-        .set(
-          {
-            permitId,
-            permitTitle,
-            registrationRefNo: regNo,
-            assigneeUid,
-            kind,
-            title,
-            message,
-            status: 'active',
-            createdAtIso: iso,
-            updatedAtIso: iso,
-          },
-          { merge: true },
-        ),
-    ),
+    uids.map(async (assigneeUid) => {
+      const ref = db.collection('permitNotices').doc(`${permitId}_${kind}_${assigneeUid}`)
+      const existing = await ref.get()
+      const prev = existing.data()
+      // Новое событие того же типа — снова показать (active).
+      // Первый create сохраняет createdAtIso.
+      await ref.set(
+        {
+          permitId,
+          permitTitle,
+          registrationRefNo: regNo,
+          assigneeUid,
+          kind,
+          title,
+          message,
+          status: 'active',
+          createdAtIso: String(prev?.createdAtIso ?? iso),
+          updatedAtIso: iso,
+        },
+        { merge: true },
+      )
+    }),
   )
 
   return uids.length

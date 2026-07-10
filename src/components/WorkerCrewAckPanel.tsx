@@ -30,14 +30,16 @@ export function WorkerCrewAckPanel(props: {
   canSign: boolean
   userDirectory?: DemoUser[]
   onSigned: (sig: StoredCrewAckSignature) => void
+  onReject?: () => void
 }) {
-  const { permit, actor, brief, canSign, userDirectory = [], onSigned } = props
+  const { permit, actor, brief, canSign, userDirectory = [], onSigned, onReject } = props
   const { online } = useNetwork()
   const { t, language } = useLanguage()
   const { resolveUser } = useSession()
   const w = t.crewWorker
   const crew = t.crew
   const ui = t.signingUi
+  const signing = t.signing
   const c = t.common
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -200,6 +202,15 @@ export function WorkerCrewAckPanel(props: {
                   {w.signButton}
                 </button>
               </>
+            ) : null}
+            {onReject && permit.status === 'on_approval' ? (
+              <button
+                type="button"
+                className="btn ghost worker-crew-ack__reject"
+                onClick={onReject}
+              >
+                {signing.rejectPackage}
+              </button>
             ) : null}
           </>
         ) : null}

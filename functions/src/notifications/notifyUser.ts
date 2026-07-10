@@ -3,12 +3,11 @@ import { sendEmailToUid } from './email'
 import { sendPushToUid, type PushPayload } from './push'
 
 export type NotifyOptions = {
-  /** crew_ack — только push, без email (работники). */
   inviteType?: 'approval' | 'crew_ack' | string
   skipEmail?: boolean
 }
 
-/** Push + email (кроме работников и crew_ack). */
+/** Push + email (если не skipEmail и указана рабочая почта). */
 export async function notifyUser(
   db: Firestore,
   uid: string,
@@ -16,7 +15,7 @@ export async function notifyUser(
   opts?: NotifyOptions,
 ): Promise<{ push: number; email: boolean }> {
   const push = await sendPushToUid(db, uid, payload)
-  const skipEmail = opts?.skipEmail === true || opts?.inviteType === 'crew_ack'
-  const email = skipEmail ? false : await sendEmailToUid(db, uid, payload)
+  const email =
+    opts?.skipEmail === true ? false : await sendEmailToUid(db, uid, payload)
   return { push, email }
 }

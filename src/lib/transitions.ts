@@ -42,11 +42,15 @@ export function canUserTriggerStatus(
 
   if (next === 'rejected' && permit.status === 'on_approval') {
     return (
-      role === 'issuer' ||
       role === 'coordinator' ||
+      role === 'performer' ||
       role === 'permitter' ||
+      role === 'issuer' ||
       role === 'leadExpert' ||
-      role === 'ert'
+      role === 'ert' ||
+      role === 'safety' ||
+      role === 'contractor' ||
+      role === 'executor'
     )
   }
 

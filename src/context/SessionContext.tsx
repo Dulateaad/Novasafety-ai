@@ -41,6 +41,10 @@ import type { PermitRepository } from '../storage/types'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
 import type { InspectorRejectedAction } from '../lib/inspectorRejectedPermit'
 import { notifyWorkStopAlertsRefresh } from '../lib/refreshWorkStopAlerts'
+import {
+  requestWorkStopClient,
+  resolveWorkStopClient,
+} from '../lib/workStopFunctions'
 import { disablePushOnSignOut } from '../components/PushNotificationsToggle'
 import { fetchInspectorSettings } from '../lib/inspectorSettings'
 import { isInspectorUser } from '../lib/inspectorAccess'
@@ -92,6 +96,8 @@ interface SessionValue {
     action: InspectorRejectedAction,
     comment: string,
   ) => Promise<void>
+  /** Вернуть отклонённый пакет в черновик для правки и повторной отправки. */
+  resetRejectedPermitToDraft: (id: string) => Promise<Permit>
   error: string | null
   clearError: () => void
 }
@@ -371,24 +377,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Нет пользователя сессии')
       setError(null)
       try {
-        const settings = await fetchInspectorSettings()
-        await repo.requestWorkStop(
-          id,
-          {
-            reason,
-            photo,
-            directory: userDirectory,
-            inspectorNotifyMode: settings.inspectorNotifyMode,
-          },
-          user,
-        )
+        if (authMode === 'firebase') {
+          const result = await requestWorkStopClient(id, reason, photo)
+          if (!result) throw new Error('Не удалось отправить остановку работ')
+        } else {
+          const settings = await fetchInspectorSettings()
+          await repo.requestWorkStop(
+            id,
+            {
+              reason,
+              photo,
+              directory: userDirectory,
+              inspectorNotifyMode: settings.inspectorNotifyMode,
+            },
+            user,
+          )
+        }
+        await refresh()
         notifyWorkStopAlertsRefresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
       }
     },
-    [repo, user, userDirectory],
+    [repo, user, userDirectory, authMode, refresh],
   )
 
   const resolveWorkStop = useCallback(
@@ -401,14 +413,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       setError(null)
       try {
-        await repo.resolveWorkStop(id, { action, comment }, user)
+        if (authMode === 'firebase') {
+          const result = await resolveWorkStopClient(id, action, comment)
+          if (!result) throw new Error('Не удалось сохранить решение по остановке работ')
+        } else {
+          await repo.resolveWorkStop(id, { action, comment }, user)
+        }
+        await refresh()
         notifyWorkStopAlertsRefresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
       }
     },
-    [repo, user],
+    [repo, user, authMode, refresh],
   )
 
   const resolveRejectedPermit = useCallback(
@@ -428,6 +446,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     },
     [repo, user],
+  )
+
+  const resetRejectedPermitToDraft = useCallback(
+    async (id: string) => {
+      if (!user) throw new Error('Нет пользователя сессии')
+      setError(null)
+      try {
+        const updated = await repo.resetRejectedPermitToDraft(id, user)
+        await refresh()
+        return updated
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        throw e
+      }
+    },
+    [repo, user, refresh],
   )
 
   const clearError = useCallback(() => setError(null), [])
@@ -454,6 +488,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       requestWorkStop,
       resolveWorkStop,
       resolveRejectedPermit,
+      resetRejectedPermitToDraft,
       error,
       clearError,
     }),
@@ -473,6 +508,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       createPermit,
       updatePermit,
       transition,
+      deletePermit,
+      deleteAllPermits,
+      requestWorkStop,
+      resolveWorkStop,
+      resolveRejectedPermit,
+      resetRejectedPermitToDraft,
       error,
       clearError,
     ],

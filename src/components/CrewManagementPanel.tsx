@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { DemoUser, Permit, WorkExecutor } from '../types/domain'
 import { useSession } from '../context/SessionContext'
+import { useToast } from '../context/ToastContext'
 import {
-  firstUnusedWorkerUid,
+  executorAccountsConflict,
+  hasAvailableWorkerForCrew,
   workerChoicesForRow,
 } from '../lib/directoryUsers'
 import { broadcastPermitNoticeClient } from '../lib/permitNotices'
@@ -11,10 +13,10 @@ import { mergeAbrPeopleFromNd } from '../lib/prefillAbrFromPackage'
 const EDIT_ROLES = new Set<DemoUser['role']>(['performer', 'coordinator', 'permitter'])
 const ACTIVE = new Set<Permit['status']>(['issued', 'in_progress', 'suspended'])
 
-function newExecutorRow(userUid: string): WorkExecutor {
+function newExecutorRow(): WorkExecutor {
   return {
     id: crypto.randomUUID(),
-    userUid,
+    userUid: '',
     dateIso: new Date().toISOString().slice(0, 10),
     briefingAcknowledged: false,
   }
@@ -26,16 +28,17 @@ export function CrewManagementPanel(props: {
 }) {
   const { permit, actor } = props
   const { updatePermit, userDirectory, authMode } = useSession()
+  const { showSuccess, showInfo, showError } = useToast()
   const [executors, setExecutors] = useState<WorkExecutor[]>(permit.executors)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const canEdit = EDIT_ROLES.has(actor.role) && ACTIVE.has(permit.status)
   const isProducer = actor.role === 'performer'
-  const canAdd = useMemo(() => {
-    const used = new Set(executors.map((e) => e.userUid).filter(Boolean))
-    return firstUnusedWorkerUid(userDirectory, used) !== null
-  }, [executors, userDirectory])
+  const canAdd = useMemo(
+    () => hasAvailableWorkerForCrew(userDirectory, executors),
+    [executors, userDirectory],
+  )
 
   if (!canEdit) return null
 
@@ -44,13 +47,11 @@ export function CrewManagementPanel(props: {
   }
 
   function addExecutor() {
-    const used = new Set(executors.map((e) => e.userUid).filter(Boolean))
-    const pick = firstUnusedWorkerUid(userDirectory, used)
-    if (!pick) {
+    if (!canAdd) {
       setError('Нет свободных работников в справочнике.')
       return
     }
-    setExecutors((list) => [newExecutorRow(pick), ...list])
+    setExecutors((list) => [newExecutorRow(), ...list])
     setError(null)
   }
 
@@ -63,13 +64,25 @@ export function CrewManagementPanel(props: {
       setError('Выберите работника для каждой строки.')
       return
     }
+    const uids = executors.map((ex) => ex.userUid.trim()).filter(Boolean)
+    for (let i = 0; i < uids.length; i += 1) {
+      for (let j = i + 1; j < uids.length; j += 1) {
+        if (executorAccountsConflict(uids[i]!, uids[j]!, userDirectory)) {
+          setError('Один и тот же работник не может быть указан в двух строках.')
+          return
+        }
+      }
+    }
     const unchanged =
       executors.length === permit.executors.length &&
       executors.every((ex, i) => {
         const prev = permit.executors[i]
         return prev && prev.userUid === ex.userUid && prev.id === ex.id
       })
-    if (unchanged) return
+    if (unchanged) {
+      showInfo('Изменений нет')
+      return
+    }
 
     setBusy(true)
     setError(null)
@@ -87,8 +100,11 @@ export function CrewManagementPanel(props: {
       if (authMode === 'firebase') {
         await broadcastPermitNoticeClient(permit.id, 'crew_changed')
       }
+      showSuccess('Состав бригады сохранён')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сохранить состав бригады.')
+      const msg = e instanceof Error ? e.message : 'Не удалось сохранить состав бригады.'
+      setError(msg)
+      showError(msg)
     } finally {
       setBusy(false)
     }

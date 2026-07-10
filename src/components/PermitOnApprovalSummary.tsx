@@ -22,6 +22,8 @@ type Props = {
   userDirectory?: DemoUser[]
   /** Кнопка ознакомления для работника бригады (eGov). */
   crewAckAction?: ReactNode
+  /** Кнопка отклонения пакета (доступна всем участникам на согласовании). */
+  rejectAction?: ReactNode
   variant?: 'card' | 'inline'
   /** Скрыть блок «кто отклонил», если родитель уже показывает его. */
   showRejectionNotice?: boolean
@@ -45,6 +47,7 @@ export function PermitOnApprovalSummary({
   resolveUser,
   userDirectory = [],
   crewAckAction,
+  rejectAction,
   variant = 'card',
   showRejectionNotice = true,
 }: Props) {
@@ -63,6 +66,9 @@ export function PermitOnApprovalSummary({
           resolveUser={resolveUser}
           className="permit-approval-summary__rejection"
         />
+      ) : null}
+      {rejectAction ? (
+        <div className="permit-approval-summary__reject">{rejectAction}</div>
       ) : null}
       <div className="permit-approval-summary__block">
         <h3 className="permit-approval-summary__title">Согласование</h3>

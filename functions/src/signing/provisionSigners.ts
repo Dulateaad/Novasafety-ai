@@ -1,10 +1,10 @@
 import { getAuth } from 'firebase-admin/auth'
 import type { DocumentData, Firestore } from 'firebase-admin/firestore'
-import { assigneeUidForRole } from './permissions'
+import { assigneeUidForRole, isPlaceholderAssigneeUid } from './permissions'
 import {
   approvalStepLabel,
+  isRoleSigned,
   nextRoleToSignAsync,
-  permitSigningPhaseActive,
   requiredSignRoles,
 } from './approvalSequence'
 import {
@@ -90,29 +90,6 @@ function approvalInviteMessage(status: SigningInviteStatus, stepLabel: string): 
   if (status === 'completed') return 'Подпись получена'
   if (status === 'pending') return `Ожидает очереди: ${stepLabel}`
   return APPROVAL_PACKAGE_MESSAGE
-}
-
-function isRoleSigned(permit: DocumentData, role: string): boolean {
-  const egov = permit.egovSignatures as
-    | Record<string, { cmsBase64?: string; signedByUid?: string }>
-    | undefined
-  const stored = egov?.[role]
-  if (stored?.cmsBase64?.trim()) {
-    if (String(permit.status ?? '') === 'on_approval') {
-      const assigneeUid = assigneeUidForRole(permit, role as EgovSignRole).trim()
-      const signerUid = String(stored.signedByUid ?? '').trim()
-      if (!assigneeUid || !signerUid) return false
-      if (assigneeUid !== signerUid) return false
-    }
-    return true
-  }
-  if (permitSigningPhaseActive(permit)) return false
-  const sig = permit.signatures as Record<string, boolean> | undefined
-  if (role === 'performer') return !!sig?.performerSigned
-  if (role === 'permitter') return !!sig?.permitterSigned
-  if (role === 'issuer') return !!sig?.issuerSigned
-  if (role === 'ert') return !!sig?.ertSigned
-  return !!sig?.leadExpertSigned
 }
 
 export async function ensureWorkerAccount(
@@ -390,7 +367,7 @@ async function resolveSignerUid(
 ): Promise<ResolvedSigner> {
   if (role === 'ert') {
     const currentUid = assigneeUidForRole(permit, role)
-    if (currentUid) {
+    if (currentUid && !isPlaceholderAssigneeUid(currentUid)) {
       const snap = await db.collection('users').doc(currentUid).get()
       if (snap.exists) {
         const data = snap.data() ?? {}
@@ -549,6 +526,8 @@ export async function provisionPermitSigners(
         ? 'active'
         : 'pending'
     const existingSnap = await db.collection('signingInvites').doc(inviteId).get()
+    const prevAssignee = String(existingSnap.data()?.assigneeUid ?? '').trim()
+    const assigneeChanged = Boolean(prevAssignee && prevAssignee !== resolved.uid)
     const message = approvalInviteMessage(status, stepLabel)
     await db
       .collection('signingInvites')
@@ -559,7 +538,7 @@ export async function provisionPermitSigners(
           permitTitle: String(permit.title ?? permit.workDescription ?? 'НДПР'),
           registrationRefNo: String(permit.registrationRefNo ?? ''),
           assigneeUid: resolved.uid,
-          assigneeEmail: resolved.email,
+          assigneeEmail: resolved.email.trim().toLowerCase(),
           assigneeDisplayName: resolved.displayName,
           signRole: role,
           inviteType: 'approval',
@@ -573,7 +552,7 @@ export async function provisionPermitSigners(
         },
         { merge: true },
       )
-    if (!signed && !existingSnap.exists) {
+    if (!signed && (!existingSnap.exists || assigneeChanged)) {
       await notifyUser(
         db,
         resolved.uid,

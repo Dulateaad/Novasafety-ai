@@ -4,6 +4,8 @@ import { fillTemplate, localeMessages, statusLabel } from '../i18n/getLocale'
 
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 
+import { allCrewAcknowledged } from './crewAckComplete'
+import { isRoleSigned } from './signatureStatus'
 import { requiresWorkPermissions } from './workPermissions'
 
 import type { GasTestReading, WorkPermissionDocument } from '../types/workPermissions'
@@ -16,6 +18,18 @@ const GAS_TEST_EDIT_STATUSES = new Set<PermitStatus>([
   'suspended',
 ])
 
+/** После подписи производителя и ознакомления бригады — этап ПАС (ERT) на согласовании. */
+export function ertGasTestOnApprovalUnlocked(
+  permit: Permit,
+  directory: DemoUser[] = [],
+): boolean {
+  if (permit.status !== 'on_approval') return false
+  return (
+    isRoleSigned(permit, 'performer', directory) &&
+    allCrewAcknowledged(permit, directory)
+  )
+}
+
 
 
 export function permitHasGasTestDocuments(permit: Permit): boolean {
@@ -23,9 +37,13 @@ export function permitHasGasTestDocuments(permit: Permit): boolean {
   return docs.some((doc) => WORK_PERMISSION_BY_KIND[doc.kind].requiresGasTests)
 }
 
-export function canErtEditGasTests(permit: Permit): boolean {
+export function canErtEditGasTests(
+  permit: Permit,
+  directory: DemoUser[] = [],
+): boolean {
   if (!permitHasGasTestDocuments(permit)) return false
-  return GAS_TEST_EDIT_STATUSES.has(permit.status)
+  if (GAS_TEST_EDIT_STATUSES.has(permit.status)) return true
+  return ertGasTestOnApprovalUnlocked(permit, directory)
 }
 
 
@@ -55,11 +73,20 @@ export function gasTestDocFilled(doc: WorkPermissionDocument): boolean {
 
 
 
-export function ertGasTestBlockedHint(status: PermitStatus): string {
+export function ertGasTestBlockedHint(
+  permit: Permit,
+  directory: DemoUser[] = [],
+): string {
 
   const g = localeMessages().gasTest
 
-  if (status === 'on_approval') return g.onApprovalHint
+  if (permit.status === 'on_approval') {
+    return ertGasTestOnApprovalUnlocked(permit, directory)
+      ? g.onApprovalHint
+      : g.onApprovalWaitingHint
+  }
+
+  const status = permit.status
 
   if (status === 'draft') return g.draftHint
 
@@ -94,9 +121,24 @@ export function ertGasTestDocsNeedingFill(permit: Permit): number {
 
 }
 
+/** Все разрешения с газотестом имеют хотя бы одну заполненную строку замера. */
+export function ertGasTestComplete(permit: Permit): boolean {
+  if (!permitHasGasTestDocuments(permit)) return true
+  return ertGasTestDocsNeedingFill(permit) === 0
+}
+
+/** Подпись ПАС (ERT) недоступна, пока не сохранена таблица газотеста. */
+export function ertGasTestBlocksErtSign(permit: Permit): boolean {
+  if (!permitHasGasTestDocuments(permit)) return false
+  return !ertGasTestComplete(permit)
+}
 
 
-export function ertGasTestTaskSummary(permit: Permit): string | null {
+
+export function ertGasTestTaskSummary(
+  permit: Permit,
+  directory: DemoUser[] = [],
+): string | null {
   if (!permitHasGasTestDocuments(permit)) return null
 
   const g = localeMessages().gasTest
@@ -117,9 +159,9 @@ export function ertGasTestTaskSummary(permit: Permit): string | null {
 
   if (gasDocs.length === 0) return null
 
-  if (!canErtEditGasTests(permit)) {
+  if (!canErtEditGasTests(permit, directory)) {
 
-    return ertGasTestBlockedHint(permit.status)
+    return ertGasTestBlockedHint(permit, directory)
 
   }
 
@@ -157,6 +199,8 @@ export function ertGasTestTasksForUser(
 
   user: DemoUser | null | undefined,
 
+  directory: DemoUser[] = [],
+
 ): ErtGasTestTask[] {
 
   if (!user || user.role !== 'ert') return []
@@ -168,11 +212,11 @@ export function ertGasTestTasksForUser(
 
     if (!requiresWorkPermissions(permit)) continue
 
-    if (!canErtEditGasTests(permit)) continue
+    if (!canErtEditGasTests(permit, directory)) continue
 
     const empty = ertGasTestDocsNeedingFill(permit)
 
-    const summary = ertGasTestTaskSummary(permit)
+    const summary = ertGasTestTaskSummary(permit, directory)
 
     if (!summary) continue
 

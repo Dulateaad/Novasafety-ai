@@ -225,6 +225,15 @@ export class FirestorePermitRepository implements PermitRepository {
         },
       }
     }
+    if (
+      patch.performerUid &&
+      patch.performerUid !== cur.performerUid &&
+      patch.signatures?.performerSigned === false
+    ) {
+      const egov = { ...(next.egovSignatures ?? {}) }
+      delete egov.performer
+      next = { ...next, egovSignatures: egov }
+    }
     if (patch.crewAckSignatures !== undefined) {
       next = {
         ...next,
@@ -474,7 +483,9 @@ export class FirestorePermitRepository implements PermitRepository {
         updated,
         workStop,
         assignees.map((u) => u.id),
-      )
+      ).catch((e) => {
+        console.warn('[NOVA] workStopAlerts create skipped (rules/functions)', e)
+      })
     }
     return updated
   }
@@ -514,7 +525,9 @@ export class FirestorePermitRepository implements PermitRepository {
         },
       }),
     )
-    await resolveWorkStopAlertsFs(this.fs, id)
+    await resolveWorkStopAlertsFs(this.fs, id).catch((e) => {
+      console.warn('[NOVA] workStopAlerts resolve skipped (rules/functions)', e)
+    })
     return updated
   }
 
@@ -553,6 +566,45 @@ export class FirestorePermitRepository implements PermitRepository {
         kind: 'status_change',
         message: inspectorRejectedJournalMessage(params.action, note),
         meta: { from: permit.status, to: nextStatus, inspectorDecision: params.action },
+      }),
+    )
+    const updated = await this.getById(id)
+    if (!updated) throw new Error('Permit not found')
+    return updated
+  }
+
+  async resetRejectedPermitToDraft(id: string, actor: DemoUser): Promise<Permit> {
+    const { canUserResubmitRejectedPermit, rejectedPermitResubmitFields } =
+      await import('../lib/resubmitRejectedPermit')
+    const permit = await this.getById(id)
+    if (!permit) throw new Error('Permit not found')
+    if (!canUserResubmitRejectedPermit(permit, actor)) {
+      throw new Error('Исправить отклонённый пакет может производитель работ по наряду')
+    }
+    const atIso = nowIso()
+    const fields = rejectedPermitResubmitFields()
+    const ref = doc(this.fs, 'permits', id)
+    await setDoc(
+      ref,
+      {
+        ...forFirestore({
+          ...fields,
+          updatedAtIso: atIso,
+        }),
+        lastRejection: deleteField(),
+      },
+      { merge: true },
+    )
+    await addDoc(
+      this.journalCol(id),
+      forFirestore({
+        permitId: id,
+        atIso,
+        actorUid: actor.id,
+        actorRole: actor.role,
+        kind: 'status_change',
+        message: 'Отклонённый пакет возвращён в черновик для исправления и повторной отправки',
+        meta: { from: permit.status, to: 'draft', resubmit: true },
       }),
     )
     const updated = await this.getById(id)

@@ -3,8 +3,11 @@ import type { DemoUser, Permit } from '../types/domain'
 import { formatStoredDateTime } from '../lib/datetimeLocal'
 import { PermitRejectionNotice } from './PermitRejectionNotice'
 import { PermitOnApprovalSummary } from './PermitOnApprovalSummary'
+import { ResubmitRejectedPermitButton } from './ResubmitRejectedPermitButton'
 import { StatusBadge } from './StatusBadge'
 import { useLanguage } from '../context/LanguageContext'
+import { useSession } from '../context/SessionContext'
+import { canUserResubmitRejectedPermit } from '../lib/resubmitRejectedPermit'
 
 type Props = {
   permits: readonly Permit[]
@@ -14,6 +17,7 @@ type Props = {
 
 export function RejectedPermitsPanel({ permits, resolveUser, onDismiss }: Props) {
   const { t } = useLanguage()
+  const { user } = useSession()
   const r = t.rejection
   const i = t.invites
   const c = t.common
@@ -24,7 +28,11 @@ export function RejectedPermitsPanel({ permits, resolveUser, onDismiss }: Props)
       <header className="rejected-permits-panel__header">
         <div>
           <h2 className="rejected-permits-panel__title">{i.rejectedTitle}</h2>
-          <p className="rejected-permits-panel__lead">{i.rejectedHint}</p>
+          <p className="rejected-permits-panel__lead">
+            {user && permits.some((p) => canUserResubmitRejectedPermit(p, user))
+              ? i.resubmitPerformerHint
+              : i.rejectedHint}
+          </p>
         </div>
       </header>
 
@@ -60,13 +68,15 @@ export function RejectedPermitsPanel({ permits, resolveUser, onDismiss }: Props)
               showRejectionNotice={false}
             />
 
-            <Link
-              className="btn ghost small"
-              to={`/p/${permit.id}#signatures-section`}
-              style={{ marginTop: '0.65rem' }}
+            <div
+              className="row-inline"
+              style={{ marginTop: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}
             >
-              {c.openPermit}
-            </Link>
+              <ResubmitRejectedPermitButton permit={permit} />
+              <Link className="btn ghost small" to={`/p/${permit.id}#signatures-section`}>
+                {c.openPermit}
+              </Link>
+            </div>
           </li>
         ))}
       </ul>

@@ -7,8 +7,23 @@ import { isUserOnPermitCrew, uidMatchesAccount } from './permitAccess'
 
 const ACTIVE = new Set<Permit['status']>(['issued', 'in_progress', 'suspended'])
 
-/** Подпись действительна 24 часа с момента подписания. */
+/** Подпись действительна в сменном окне 24 ч (с 07:00 до 07:00 следующего дня). */
 export const ABR_DAILY_ACK_VALID_MS = 24 * 60 * 60 * 1000
+
+/** Начало смены — час ежедневного ознакомления с АБР (местное время). */
+export const ABR_DAILY_ACK_SHIFT_HOUR = 7
+
+/** Текст блока «механика» для PDF и справки. */
+export function abrDailyAckMechanicsPdfText(): string {
+  const h = String(ABR_DAILY_ACK_SHIFT_HOUR).padStart(2, '0')
+  return (
+    `Механика ежедневного ознакомления с АБР: каждый работник бригады до начала смены (${h}:00, местное время) ` +
+    `подписывает ознакомление с анализом безопасности работ через eGov Mobile (ЭЦП). ` +
+    `Подпись действительна с ${h}:00 текущих суток до ${h}:00 следующего дня; ` +
+    `без действующей подписи работник не допускается к работам по наряду. ` +
+    `Ниже — журнал подписей (дата смены, Ф.И.О., должность, подпись).`
+  )
+}
 
 /** Локальная календарная дата (не UTC), чтобы «сегодня» совпадало с Казахстаном. */
 export function todayDateIso(date = new Date()): string {
@@ -16,6 +31,25 @@ export function todayDateIso(date = new Date()): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/** Дата текущей смены: до 07:00 — ещё «вчерашняя» смена. */
+export function currentShiftDateIso(date = new Date()): string {
+  const d = new Date(date)
+  if (d.getHours() < ABR_DAILY_ACK_SHIFT_HOUR) {
+    d.setDate(d.getDate() - 1)
+  }
+  return todayDateIso(d)
+}
+
+function shiftWindowStart(date = new Date()): Date {
+  const shiftDate = currentShiftDateIso(date)
+  const [y, m, day] = shiftDate.split('-').map(Number)
+  return new Date(y, m - 1, day, ABR_DAILY_ACK_SHIFT_HOUR, 0, 0, 0)
+}
+
+function shiftWindowEnd(start: Date): Date {
+  return new Date(start.getTime() + ABR_DAILY_ACK_VALID_MS)
 }
 
 function accountIdsForUid(uid: string, directory: DemoUser[] = []): Set<string> {
@@ -98,13 +132,17 @@ function entryMatchesExecutorName(
 function isAbrEntryStillValid(entry: AbrDailyAckEntry, now = Date.now()): boolean {
   const signedAt = new Date(entry.signedAtIso).getTime()
   if (!Number.isFinite(signedAt)) return false
-  return now - signedAt < ABR_DAILY_ACK_VALID_MS
+  const start = shiftWindowStart(new Date(now))
+  const end = shiftWindowEnd(start)
+  return signedAt >= start.getTime() && signedAt < end.getTime()
 }
 
 export function abrDailyAckValidUntilIso(entry: AbrDailyAckEntry): string {
   const signedAt = new Date(entry.signedAtIso).getTime()
   if (!Number.isFinite(signedAt)) return ''
-  return new Date(signedAt + ABR_DAILY_ACK_VALID_MS).toISOString()
+  const start = shiftWindowStart(new Date(signedAt))
+  const end = shiftWindowEnd(start)
+  return end.toISOString()
 }
 
 function executorNameKeys(name: string): string[] {
@@ -197,7 +235,7 @@ export function normalizeAbrDailyAcks(raw: unknown): AbrDailyAckDay[] {
               if (typeof x.documentHash === 'string' && x.documentHash.trim()) {
                 entry.documentHash = x.documentHash.trim()
               }
-              if (x.provider === 'egov_mobile' || x.provider === 'manual') {
+              if (x.provider === 'egov_mobile' || x.provider === 'ncalayer' || x.provider === 'manual') {
                 entry.provider = x.provider
               }
               return entry
@@ -243,7 +281,7 @@ export function hasValidAbrDailyAck(
   return latest ? isAbrEntryStillValid(latest) : false
 }
 
-/** Подпись действительна в течение 24 часов с момента подписания. */
+/** Подпись действительна в сменном окне (07:00 — 07:00). */
 export function hasAbrDailyAckToday(
   permit: Permit,
   userUid: string,
@@ -299,7 +337,7 @@ export function mergeAbrDailyAcksBundles(
 export function mergeAbrDailyAckEntry(
   permit: Permit,
   entry: AbrDailyAckEntry,
-  dateIso = todayDateIso(),
+  dateIso = currentShiftDateIso(),
   directory: DemoUser[] = [],
 ): AbrDailyAckDay[] {
   const list = normalizeAbrDailyAcks(permit.abrDailyAcks)
@@ -335,16 +373,25 @@ export function buildAbrDailyAckEntry(
   const signedAtIso = new Date().toISOString()
   const when = new Date(signedAtIso).toLocaleString('ru-RU')
   const egov = Boolean(opts?.cmsBase64?.trim())
+  const provider = opts?.provider ?? (egov ? 'egov_mobile' : 'manual')
+  const signatureNote =
+    provider === 'ncalayer'
+      ? `ЭЦП NCALayer · ${when}`
+      : provider === 'egov_mobile'
+        ? `ЭЦП eGov Mobile · ${when}`
+        : egov
+          ? `ЭЦП · ${when}`
+          : `Ознакомлен · ${when}`
   return {
     userUid: actor.id,
     fullName: actor.displayName,
     roleLabel: resolveRoleLabel(actor),
     signedAtIso,
-    signatureNote: egov ? `ЭЦП eGov Mobile · ${when}` : `Ознакомлен · ${when}`,
+    signatureNote,
     cmsBase64: opts?.cmsBase64?.trim() || undefined,
     signerIin: opts?.signerIin,
     documentHash: opts?.documentHash,
-    provider: opts?.provider ?? (egov ? 'egov_mobile' : 'manual'),
+    provider,
   }
 }
 

@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { DemoUser, Permit } from '../types/domain'
 import { useSession } from '../context/SessionContext'
+import { useToast } from '../context/ToastContext'
 import { usersForField } from '../lib/directoryUsers'
 import { broadcastPermitNoticeClient } from '../lib/permitNotices'
+import { provisionPermitSignersClient } from '../lib/provisionSigners'
+import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { PERFORMER_DOCUMENT_ROLE_LABEL } from '../config/branding'
+import { signerShortName } from '../lib/approvalSequence'
 
 export function ReplacePerformerPanel(props: {
   permit: Permit
@@ -11,6 +15,7 @@ export function ReplacePerformerPanel(props: {
 }) {
   const { permit, actor } = props
   const { updatePermit, userDirectory, authMode } = useSession()
+  const { showSuccess } = useToast()
   const [nextUid, setNextUid] = useState(permit.performerUid)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,13 +55,44 @@ export function ReplacePerformerPanel(props: {
             }
           : permit.asor
 
+      const prevPerson = userDirectory.find((u) => u.id === permit.performerUid)
+      const replacement = {
+        fromUid: permit.performerUid,
+        fromDisplayName:
+          prevPerson?.displayName?.trim() ||
+          permit.asor?.abr?.workSupervisor?.fullName?.trim() ||
+          permit.asor?.approvals?.[0]?.fullNamePrinted?.trim() ||
+          '',
+        toUid: uid,
+        toDisplayName: person.displayName,
+        atIso: new Date().toISOString(),
+        replacedByUid: actor.id,
+        ...(permit.egovSignatures?.performer
+          ? { previousEgovSignature: permit.egovSignatures.performer }
+          : {}),
+      }
+
+      const suspendOnReplace =
+        permit.status === 'issued' || permit.status === 'in_progress'
+
       await updatePermit(permit.id, {
         performerUid: uid,
+        ...(suspendOnReplace ? { status: 'suspended' as const } : {}),
+        signatures: {
+          ...permit.signatures,
+          performerSigned: false,
+        },
+        performerReplacements: [...(permit.performerReplacements ?? []), replacement],
         ...(nextAbr ? { asor: nextAbr } : {}),
       })
       if (authMode === 'firebase') {
         await broadcastPermitNoticeClient(permit.id, 'performer_replaced')
+        await provisionPermitSignersClient(permit.id)
+        notifySigningInvitesRefresh()
       }
+      showSuccess(
+        `Производитель заменён: ${signerShortName(replacement.fromDisplayName) || '—'} → ${signerShortName(person.displayName)}`,
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось заменить производителя.')
     } finally {

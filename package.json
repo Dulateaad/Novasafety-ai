@@ -27,7 +27,8 @@
     "bootstrap-roles": "node scripts/bootstrap-role-users.mjs",
     "bootstrap-roles:firebase": "node scripts/bootstrap-roles-firebase-cli.mjs",
     "clear-permits": "node scripts/clear-permits.mjs",
-    "generate-tz-docx": "node scripts/generate-tz-docx.mjs"
+    "generate-tz-docx": "node scripts/generate-tz-docx.mjs",
+    "generate-pwa-icons": "python scripts/generate-pwa-icons.py"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.19.5",

@@ -5,6 +5,8 @@ import { INSPECTOR_ROLE_TITLE, ROLE_LABELS } from '../types/domain'
 import type { WorkStopAlert } from '../types/workStop'
 import { formatStoredDateTime } from '../lib/datetimeLocal'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
+import { WorkStopReasonField } from './WorkStopReasonField'
+import { useLanguage } from '../context/LanguageContext'
 
 type QueueItem = {
   permitId: string
@@ -56,6 +58,8 @@ function WorkStopAlertItem(props: {
   onDismiss: () => void
 }) {
   const { item, busy, onResolve, onDismiss } = props
+  const { t } = useLanguage()
+  const wsUi = t.workStop
   const [comment, setComment] = useState('')
   const trimmed = comment.trim()
   const canAct = trimmed.length >= 3 && !busy
@@ -91,21 +95,20 @@ function WorkStopAlertItem(props: {
         <blockquote className="permit-rejection-card__comment">{item.reason}</blockquote>
       </div>
 
-      <label className="field" style={{ marginTop: '0.75rem' }}>
-        <span className="field-label">Комментарий {INSPECTOR_ROLE_TITLE} *</span>
-        <textarea
-          rows={2}
-          value={comment}
-          disabled={busy}
-          placeholder="Обоснуйте решение: восстановить работу или аннулировать наряд…"
-          onChange={(e) => setComment(e.target.value)}
-        />
-      </label>
+      <WorkStopReasonField
+        id={`work-stop-alert-comment-${item.permitId}`}
+        label={`Комментарий ${INSPECTOR_ROLE_TITLE} *`}
+        placeholder={wsUi.resolvePlaceholder}
+        value={comment}
+        disabled={busy}
+        rows={3}
+        onChange={setComment}
+      />
 
       <div className="row-inline" style={{ flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.65rem' }}>
         <button
           type="button"
-          className="btn primary small"
+          className="btn small work-stop-inspector__lift"
           disabled={!canAct}
           onClick={() => void onResolve('lift', trimmed)}
         >
@@ -117,7 +120,7 @@ function WorkStopAlertItem(props: {
           disabled={!canAct}
           onClick={() => {
             if (
-              !window.confirm('Аннулировать НДПР? Это формальное закрытие наряда в системе.')
+              !window.confirm(wsUi.annulConfirm)
             ) {
               return
             }

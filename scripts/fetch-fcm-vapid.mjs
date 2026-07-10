@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const { getAccessToken, getProjectDefaultAccount, setActiveAccount } = require('firebase-tools/lib/auth')
+const {
+  getAccessToken,
+  getProjectDefaultAccount,
+  getGlobalDefaultAccount,
+  setActiveAccount,
+} = require('firebase-tools/lib/auth')
 
 const __dir = dirname(fileURLToPath(import.meta.url))
 const root = join(__dir, '..')
@@ -64,11 +69,16 @@ function findPublicKey(obj, depth = 0) {
 }
 
 async function main() {
-  const account = getProjectDefaultAccount(root)
-  if (!account) throw new Error('firebase login required')
+  const account = getProjectDefaultAccount(root) ?? getGlobalDefaultAccount()
+  if (!account?.tokens?.refresh_token) throw new Error('firebase login required')
   const options = {}
   setActiveAccount(options, account)
-  const token = await getAccessToken(options)
+  const tokenResult = await getAccessToken(
+    account.tokens.refresh_token,
+    account.tokens.scopes ?? [],
+  )
+  const token = tokenResult?.access_token
+  if (!token) throw new Error('Unable to get Firebase access token')
 
   const url = `https://firebase.googleapis.com/v1beta1/projects/${PROJECT_ID}/webApps/${APP_ID}/config`
   const res = await fetch(url, {

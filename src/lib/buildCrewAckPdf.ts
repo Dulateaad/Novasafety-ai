@@ -46,7 +46,7 @@ export async function buildCrewAckPackagePdf(
 
   const asor = prepareNeboshFormForPdf(permit, resolveUser, directory)
   if (asor) {
-    const { base64 } = await buildNeboshRiskPdf(asor, title, { permit, resolveUser })
+    const { base64 } = await buildNeboshRiskPdf(asor, title, { permit, resolveUser, directory })
     parts.push(base64)
   }
 

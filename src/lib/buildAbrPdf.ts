@@ -7,9 +7,10 @@ import {
 import type { AbrForm, AbrStageRow } from '../types/abr'
 import type { DemoUser, Permit } from '../types/domain'
 import { abrDailyAckSignaturePdfText } from './abrDailyAckSignaturePdfText'
-import { normalizeAbrDailyAcks } from './abrDailyAck'
+import { abrDailyAckMechanicsPdfText, normalizeAbrDailyAcks } from './abrDailyAck'
 import { buildPermitCrewRows } from './permitCrewRows'
 import { crewAckDatePdfText, crewAckSignaturePdfText } from './crewAckPdfText'
+import { performerReplacementHistoryPdfBlocks } from './performerReplacementPdf'
 import { initPdfMake, pdfBase64Async } from './pdfMakeEngine'
 
 type PdfCell = Record<string, unknown>
@@ -196,9 +197,11 @@ function hazardsReferenceTable(active: Set<number>): Record<string, unknown> {
   const body: PdfCell[][] = [
     [hdrCell('№'), hdrCell('Опасный фактор'), hdrCell('№'), hdrCell('Опасный фактор')],
   ]
-  for (let i = 0; i < ABR_HAZARDS.length; i += 2) {
+  // Слева 1…N/2, справа N/2+1…N (не чередование 1|2, 3|4)
+  const mid = Math.ceil(ABR_HAZARDS.length / 2)
+  for (let i = 0; i < mid; i++) {
     const left = ABR_HAZARDS[i]
-    const right = ABR_HAZARDS[i + 1]
+    const right = ABR_HAZARDS[i + mid]
     body.push([
       hazardCell(left.no, active),
       hazardTextCell(left.no, active),
@@ -238,13 +241,15 @@ function controlPairRows(
   nums: number[],
   active: Set<number>,
 ): PdfCell[][] {
+  // Слева первая половина номеров, справа вторая (не чередование)
+  const mid = Math.ceil(nums.length / 2)
   const rows: PdfCell[][] = []
-  for (let i = 0; i < nums.length; i += 2) {
+  for (let i = 0; i < mid; i++) {
     const a = nums[i]
-    const b = nums[i + 1]
+    const b = nums[i + mid]
     rows.push([
       controlItemCell(a, active),
-      b ? controlItemCell(b, active) : cell(' '),
+      b !== undefined ? controlItemCell(b, active) : cell(' '),
     ])
   }
   return rows
@@ -315,7 +320,7 @@ function dailyAckReportTable(
     .filter((r) => String(r[1]).trim())
   const body: PdfCell[][] = [
     [
-      hdrCell('Дата'),
+      hdrCell('Дата смены'),
       hdrCell('Ф.И.О.'),
       hdrCell('Должность'),
       hdrCell('Подпись'),
@@ -388,11 +393,11 @@ export async function buildAbrPdf(
         ]
       : []),
     sectionPara('Подписи бригады — ежедневное ознакомление с АБР'),
-    bodyPara(
-      'АБР подписывают только работники бригады: каждый день им приходит задание подписать ознакомление через eGov Mobile. Подпись действительна 24 часа; по истечении суток работник подписывает повторно. Ниже — журнал подписей (дата, Ф.И.О., должность, подпись).',
-      { italics: true },
-    ),
+    bodyPara(abrDailyAckMechanicsPdfText(), { italics: true }),
     dailyAckReportTable(ackDays),
+    ...(opts?.permit && opts.resolveUser
+      ? performerReplacementHistoryPdfBlocks(opts.permit, opts.resolveUser)
+      : []),
   ]
 
   const doc: Record<string, unknown> = {

@@ -3,6 +3,7 @@ import { coercePtwSite } from '../config/ptwSites'
 import { emptyF02 } from '../uog/permitDefaults'
 import { initialNdprResponses } from '../uog/ndprChecklistTemplate'
 import { normalizeAbrDailyAcks } from '../lib/abrDailyAck'
+import { normalizePerformerReplacements } from '../types/performerReplacement'
 import { normalizeWorkPermissionsBundle } from '../lib/normalizeWorkPermissions'
 
 function normalizeStoredPermitType(raw: unknown): PermitType {
@@ -51,6 +52,7 @@ export function migratePermit(p: Permit): Permit {
     },
     incidentLongRetention: p.incidentLongRetention ?? false,
     abrDailyAcks: normalizeAbrDailyAcks(incoming.abrDailyAcks),
+    performerReplacements: normalizePerformerReplacements(incoming.performerReplacements),
   }
 
   if (permitType === 'cold') next.f04 = undefined

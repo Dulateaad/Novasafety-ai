@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const BRAND_THEME = '#0b2147'
+const ICON_BG = '#ffffff'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,8 +14,13 @@ export default defineConfig({
       includeAssets: [
         'favicon.svg',
         'icons.svg',
+        'apple-touch-icon.png',
+        'nova-icon-192.png',
+        'nova-icon-512.png',
+        'nova-icon-maskable-512.png',
         'pwa-192.png',
         'pwa-512.png',
+        'pwa-512-maskable.png',
         'animations/thinking.json',
       ],
       manifest: {
@@ -28,22 +34,23 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'any',
         theme_color: BRAND_THEME,
-        background_color: BRAND_THEME,
+        // iOS берёт background_color для иконки/splash — белый, не тёмный
+        background_color: ICON_BG,
         icons: [
           {
-            src: '/pwa-192.png',
+            src: '/nova-icon-192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512.png',
+            src: '/nova-icon-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/pwa-512.png',
+            src: '/nova-icon-maskable-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

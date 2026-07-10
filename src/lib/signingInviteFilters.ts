@@ -5,6 +5,7 @@ import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
 import { isRoleSigned } from './signatureStatus'
 import type { SigningInvite } from '../types/signingInvite'
 import { isExecutorCrewAckDone } from './crewAckComplete'
+import { ertGasTestBlocksErtSign } from './ertGasTestHints'
 
 function crewAckDone(
   permit: Permit,
@@ -38,6 +39,7 @@ export function isSigningInviteStillActionable(
 
   const role = invite.signRole
   if (role === 'crewAck') return !crewAckDone(permit, invite.assigneeUid, directory)
+  if (role === 'ert' && ertGasTestBlocksErtSign(permit)) return false
   return !approvalInviteDone(permit, role)
 }
 

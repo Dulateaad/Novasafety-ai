@@ -1,7 +1,9 @@
 import type { AsorApprovalRow } from '../types/asor'
-import type { Permit } from '../types/domain'
+import type { DemoUser, Permit } from '../types/domain'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import { formatStoredDateTime } from './datetimeLocal'
+import { pdfApprovalRoleSigned, validEgovRoleSignature } from './signatureStatus'
+import { enrichUserDirectoryWithDefaultSigners } from '../config/defaultNdprSigners'
 
 export const PDF_EGOV_SIG_COLORS = {
   signedBg: '#E8F5E9',
@@ -143,8 +145,13 @@ export function buildPdfSignaturePendingCell(): Record<string, unknown> {
   }
 }
 
-export function isPdfEgovSigned(permit: Permit, role: EgovSignRole): boolean {
-  return Boolean(permit.egovSignatures?.[role]?.cmsBase64?.trim())
+export function isPdfEgovSigned(
+  permit: Permit,
+  role: EgovSignRole,
+  directory: DemoUser[] = [],
+): boolean {
+  const dir = enrichUserDirectoryWithDefaultSigners(directory)
+  return validEgovRoleSignature(permit, role, dir)
 }
 
 /** Ячейка таблицы согласовантов: щит + зелёный блок для ЭЦП. */
@@ -152,13 +159,25 @@ export function buildPdfSignatureStatusCell(
   permit: Permit,
   role: EgovSignRole,
   row: AsorApprovalRow,
+  directory: DemoUser[] = [],
 ): Record<string, unknown> {
+  const dir = enrichUserDirectoryWithDefaultSigners(directory)
   const sig = permit.egovSignatures?.[role]
-  if (sig?.cmsBase64?.trim()) return buildPdfEgovSignatureCell(sig)
-  if (row.acknowledged && row.fullNamePrinted.trim()) {
-    const when = row.dateIso ? formatStoredDateTime(row.dateIso) : 'согласовано'
-    return buildPdfLegacyAckCell(row.fullNamePrinted, when)
+
+  if (validEgovRoleSignature(permit, role, dir) && sig?.cmsBase64?.trim()) {
+    return buildPdfEgovSignatureCell(sig)
   }
+
+  if (pdfApprovalRoleSigned(permit, role, dir)) {
+    const name = sig?.signedByDisplayName?.trim() || row.fullNamePrinted.trim()
+    const when = sig?.signedAtIso
+      ? formatStoredDateTime(sig.signedAtIso)
+      : row.acknowledged && row.dateIso
+        ? formatStoredDateTime(row.dateIso)
+        : 'согласовано'
+    if (name) return buildPdfLegacyAckCell(name, when)
+  }
+
   return buildPdfSignaturePendingCell()
 }
 
@@ -182,18 +201,25 @@ export function pdfSignaturePlainText(
   permit: Permit,
   role: EgovSignRole,
   row: AsorApprovalRow,
+  directory: DemoUser[] = [],
 ): string {
+  const dir = enrichUserDirectoryWithDefaultSigners(directory)
   const sig = permit.egovSignatures?.[role]
-  if (sig?.cmsBase64?.trim()) {
+  if (validEgovRoleSignature(permit, role, dir) && sig?.cmsBase64?.trim()) {
     const when = new Date(sig.signedAtIso).toLocaleString('ru-RU')
     const iin = sig.signerIin ? ` · ИИН ${sig.signerIin}` : ''
     return `ЭЦП ✓ ${sig.signedByDisplayName}${iin}\n${when}`
   }
-  if (row.acknowledged && row.fullNamePrinted.trim()) {
-    const when = row.dateIso
-      ? formatStoredDateTime(row.dateIso)
-      : 'согласовано'
-    return `${row.fullNamePrinted}\n${when}`
+  if (pdfApprovalRoleSigned(permit, role, dir)) {
+    const name = sig?.signedByDisplayName?.trim() || row.fullNamePrinted.trim()
+    if (!name) return ''
+    const when =
+      sig?.signedAtIso
+        ? formatStoredDateTime(sig.signedAtIso)
+        : row.acknowledged && row.dateIso
+          ? formatStoredDateTime(row.dateIso)
+          : 'согласовано'
+    return `${name}\n${when}`
   }
   return ''
 }

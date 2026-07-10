@@ -25,6 +25,17 @@ export type WorkStopState = {
   inspectorComment?: string
 }
 
+const INSPECTOR_EMAILS = new Set([
+  'temirlan-safety@nova.local',
+  'safety@demo.local',
+])
+
+export function isInspectorFirestoreUser(user: FirebaseFirestore.DocumentData): boolean {
+  if (String(user.role ?? '') === 'safety') return true
+  const email = String(user.email ?? '').trim().toLowerCase()
+  return INSPECTOR_EMAILS.has(email)
+}
+
 export async function getInspectorNotifyMode(db: Firestore): Promise<InspectorNotifyMode> {
   const snap = await db.doc(SETTINGS_DOC).get()
   if (!snap.exists) return 'global'

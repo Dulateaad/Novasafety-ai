@@ -1,48 +1,46 @@
 import type { Permit } from '../types/domain'
+import { loadUserDismissals, persistUserDismissal } from './userDismissals'
 
-const STORAGE_KEY = 'nova.dismissedWorkStopPendingAlerts'
+const KIND = 'workStopPending'
 
-function storageKey(userId: string, permitId: string): string {
-  return `${userId}:${permitId}`
-}
-
-function readAll(): Record<string, true> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, true>
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function writeAll(data: Record<string, true>): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-}
-
-export function loadDismissedWorkStopPendingAlertKeys(userId: string): Set<string> {
+export async function loadDismissedWorkStopPendingAlertKeys(
+  userId: string,
+): Promise<Set<string>> {
+  const all = await loadUserDismissals(userId)
   const keys = new Set<string>()
-  const prefix = `${userId}:`
-  for (const key of Object.keys(readAll())) {
-    if (key.startsWith(prefix)) keys.add(key.slice(prefix.length))
+  for (const k of all) {
+    if (k.startsWith(`${KIND}:`)) keys.add(k.slice(KIND.length + 1))
+  }
+  try {
+    const raw = localStorage.getItem('nova.dismissedWorkStopPendingAlerts')
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, true>
+      const prefix = `${userId}:`
+      for (const key of Object.keys(parsed ?? {})) {
+        if (key.startsWith(prefix)) keys.add(key.slice(prefix.length))
+      }
+    }
+  } catch {
+    /* ignore */
   }
   return keys
 }
 
-export function dismissWorkStopPendingAlert(userId: string, permitId: string): Set<string> {
+export async function dismissWorkStopPendingAlert(
+  userId: string,
+  permitId: string,
+): Promise<Set<string>> {
   const id = permitId.trim()
   if (!id) return loadDismissedWorkStopPendingAlertKeys(userId)
-  const all = readAll()
-  all[storageKey(userId, id)] = true
-  writeAll(all)
+  await persistUserDismissal(userId, KIND, id)
   return loadDismissedWorkStopPendingAlertKeys(userId)
 }
 
-export function isWorkStopPendingAlertDismissed(
+export async function isWorkStopPendingAlertDismissed(
   userId: string,
   permit: Pick<Permit, 'id' | 'workStop'>,
-): boolean {
+): Promise<boolean> {
   if (permit.workStop?.status !== 'pending') return false
-  return loadDismissedWorkStopPendingAlertKeys(userId).has(permit.id)
+  const keys = await loadDismissedWorkStopPendingAlertKeys(userId)
+  return keys.has(permit.id)
 }

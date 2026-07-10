@@ -7,12 +7,17 @@ import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import {
   buildPdfSignatureStatusCell,
   buildPdfSignatureColumnHeader,
-  isPdfEgovSigned,
   PDF_EGOV_SIG_COLORS,
   pdfSignaturePlainText,
 } from './pdfEgovSignatureCell'
 import { allCrewAcknowledged, crewAckGateMessage } from './crewAckComplete'
-import { allRequiredSignaturesComplete, isRoleSigned, isStrictEgovSigningPhase } from './signatureStatus'
+import {
+  allRequiredSignaturesComplete,
+  isRoleSigned,
+  isStrictEgovSigningPhase,
+  pdfApprovalRoleSigned,
+} from './signatureStatus'
+import { ertGasTestBlocksErtSign } from './ertGasTestHints'
 import { permitRequiresErtApproval } from './fireWorkApproval'
 import { localeMessages, fillTemplate } from '../i18n/getLocale'
 import { isPermitSigningRejected } from './permitRejectionDisplay'
@@ -103,7 +108,7 @@ export function isCrewAckPhaseActive(permit: Permit, directory: DemoUser[] = [])
   return !allCrewAcknowledged(permit, directory)
 }
 
-/** Ознакомление бригады обязательно перед согласующими (после подписи производителя). */
+/** Ознакомление бригады обязательно перед ERT и согласующими (после подписи производителя). */
 export function crewAckBlocksRole(
   permit: Permit,
   role: EgovSignRole,
@@ -117,7 +122,18 @@ export function signingQueueBlockedReason(
   permit: Permit,
   directory: DemoUser[] = [],
 ): string | null {
-  if (!isCrewAckPhaseActive(permit, directory)) return null
+  if (!isCrewAckPhaseActive(permit, directory)) {
+    if (
+      permitRequiresErtApproval(permit) &&
+      isRoleSigned(permit, 'performer', directory) &&
+      allCrewAcknowledged(permit, directory) &&
+      !isRoleSigned(permit, 'ert', directory) &&
+      ertGasTestBlocksErtSign(permit)
+    ) {
+      return localeMessages().gasTest.signBeforeErtSign
+    }
+    return null
+  }
   return crewAckGateMessage(permit, directory) ?? localeMessages().signing.crewBlocked
 }
 
@@ -156,9 +172,13 @@ export function nextRoleToSign(permit: Permit, directory: DemoUser[] = []): Egov
   if (isPermitSigningRejected(permit)) return null
   if (!isRoleSigned(permit, 'performer', directory)) return 'performer'
   if (!allCrewAcknowledged(permit, directory)) return null
+  if (permitRequiresErtApproval(permit) && !isRoleSigned(permit, 'ert', directory)) {
+    if (ertGasTestBlocksErtSign(permit)) return null
+    return 'ert'
+  }
 
   for (const role of requiredSignRoles(permit)) {
-    if (role === 'performer') continue
+    if (role === 'performer' || role === 'ert') continue
     if (!isRoleSigned(permit, role, directory)) return role
   }
   return null
@@ -260,6 +280,9 @@ export function waitingHint(
   directory: DemoUser[] = [],
 ): string | null {
   if (displayRoleSigned(permit, role, directory)) return null
+  if (role === 'ert' && ertGasTestBlocksErtSign(permit)) {
+    return localeMessages().gasTest.signBeforeErtSign
+  }
   const crewBlock = signingQueueBlockedReason(permit, directory)
   if (crewBlock && crewAckBlocksRole(permit, role, directory)) return crewBlock
   const next = nextRoleToSign(permit, directory)
@@ -430,6 +453,7 @@ const PDF_TABLE_LAYOUT = {
 export function buildPdfApprovalSummaryBlock(
   permit: Permit,
   resolveUser: (uid: string) => { displayName: string } | undefined,
+  directory: DemoUser[] = [],
 ): Record<string, unknown> {
   const body: unknown[][] = [
     [
@@ -461,7 +485,7 @@ export function buildPdfApprovalSummaryBlock(
       signerShortName(resolveUser(uid)?.displayName) ||
       row.fullNamePrinted.trim() ||
       '—'
-    const signed = isPdfEgovSigned(permit, role) || (row.acknowledged && row.fullNamePrinted.trim())
+    const signed = pdfApprovalRoleSigned(permit, role, directory)
     const rowFill = signed ? PDF_EGOV_SIG_COLORS.signedRowTint : undefined
     body.push([
       { text: String(i + 1), fontSize: 8, alignment: 'center', fillColor: rowFill },
@@ -470,7 +494,7 @@ export function buildPdfApprovalSummaryBlock(
       buildPdfSignatureStatusCell(permit, role, {
         ...row,
         fullNamePrinted: name === '—' ? '' : name,
-      }),
+      }, directory),
     ])
   })
 

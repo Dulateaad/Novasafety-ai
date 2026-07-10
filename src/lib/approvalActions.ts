@@ -1,7 +1,19 @@
-import type { DemoUser, Permit } from '../types/domain'
-import type { EgovSignRole } from '../types/egovSignature'
-import { uidMatchesAccount } from './permitAccess'
-import { assigneeUidForRole } from './signatureStatus'
+import type { DemoUser, Permit, UserRole } from '../types/domain'
+import { isUserOnPermitCrew } from './permitAccess'
+import { isPermitSigningRejected } from './permitRejectionDisplay'
+
+/** Роли, которые могут отклонить наряд на этапе согласования. */
+const REJECT_PERMIT_ROLES: ReadonlySet<UserRole> = new Set([
+  'coordinator',
+  'performer',
+  'permitter',
+  'issuer',
+  'leadExpert',
+  'ert',
+  'safety',
+  'contractor',
+  'executor',
+])
 
 export function canUserRejectPermit(
   permit: Permit,
@@ -9,13 +21,15 @@ export function canUserRejectPermit(
   directory: DemoUser[] = [],
 ): boolean {
   if (permit.status !== 'on_approval') return false
-  if (user.role === 'coordinator') return true
-  const roles: EgovSignRole[] = ['permitter', 'issuer', 'leadExpert', 'ert']
-  return roles.some(
-    (role) =>
-      user.role === role &&
-      uidMatchesAccount(assigneeUidForRole(permit, role), user, directory),
-  )
+  if (isPermitSigningRejected(permit)) return false
+  if (!REJECT_PERMIT_ROLES.has(user.role)) return false
+  if (user.role === 'executor') {
+    return isUserOnPermitCrew(permit, user.id, user, directory)
+  }
+  if (user.role === 'contractor') {
+    return Boolean(permit.isContractorPermit)
+  }
+  return true
 }
 
 export function rejectionPatch(comment: string, user: DemoUser): Partial<Permit> {

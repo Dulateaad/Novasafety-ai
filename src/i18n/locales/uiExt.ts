@@ -322,7 +322,9 @@ export type UiExtension = {
     gasZonePlaceholder: string
   }
   gasTest: {
+    signBeforeErtSign: string
     onApprovalHint: string
+    onApprovalWaitingHint: string
     draftHint: string
     closedHint: string
     rejectedHint: string
@@ -949,20 +951,20 @@ export const uiExtRu: UiExtension = {
   abrDailyAck: {
     title: 'Ежедневное ознакомление с АБР',
     description:
-      'АБР подписывают только работники бригады: каждый день им приходит задание подписать ознакомление через eGov Mobile. Подпись действительна 24 часа; по истечении суток требуется повторная подпись. В отчёте фиксируются ФИО, должность и подпись.',
-    confirmation: 'Я ознакомлен(а) с АБР на текущую смену',
-    todayPrefix: 'Сейчас',
-    noSignaturesYet: 'пока нет действующих подписей',
+      'Каждый работник бригады до начала смены (07:00) подписывает ознакомление с АБР через eGov Mobile. Подпись действует с 07:00 текущих суток до 07:00 следующего дня. В PDF фиксируются дата смены, Ф.И.О., должность и подпись.',
+    confirmation: 'Я ознакомлен(а) с АБР на текущую смену (с 07:00)',
+    todayPrefix: 'Смена',
+    noSignaturesYet: 'пока нет действующих подписей на текущую смену',
     signedProgress: '{signed} из {total} · ожидают {pending}',
-    notSignedToday: 'нет действующей подписи (не подписал или прошло более 24 ч)',
+    notSignedToday: 'нет подписи на текущую смену (требуется до 07:00)',
     reportTitle: 'Журнал ежедневных подписей',
-    colDate: 'Дата',
+    colDate: 'Дата смены',
     colName: 'Ф.И.О.',
     colRole: 'Должность',
     colSignature: 'Подпись',
     pendingTitle: 'Требуется ежедневное ознакомление с АБР',
     pendingHint:
-      'Каждый день работникам бригады приходит задание подписать ознакомление с АБР. Подпись действует 24 часа, затем нужна повторная подпись.',
+      'Каждый день до 07:00 работники бригады подписывают ознакомление с АБР. Подпись действует до 07:00 следующего дня, затем нужна повторная.',
     openPermit: 'Открыть наряд',
   },
   egovRoles: {
@@ -993,7 +995,7 @@ export const uiExtRu: UiExtension = {
   },
   workStop: {
     panelTitle: 'Требует решения — остановка работ',
-    modalTitle: 'Приостановить работу',
+    modalTitle: 'Остановить работу',
     reasonPlaceholder: 'Например: обнаружена утечка, работы без СИЗ, неисправность оборудования…',
     photoReplace: 'Заменить фото',
     photoCapture: 'Сфотографировать или загрузить',
@@ -1041,17 +1043,23 @@ export const uiExtRu: UiExtension = {
     gasZonePlaceholder: 'Рабочая зона',
   },
   gasTest: {
-    onApprovalHint: 'Наряд на согласовании. Газотест станет доступен после выдачи наряда (когда все подписи собраны).',
+    signBeforeErtSign:
+      'Сначала заполните и сохраните таблицу газотеста (раздел 2 разрешения). После сохранения станет доступна подпись ПАС (ERT).',
+    onApprovalHint:
+      'Наряд на согласовании. Заполните таблицу газотеста (раздел 2) и сохраните — данные попадут в PDF разрешения.',
+    onApprovalWaitingHint:
+      'Газотест станет доступен после подписи производителя работ и ознакомления бригады с АБР и оценкой рисков.',
     draftHint: 'Наряд в черновике. Газотест доступен после выдачи наряда.',
     closedHint: 'Наряд завершён ({status}). Редактирование газотеста недоступно.',
-    rejectedHint: 'Наряд отклонён. Дождитесь повторной выдачи после исправлений.',
+    rejectedHint:
+      'Наряд отклонён. Производитель может исправить замечания и снова отправить пакет на согласование.',
     editHint: 'Редактирование доступно для выданного, выполняемого или приостановленного наряда (сейчас: {status}).',
     noPermissions: 'Разрешения на особые работы ещё не сформированы — дождитесь PDF от производителя работ.',
     fillTable: 'Заполните таблицу газотеста (раздел 2 в PDF): нажмите «+ Добавить», укажите LEL, H2S, O₂, CO и № прибора. Осталось разрешений без замеров: {empty}.',
     tableFilled: 'Таблица газотеста заполнена. При необходимости добавьте повторный замер кнопкой «+ Добавить».',
     panelTitle: '2. Результаты отбора проб воздушной среды',
     panelHint:
-      'Заполните таблицу газотеста (раздел 2 в PDF разрешения) после выдачи наряда. После сохранения данные попадут в PDF.',
+      'Заполните таблицу газотеста (раздел 2 в PDF разрешения) на этапе согласования. Подпись ПАС станет доступна после сохранения.',
     stepFill: 'Нажмите «+ Добавить», укажите дату оформления, рабочую зону, LEL, H₂S, O₂, CO и № прибора.',
     stepSave: 'Нажмите «Сохранить газотест» — PDF разрешения обновится автоматически.',
     stepPdf: 'Откройте PDF разрешения и проверьте таблицу в разделе 2.',
@@ -1089,7 +1097,7 @@ export const uiExtRu: UiExtension = {
       'Наряд на согласовании. Раздел 3 можно заполнить сейчас — данные сохранятся в PDF разрешений.',
     draftHint: 'Наряд в черновике. Проверки доступны после отправки на согласование.',
     closedHint: 'Наряд завершён ({status}). Редактирование проверок недоступно.',
-    rejectedHint: 'Наряд отклонён. Дождитесь повторной выдачи после исправлений.',
+    rejectedHint: 'Наряд отклонён. Производитель может исправить замечания и снова отправить пакет на согласование.',
     editHint:
       'Редактирование доступно для наряда на согласовании, выданного, выполняемого или приостановленного (сейчас: {status}).',
     noPermissions: 'Разрешения на особые работы ещё не сформированы.',
@@ -1272,7 +1280,7 @@ export const uiExtRu: UiExtension = {
     signer4LeadExpert: '4. Утверждающий НД',
     signer5Ert: '5. ERT (ПАС)',
     ertApproverNote:
-      'При разрешении на огневые работы в согласование автоматически добавляется ПАС с газотестом (раздел 2 PDF).',
+      'При огневых или газоопасных работах в согласование автоматически добавляется ERT (ПАС) пятым участником (газотест — раздел 2 PDF).',
     selectPlaceholder: '— Выберите —',
     f02Legend: 'Бланк НД — общие поля (F02)',
     badgeNo: '№ пропуска / бейджа',
@@ -1375,7 +1383,7 @@ export const uiExtRu: UiExtension = {
     f09Title: 'Проверочный лист F09 (НДПР)',
     f09Hint:
       'Перед переводом в «В работе» все пункты должны иметь ответ Да / Нет / Н/П.',
-    f05Title: 'Журнал F05 (события)',
+    f05Title: 'Журнал событий',
     f05Empty: 'Записей пока нет.',
     demoSuffix: '({demo})',
   },
@@ -1765,20 +1773,20 @@ export const uiExtEn: UiExtension = {
   abrDailyAck: {
     title: 'Daily JSA acknowledgment',
     description:
-      'Only crew members sign the JSA: each day they receive a task to sign acknowledgment via eGov Mobile. A signature is valid for 24 hours; after that, a new signature is required. The report records full name, role, and signature.',
-    confirmation: 'I acknowledge the JSA for today’s shift',
-    todayPrefix: 'Now',
-    noSignaturesYet: 'no valid signatures yet',
+      'Each crew member signs JSA acknowledgment before shift start (07:00) via eGov Mobile. Valid from 07:00 today until 07:00 next day. PDF records shift date, name, role, and signature.',
+    confirmation: 'I acknowledge the JSA for today’s shift (from 07:00)',
+    todayPrefix: 'Shift',
+    noSignaturesYet: 'no valid signatures for the current shift yet',
     signedProgress: '{signed} of {total} · pending {pending}',
-    notSignedToday: 'no valid signature (unsigned or older than 24 h)',
+    notSignedToday: 'no signature for current shift (required by 07:00)',
     reportTitle: 'Daily signature log',
-    colDate: 'Date',
+    colDate: 'Shift date',
     colName: 'Full name',
     colRole: 'Role',
     colSignature: 'Signature',
     pendingTitle: 'Daily JSA acknowledgment required',
     pendingHint:
-      'Each day crew members receive a task to sign JSA acknowledgment. Each signature is valid for 24 hours, then must be renewed.',
+      'Each day before 07:00 crew members sign JSA acknowledgment. Valid until 07:00 next day, then must renew.',
     openPermit: 'Open permit',
   },
   egovRoles: {
@@ -1857,17 +1865,23 @@ export const uiExtEn: UiExtension = {
     gasZonePlaceholder: 'Work zone',
   },
   gasTest: {
-    onApprovalHint: 'Permit on approval. Gas test becomes available after the permit is issued (all signatures collected).',
+    signBeforeErtSign:
+      'Fill and save the gas test table (permission section 2) first. PAS (ERT) signature unlocks after save.',
+    onApprovalHint:
+      'Permit on approval. Fill the gas test table (section 2) and save — data updates the permission PDF.',
+    onApprovalWaitingHint:
+      'Gas test becomes available after the supervisor signs and the crew acknowledges the JSA and risk assessment.',
     draftHint: 'Draft permit. Gas test is available after issuance.',
     closedHint: 'Permit finished ({status}). Gas test editing is unavailable.',
-    rejectedHint: 'Permit rejected. Wait for re-issue after corrections.',
+    rejectedHint:
+      'Permit rejected. The work supervisor can fix comments and resubmit the package for approval.',
     editHint: 'Editing available for issued, in progress or suspended permits (now: {status}).',
     noPermissions: 'Special work permissions not generated yet — wait for PDF from supervisor.',
     fillTable: 'Fill gas test table (section 2 in PDF): click «+ Add», enter LEL, H₂S, O₂, CO and instrument No. Permissions without readings: {empty}.',
     tableFilled: 'Gas test table complete. Add repeat readings with «+ Add» if needed.',
     panelTitle: 'Section 2 — air sampling results',
     panelHint:
-      'Fill the gas test table (section 2 in the permission PDF) after the permit is issued. Saved data updates the PDF.',
+      'Fill the gas test table (section 2 in the permission PDF) during approval. PAS signature unlocks after save.',
     stepFill: 'Click «+ Add», enter issue date, work zone, LEL, H₂S, O₂, CO and instrument No.',
     stepSave: 'Click «Save gas test» — the permission PDF updates automatically.',
     stepPdf: 'Open the permission PDF and verify section 2.',
@@ -1905,7 +1919,8 @@ export const uiExtEn: UiExtension = {
       'Permit on approval. You can fill section 3 now — data saves to permission PDFs.',
     draftHint: 'Draft permit. Checks are available after submission for approval.',
     closedHint: 'Permit finished ({status}). Check editing is unavailable.',
-    rejectedHint: 'Permit rejected. Wait for re-issue after corrections.',
+    rejectedHint:
+      'Permit rejected. The work supervisor can fix comments and resubmit the package for approval.',
     editHint:
       'Editing available for on approval, issued, in progress or suspended permits (now: {status}).',
     noPermissions: 'Special work permissions not generated yet.',
@@ -2088,7 +2103,7 @@ export const uiExtEn: UiExtension = {
     signer4LeadExpert: '4. Lead expert',
     signer5Ert: '5. ERT (PAS)',
     ertApproverNote:
-      'For hot work permits, PAS with gas test is added to approval automatically.',
+      'For hot work or gas-hazard work, ERT (PAS) is added as the 5th approver (gas test — PDF section 2).',
     selectPlaceholder: '— Select —',
     f02Legend: 'WP form — common fields (F02)',
     badgeNo: 'Pass / badge No.',
@@ -2189,7 +2204,7 @@ export const uiExtEn: UiExtension = {
     selectPlaceholder: '— Select —',
     f09Title: 'F09 checklist (WP)',
     f09Hint: 'Before «In progress», all items must be Yes / No / N/A.',
-    f05Title: 'F05 journal (events)',
+    f05Title: 'Event journal',
     f05Empty: 'No entries yet.',
     demoSuffix: '({demo})',
   },

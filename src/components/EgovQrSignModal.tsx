@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Permit } from '../types/domain'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import { profileNameForSigningCheck } from '../lib/signerIdentityHint'
-import { buildSigningPackagePdf } from '../lib/buildSigningPackagePdf'
-import { buildSigningPayload } from '../lib/buildSigningPayload'
 import {
-  fetchSigningDocument,
   submitEgovSignatureToServer,
 } from '../lib/egovFunctions'
 import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
@@ -13,11 +10,30 @@ import {
   isSigexUserCancel,
   startSigexQrSigning,
 } from '../lib/sigexQrSigning'
+import {
+  isNcaLayerAvailable,
+  isNcaLayerUserCancel,
+  signBase64WithNcaLayer,
+} from '../lib/ncaLayerSigning'
+import { EgovSignMethodTabs, type EgovSignTab } from './EgovSignMethodTabs'
+import { NcaLayerSignPanel } from './NcaLayerSignPanel'
+import {
+  prepareEgovSigningPackage,
+  type EgovSigningPackage,
+} from '../lib/prepareEgovSigningPackage'
 import { useSession } from '../context/SessionContext'
 import { useSigningSettings } from '../hooks/useSigningSettings'
 import { useLanguage } from '../context/LanguageContext'
 
-type Phase = 'idle' | 'qr' | 'waiting' | 'submitting' | 'done' | 'error'
+type SignTab = EgovSignTab
+type Phase =
+  | 'preparing'
+  | 'qr'
+  | 'waiting'
+  | 'ncalayer'
+  | 'submitting'
+  | 'done'
+  | 'error'
 
 export function EgovQrSignModal(props: {
   open: boolean
@@ -38,130 +54,169 @@ export function EgovQrSignModal(props: {
   const w = t.crewWorker
   const useServerPdf = authMode === 'firebase'
 
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [tab, setTab] = useState<SignTab>('qr')
+  const [phase, setPhase] = useState<Phase>('preparing')
+  const [pkg, setPkg] = useState<EgovSigningPackage | null>(null)
   const [qrSrc, setQrSrc] = useState<string | null>(null)
   const [mobileLink, setMobileLink] = useState<string | null>(null)
   const [businessLink, setBusinessLink] = useState<string | null>(null)
+  const [ncaAvailable, setNcaAvailable] = useState<boolean | null>(null)
+  const [ncaBusy, setNcaBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
-  const started = useRef(false)
+  const qrStarted = useRef(false)
+  const prepareStarted = useRef(false)
 
   const reset = useCallback(() => {
-    setPhase('idle')
+    setTab('qr')
+    setPhase('preparing')
+    setPkg(null)
     setQrSrc(null)
     setMobileLink(null)
     setBusinessLink(null)
+    setNcaAvailable(null)
     setError(null)
-    sessionIdRef.current = null
-    started.current = false
+    qrStarted.current = false
+    prepareStarted.current = false
   }, [])
+
+  const persistSignature = useCallback(
+    async (cmsBase64: string, provider: StoredEgovSignature['provider']) => {
+      if (!pkg) throw new Error(m.pdfPackageFailed)
+
+      if (useServerPdf) {
+        if (!pkg.sessionId) throw new Error(m.signServerUnavailable)
+        setPhase('submitting')
+        const stored = await submitEgovSignatureToServer(
+          pkg.sessionId,
+          cmsBase64,
+          provider,
+        )
+        await refresh()
+        notifySigningInvitesRefresh()
+        setPhase('done')
+        onSigned(stored)
+        return
+      }
+
+      const stored: StoredEgovSignature = {
+        role,
+        signedAtIso: new Date().toISOString(),
+        signedByUid: signerUid,
+        signedByDisplayName: signerName,
+        documentHash: pkg.documentHash,
+        documentFormat: pkg.isPdf ? 'pdf' : 'text',
+        cmsBase64,
+        provider,
+      }
+      setPhase('done')
+      onSigned(stored)
+      notifySigningInvitesRefresh()
+    },
+    [
+      pkg,
+      useServerPdf,
+      role,
+      signerUid,
+      signerName,
+      refresh,
+      onSigned,
+      m.pdfPackageFailed,
+      m.signServerUnavailable,
+    ],
+  )
+
+  const startQrFlow = useCallback(async () => {
+    if (!pkg || qrStarted.current) return
+    qrStarted.current = true
+    setError(null)
+    setPhase('qr')
+
+    try {
+      const session = await startSigexQrSigning({
+        description: `NOVA SAFETY AI — ${t.egovRoles[role]}`,
+        documentTitle: `${m.wpTitle} ${permit.registrationRefNo || permit.id.slice(0, 8)}`,
+        dataBase64: pkg.dataBase64,
+        isPdf: pkg.isPdf,
+        meta: [
+          { name: m.regNoField, value: permit.registrationRefNo || c.na },
+          { name: m.roleField, value: t.egovRoles[role] },
+          { name: 'Hash', value: pkg.documentHash.slice(0, 16) + '…' },
+          { name: m.formatField, value: pkg.isPdf ? 'PDF' : 'TEXT' },
+        ],
+        sigexBaseUrl: import.meta.env.VITE_SIGEX_BASE_URL,
+      })
+
+      setQrSrc(`data:image/png;base64,${session.qrCodeBase64}`)
+      setMobileLink(session.eGovMobileLaunchLink)
+      setBusinessLink(session.eGovBusinessLaunchLink)
+
+      const cmsBase64 = await session.waitForSignature(() => {
+        setPhase('waiting')
+      })
+
+      await persistSignature(cmsBase64, 'egov_mobile')
+    } catch (e) {
+      qrStarted.current = false
+      if (isSigexUserCancel(e)) {
+        setError(m.signCancelled)
+      } else {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+      setPhase('error')
+    }
+  }, [pkg, permit, role, signerName, persistSignature, t.egovRoles, m, c.na])
+
+  const signWithNcaLayer = useCallback(async () => {
+    if (!pkg) return
+    setError(null)
+    setNcaBusy(true)
+    try {
+      const cmsBase64 = await signBase64WithNcaLayer(pkg.dataBase64)
+      await persistSignature(cmsBase64, 'ncalayer')
+    } catch (e) {
+      if (isNcaLayerUserCancel(e)) {
+        setError(ui.ncalayerCancelled)
+      } else {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+      setPhase('error')
+    } finally {
+      setNcaBusy(false)
+    }
+  }, [pkg, persistSignature, ui.ncalayerCancelled])
 
   useEffect(() => {
     if (!open) {
       reset()
       return
     }
-    if (started.current) return
-    started.current = true
+    if (prepareStarted.current) return
+    prepareStarted.current = true
 
     let cancelled = false
 
     ;(async () => {
       try {
-        setPhase('qr')
+        setPhase('preparing')
         setError(null)
-
-        let dataBase64: string
-        let documentHash: string
-        let isPdf = false
-
-        if (useServerPdf) {
-          const pkg = await buildSigningPackagePdf(permit, resolveUser, userDirectory, {
-            role,
-            signerName,
-          })
-          if (cancelled) return
-          if (!pkg.pdfBase64) {
-            throw new Error(m.pdfPackageFailed)
-          }
-          dataBase64 = pkg.pdfBase64
-          documentHash = pkg.documentHash
-          isPdf = true
-          const pdfBytes = Uint8Array.from(atob(pkg.pdfBase64), (c) => c.charCodeAt(0))
-          const doc = await fetchSigningDocument(permit.id, role, {
-            documentHash: pkg.documentHash,
-            pdfByteLength: pdfBytes.length,
-          })
-          if (cancelled) return
-          sessionIdRef.current = doc.sessionId
-        } else {
-          const payload = await buildSigningPayload(permit, role, signerUid, signerName)
-          dataBase64 = payload.dataBase64
-          documentHash = payload.documentHash
-        }
-
-        const session = await startSigexQrSigning({
-          description: `NOVA SAFETY AI — ${t.egovRoles[role]}`,
-          documentTitle: `${m.wpTitle} ${permit.registrationRefNo || permit.id.slice(0, 8)}`,
-          dataBase64,
-          isPdf,
-          meta: [
-            { name: m.regNoField, value: permit.registrationRefNo || c.na },
-            { name: m.roleField, value: t.egovRoles[role] },
-            { name: 'Hash', value: documentHash.slice(0, 16) + '…' },
-            { name: m.formatField, value: isPdf ? 'PDF' : 'TEXT' },
-          ],
-          sigexBaseUrl: import.meta.env.VITE_SIGEX_BASE_URL,
+        const prepared = await prepareEgovSigningPackage({
+          permit,
+          role,
+          signerUid,
+          signerName,
+          useServerPdf,
+          resolveUser,
+          userDirectory,
         })
-
         if (cancelled) return
-
-        setQrSrc(`data:image/png;base64,${session.qrCodeBase64}`)
-        setMobileLink(session.eGovMobileLaunchLink)
-        setBusinessLink(session.eGovBusinessLaunchLink)
-
-        const cmsBase64 = await session.waitForSignature(() => {
-          if (!cancelled) setPhase('waiting')
-        })
-
+        setPkg(prepared)
+        const nca = await isNcaLayerAvailable()
         if (cancelled) return
-
-        if (useServerPdf) {
-          if (!sessionIdRef.current) {
-            throw new Error(m.signServerUnavailable)
-          }
-          setPhase('submitting')
-          const stored = await submitEgovSignatureToServer(
-            sessionIdRef.current,
-            cmsBase64,
-          )
-          await refresh()
-          notifySigningInvitesRefresh()
-          setPhase('done')
-          onSigned(stored)
-        } else {
-          const stored: StoredEgovSignature = {
-            role,
-            signedAtIso: new Date().toISOString(),
-            signedByUid: signerUid,
-            signedByDisplayName: signerName,
-            documentHash,
-            documentFormat: isPdf ? 'pdf' : 'text',
-            cmsBase64,
-            provider: 'egov_mobile',
-          }
-          setPhase('done')
-          onSigned(stored)
-          notifySigningInvitesRefresh()
-        }
+        setNcaAvailable(nca)
+        setPhase('qr')
       } catch (e) {
         if (cancelled) return
-        if (isSigexUserCancel(e)) {
-          setError(m.signCancelled)
-        } else {
-          const msg = e instanceof Error ? e.message : String(e)
-          setError(msg)
-        }
+        setError(e instanceof Error ? e.message : String(e))
         setPhase('error')
       }
     })()
@@ -175,16 +230,37 @@ export function EgovQrSignModal(props: {
     role,
     signerUid,
     signerName,
-    onSigned,
-    reset,
     useServerPdf,
-    refresh,
     resolveUser,
     userDirectory,
-    m,
-    c.na,
-    t.egovRoles,
+    reset,
   ])
+
+  useEffect(() => {
+    if (!open || !pkg || tab !== 'qr' || phase === 'error' || phase === 'done') return
+    if (phase === 'preparing' || phase === 'submitting') return
+    void startQrFlow()
+  }, [open, pkg, tab, phase, startQrFlow])
+
+  function selectTab(next: SignTab) {
+    if (
+      phase === 'preparing' ||
+      phase === 'waiting' ||
+      phase === 'submitting' ||
+      phase === 'done'
+    ) {
+      return
+    }
+    setTab(next)
+    if (phase === 'error') {
+      setError(null)
+      qrStarted.current = false
+      setQrSrc(null)
+      setMobileLink(null)
+      setBusinessLink(null)
+      setPhase('qr')
+    }
+  }
 
   const signerProfile = resolveUser(signerUid)
 
@@ -194,17 +270,17 @@ export function EgovQrSignModal(props: {
     {
       key: 'prepare',
       label: w.modalStepPrepare,
-      active: phase === 'idle' || phase === 'qr',
-      done: phase === 'waiting' || phase === 'submitting' || phase === 'done',
-    },
-    {
-      key: 'qr',
-      label: w.modalStepQr,
-      active: phase === 'waiting',
-      done: phase === 'submitting' || phase === 'done',
+      active: phase === 'preparing',
+      done: phase !== 'preparing' && phase !== 'error',
     },
     {
       key: 'sign',
+      label: tab === 'ncalayer' ? ui.ncalayerStepSignShort : w.modalStepQr,
+      active: phase === 'qr' || phase === 'waiting' || ncaBusy,
+      done: phase === 'submitting' || phase === 'done',
+    },
+    {
+      key: 'verify',
       label: w.modalStepSign,
       active: phase === 'submitting',
       done: phase === 'done',
@@ -217,12 +293,20 @@ export function EgovQrSignModal(props: {
     },
   ] as const
 
+  const tabsDisabled =
+    phase === 'preparing' || phase === 'waiting' || phase === 'submitting' || phase === 'done'
+
   return (
     <div className="egov-modal-backdrop" role="dialog" aria-modal="true">
       <div className="egov-modal card crew-ack-modal">
         <div className="egov-modal__header">
           <h2 style={{ margin: 0 }}>{ui.approveEgov}</h2>
-          <button type="button" className="btn ghost small" onClick={onClose} aria-label={m.closeAria}>
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={onClose}
+            aria-label={m.closeAria}
+          >
             ✕
           </button>
         </div>
@@ -241,11 +325,13 @@ export function EgovQrSignModal(props: {
             <strong>{profileNameForSigningCheck(signerProfile.displayName)}</strong>
           </p>
         )}
-        {!verifyEgovFio && useServerPdf && (
-          <p className="small muted" style={{ marginTop: '-0.25rem' }}>
-            {m.verifyingEsigh}
-          </p>
-        )}
+
+        <EgovSignMethodTabs
+          tab={tab}
+          disabled={tabsDisabled}
+          pkgReady={Boolean(pkg)}
+          onTabChange={selectTab}
+        />
 
         <div className="crew-ack-modal__steps" aria-hidden>
           {modalSteps.map((step) => (
@@ -265,34 +351,47 @@ export function EgovQrSignModal(props: {
           ))}
         </div>
 
-        {phase === 'qr' && qrSrc && (
+        {tab === 'qr' && phase === 'qr' && qrSrc && (
           <>
-            <p className="small">
-              {t.docKit.approvalPackage}
-            </p>
+            <p className="small">{t.docKit.approvalPackage}</p>
             <div className="egov-qr-wrap">
               <img src={qrSrc} alt={ui.approveEgov} className="egov-qr-img" />
             </div>
             {(mobileLink || businessLink) && (
               <div className="btn-row" style={{ marginTop: '0.75rem' }}>
-                {mobileLink && (
+                {mobileLink ? (
                   <a className="btn ghost small" href={mobileLink}>
                     eGov Mobile
                   </a>
-                )}
-                {businessLink && (
+                ) : null}
+                {businessLink ? (
                   <a className="btn ghost small" href={businessLink}>
                     eGov Business
                   </a>
-                )}
+                ) : null}
               </div>
             )}
           </>
         )}
 
-        {phase === 'waiting' && (
+        {tab === 'qr' && phase === 'waiting' && (
           <p className="strong" role="status">
-            {ui.waitingDefault}
+            {ui.waitingQrScan}
+          </p>
+        )}
+
+        {tab === 'ncalayer' && phase !== 'done' && phase !== 'submitting' && phase !== 'preparing' && (
+          <NcaLayerSignPanel
+            available={ncaAvailable}
+            busy={ncaBusy}
+            disabled={!pkg}
+            onSign={() => void signWithNcaLayer()}
+          />
+        )}
+
+        {phase === 'preparing' && !error && (
+          <p className="muted" role="status">
+            {c.formingPdf}
           </p>
         )}
 
@@ -302,21 +401,17 @@ export function EgovQrSignModal(props: {
           </p>
         )}
 
-        {phase === 'idle' && !error && (
-          <p className="muted">{c.formingPdf}</p>
-        )}
-
         {phase === 'done' && (
           <p className="strong" role="status">
             {ui.signed}
           </p>
         )}
 
-        {error && (
+        {error ? (
           <div className="alert error" role="alert">
             {error}
           </div>
-        )}
+        ) : null}
 
         <div className="btn-row actions">
           <button type="button" className="btn ghost" onClick={onClose}>

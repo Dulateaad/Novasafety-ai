@@ -16,8 +16,17 @@ export function assigneeUidForRole(
   if (role === 'performer') return String(permit.performerUid ?? '')
   if (role === 'permitter') return String(permit.permitterUid ?? '')
   if (role === 'issuer') return String(permit.issuerUid ?? '')
-  if (role === 'ert') return String(permit.ertUid ?? '')
+  if (role === 'ert') {
+    const uid = String(permit.ertUid ?? '').trim()
+    return uid || 'u-ert'
+  }
   return String(permit.leadExpertUid ?? '')
+}
+
+/** Demo-id в карточке наряда ↔ Firebase uid подписанта. */
+export function isPlaceholderAssigneeUid(uid: string): boolean {
+  const id = uid.trim()
+  return id.startsWith('u-') || id.startsWith('default-')
 }
 
 function templateEmailsForRole(role: EgovSignRole): string[] {
@@ -92,9 +101,15 @@ export async function loadAssigneeEmail(
 
 export function signatureFlagKey(
   role: EgovSignRole,
-): 'performerSigned' | 'permitterSigned' | 'issuerSigned' | 'leadExpertSigned' {
+):
+  | 'performerSigned'
+  | 'permitterSigned'
+  | 'issuerSigned'
+  | 'leadExpertSigned'
+  | 'ertSigned' {
   if (role === 'performer') return 'performerSigned'
   if (role === 'permitter') return 'permitterSigned'
   if (role === 'issuer') return 'issuerSigned'
+  if (role === 'ert') return 'ertSigned'
   return 'leadExpertSigned'
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
 import { useLanguage } from '../context/LanguageContext'
@@ -30,6 +30,7 @@ import {
 } from '../lib/approvalQueue'
 import { pendingAbrDailyAckPermitsForUser } from '../lib/abrDailyAck'
 import { ertGasTestTasksForUser } from '../lib/ertGasTestHints'
+import { repairErtSigningInvites } from '../lib/ertSigningInviteRepair'
 import { permitterPreWorkTasksForUser } from '../lib/permitterPreWorkHints'
 import {
   isPermitSigningRejected,
@@ -201,7 +202,21 @@ export function PermitListPage() {
   }, [permits])
 
   const pending = user ? pendingApprovalsForUser(permits, user, resolveUser, userDirectory) : []
-  const signingInvitesRaw = useSigningInvites(user?.id)
+  const signingInvitesRaw = useSigningInvites(user?.id, user?.email)
+  const ertRepairDoneRef = useRef(new Set<string>())
+
+  useEffect(() => {
+    if (authMode !== 'firebase' || user?.role !== 'ert' || !allPermits.length) return
+    let cancelled = false
+    void repairErtSigningInvites(allPermits, user, userDirectory, ertRepairDoneRef.current).then(
+      (repaired) => {
+        if (!cancelled && repaired > 0) notifySigningInvitesRefresh()
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [allPermits, user, userDirectory, authMode])
   const signingInvites = useMemo(
     () =>
       filterActionableSigningInvites(
@@ -294,7 +309,7 @@ export function PermitListPage() {
   }
   const allPermitNotices = usePermitNotices(user?.id)
   const { dismissed: dismissedNotices, dismiss: dismissNotice } =
-    useDismissedPermitNotices(user?.id)
+    useDismissedPermitNotices(user?.id, allPermitNotices)
   const permitNotices = useMemo(
     () =>
       filterByExistingPermits(
@@ -304,8 +319,8 @@ export function PermitListPage() {
     [allPermitNotices, dismissedNotices, livePermitIds],
   )
   const ertGasTasks = useMemo(
-    () => ertGasTestTasksForUser(permits, user),
-    [permits, user],
+    () => ertGasTestTasksForUser(permits, user, userDirectory),
+    [permits, user, userDirectory],
   )
   const permitterPreWorkTasks = useMemo(
     () => permitterPreWorkTasksForUser(permits, user, resolveUser, userDirectory),
@@ -592,7 +607,7 @@ export function PermitListPage() {
         </section>
       ) : null}
 
-      {!isErt && pendingWithoutInviteDup.length > 0 ? (
+      {pendingWithoutInviteDup.length > 0 ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
           <h2 style={{ marginTop: 0 }}>{approval.pendingTitle}</h2>
           <p className="muted small" style={{ marginTop: 0 }}>

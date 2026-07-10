@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Permit, DemoUser } from '../types/domain'
 import { INSPECTOR_ROLE_TITLE, ROLE_LABELS } from '../types/domain'
 import {
@@ -14,6 +14,8 @@ import {
   isWorkStopResolutionDismissed,
 } from '../lib/workStopNoticeDismissal'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
+import { WorkStopReasonField } from './WorkStopReasonField'
+import { useLanguage } from '../context/LanguageContext'
 
 export function InspectorWorkStopPanel(props: {
   permit: Permit
@@ -22,6 +24,8 @@ export function InspectorWorkStopPanel(props: {
   onResolve: (action: WorkStopResolveAction, comment: string) => void
 }) {
   const { permit, actor, busy, onResolve } = props
+  const { t } = useLanguage()
+  const wsUi = t.workStop
   const ws = permit.workStop
   const canResolve = canInspectorResolveWorkStop(permit, actor)
   const canAnnul = canInspectorAnnulPermit(actor)
@@ -93,20 +97,19 @@ export function InspectorWorkStopPanel(props: {
 
       {canResolve ? (
         <div className="work-stop-inspector__resolve">
-          <label className="field">
-            <span className="field-label">Комментарий инспектора *</span>
-            <textarea
-              rows={3}
-              value={comment}
-              disabled={busy}
-              placeholder="Обоснуйте решение: почему возвращаете в работу или аннулируете наряд…"
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </label>
+          <WorkStopReasonField
+            id={`work-stop-inspector-comment-${permit.id}`}
+            label={`Комментарий ${INSPECTOR_ROLE_TITLE} *`}
+            placeholder={wsUi.resolvePlaceholder}
+            value={comment}
+            disabled={busy}
+            rows={4}
+            onChange={setComment}
+          />
           <div className="work-stop-inspector__actions">
             <button
               type="button"
-              className="btn primary"
+              className="btn work-stop-inspector__lift"
               disabled={!canAct}
               onClick={() => onResolve('lift', trimmed)}
             >
@@ -119,9 +122,7 @@ export function InspectorWorkStopPanel(props: {
                 disabled={!canAct}
                 onClick={() => {
                   if (
-                    !window.confirm(
-                      'Аннулировать НДПР? Это формальное закрытие наряда в системе.',
-                    )
+                    !window.confirm(wsUi.annulConfirm)
                   ) {
                     return
                   }
@@ -145,16 +146,28 @@ export function InspectorWorkStopPanel(props: {
 export function WorkStopStatusBanner(props: { permit: Permit; userId?: string }) {
   const { permit, userId } = props
   const ws = permit.workStop
-  const [dismissed, setDismissed] = useState(() =>
-    userId ? isWorkStopResolutionDismissed(userId, permit) : false,
-  )
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!userId) {
+      setDismissed(false)
+      return
+    }
+    void isWorkStopResolutionDismissed(userId, permit).then((v) => {
+      if (!cancelled) setDismissed(v)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [userId, permit])
 
   if (!ws || dismissed) return null
 
   function handleDismiss() {
     if (!userId) return
-    dismissWorkStopResolutionNotice(userId, permit)
     setDismissed(true)
+    void dismissWorkStopResolutionNotice(userId, permit)
   }
 
   if (ws.status === 'pending' && permit.status === 'suspended') {

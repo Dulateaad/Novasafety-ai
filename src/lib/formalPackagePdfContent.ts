@@ -18,7 +18,7 @@ import {
   SIGNING_ACTION_LABEL,
   signerShortName,
 } from './approvalSequence'
-import { assigneeUidForRole } from './signatureStatus'
+import { assigneeUidForRole, pdfApprovalRoleSigned } from './signatureStatus'
 import { formatStoredDateTime } from './datetimeLocal'
 import { parseWorkStagesBlocks } from './formatWorkStagesDisplay'
 import { parseToolsAndEquipmentList } from './toolsAndEquipmentFormat'
@@ -28,9 +28,14 @@ import { buildPermitCrewRows, permitToolsAndEquipment } from './permitCrewRows'
 import {
   buildPdfSignatureStatusCell,
   PDF_EGOV_SIG_COLORS,
-  isPdfEgovSigned,
 } from './pdfEgovSignatureCell'
 import { crewAckDatePdfText, crewAckSignaturePdfText } from './crewAckPdfText'
+import {
+  buildPdfPerformerNameCell,
+  buildPdfPerformerSignatureCell,
+  performerReplacementHistoryPdfBlocks,
+  performerSummaryLine,
+} from './performerReplacementPdf'
 
 function dash(text: string | undefined | null): string {
   const t = text?.trim()
@@ -118,6 +123,7 @@ function sigBlock(name: string, caption: string): Record<string, unknown> {
 function buildPackageSummaryTable(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[] = [],
 ): Record<string, unknown> {
   const reg = permit.registrationRefNo || permit.id.slice(0, 8)
   const title = permitWorkTitle(permit)
@@ -126,7 +132,7 @@ function buildPackageSummaryTable(
   const start = formatStoredDateTime(permit.f02.startDate)
   const end = formatStoredDateTime(permit.f02.endDate)
   const period = start !== '—' || end !== '—' ? `${start} — ${end}` : '—'
-  const crewCount = buildPermitCrewRows(permit, resolveUser).length
+  const crewCount = buildPermitCrewRows(permit, resolveUser, directory).length
 
   const body: unknown[][] = [
     [
@@ -164,7 +170,10 @@ function buildPackageSummaryTable(
 
   signingRoleOrder(permit).forEach((role) => {
     const uid = assigneeUidForRole(permit, role)
-    const name = dash(signerShortName(resolveUser(uid)?.displayName))
+    const name =
+      role === 'performer'
+        ? dash(performerSummaryLine(permit, resolveUser))
+        : dash(signerShortName(resolveUser(uid)?.displayName))
     body.push(kvRow(SIGNING_ACTION_LABEL[role], name))
   })
 
@@ -210,6 +219,7 @@ function approvalRowForRole(
 export function buildFormalPackagePdfContent(
   permit: Permit,
   resolveUser: (uid: string) => DemoUser | undefined,
+  directory: DemoUser[] = [],
 ): Record<string, unknown>[] {
   const reg = permit.registrationRefNo || permit.id.slice(0, 8)
   const issuer = resolveUser(permit.issuerUid)
@@ -234,10 +244,10 @@ export function buildFormalPackagePdfContent(
       fontSize: 13,
       margin: [0, 0, 0, 10],
     },
-    buildPackageSummaryTable(permit, resolveUser),
+    buildPackageSummaryTable(permit, resolveUser, directory),
   ]
 
-  const crewRows = buildPermitCrewRows(permit, resolveUser)
+  const crewRows = buildPermitCrewRows(permit, resolveUser, directory)
 
   content.push({
     text: '8. Состав бригады и инструктаж',
@@ -361,21 +371,27 @@ export function buildFormalPackagePdfContent(
 
   signingRoleOrder(permit).forEach((role, i) => {
     const row = approvalRowForRole(permit, role, resolveUser)
-    const signed =
-      isPdfEgovSigned(permit, role) ||
-      (row.acknowledged && row.fullNamePrinted.trim())
+    const signed = pdfApprovalRoleSigned(permit, role, directory)
     const rowFill = signed ? PDF_EGOV_SIG_COLORS.signedRowTint : undefined
+    const nameCell =
+      role === 'performer'
+        ? buildPdfPerformerNameCell(permit, resolveUser, rowFill)
+        : { text: dash(row.fullNamePrinted), fillColor: rowFill, fontSize: 8 }
+    const sigCell =
+      role === 'performer'
+        ? buildPdfPerformerSignatureCell(permit, row, directory)
+        : buildPdfSignatureStatusCell(permit, role, row, directory)
     approvalBody.push([
       { text: `10.${i + 1}`, fillColor: rowFill, fontSize: 8, alignment: 'center' },
       { text: pdfApprovalRoleLabel(role), fillColor: rowFill, fontSize: 8 },
-      { text: dash(row.fullNamePrinted), fillColor: rowFill, fontSize: 8 },
+      nameCell,
       {
         text: dash(row.badgeNo),
         fillColor: rowFill,
         fontSize: 8,
         alignment: 'center',
       },
-      buildPdfSignatureStatusCell(permit, role, row),
+      sigCell,
     ])
   })
 
@@ -389,6 +405,8 @@ export function buildFormalPackagePdfContent(
     fontSize: 8,
     margin: [0, 0, 0, 10],
   })
+
+  content.push(...performerReplacementHistoryPdfBlocks(permit, resolveUser))
 
   content.push({
     text: `Документ сформирован ${APP_NAME} · ${ASOR_EDITION_META.formRef} · ${new Date().toLocaleString('ru-RU')}`,

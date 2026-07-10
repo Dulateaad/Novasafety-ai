@@ -5,19 +5,25 @@ import {
   loadDismissedPermitNoticeIds,
 } from '../lib/permitNoticeDismissal'
 
-export function useDismissedPermitNotices(userId: string | undefined) {
-  const [dismissed, setDismissed] = useState<Set<string>>(() =>
-    userId ? loadDismissedPermitNoticeIds(userId) : new Set(),
-  )
+export function useDismissedPermitNotices(
+  userId: string | undefined,
+  notices: readonly PermitNotice[] = [],
+) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setDismissed(userId ? loadDismissedPermitNoticeIds(userId) : new Set())
-  }, [userId])
+    if (!userId) {
+      setDismissed(new Set())
+      return
+    }
+    setDismissed(loadDismissedPermitNoticeIds(userId, notices))
+  }, [userId, notices])
 
   const dismiss = useCallback(
     (notice: PermitNotice) => {
       if (!userId) return
-      setDismissed(dismissPermitNotice(userId, notice))
+      setDismissed((prev) => new Set(prev).add(notice.id))
+      void dismissPermitNotice(userId, notice).then((keys) => setDismissed(keys))
     },
     [userId],
   )

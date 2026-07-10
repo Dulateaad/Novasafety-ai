@@ -14,6 +14,7 @@ import { formatStoredDateTime } from './datetimeLocal'
 import { parseToolsAndEquipmentList } from './toolsAndEquipmentFormat'
 import { permitWorkDescriptionNdpr, permitWorkTitle } from './ndprWorkText'
 import { permitShiftLabel } from './permitShiftLabel'
+import { performerSummaryLine } from './performerReplacementPdf'
 
 export type PermitPackageBrief = {
   regNo: string
@@ -115,7 +116,7 @@ export function buildPermitPackageBrief(
     toolsText: tools.text,
     toolsCount: tools.count,
     pdfParts,
-    performerName: resolveUser(permit.performerUid)?.displayName ?? '—',
+    performerName: performerSummaryLine(permit, resolveUser),
     permitterName: resolveUser(permit.permitterUid)?.displayName ?? '—',
     issuerName: resolveUser(permit.issuerUid)?.displayName ?? '—',
     leadExpertName: resolveUser(permit.leadExpertUid)?.displayName ?? '—',

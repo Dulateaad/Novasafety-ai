@@ -61,6 +61,7 @@ export type Locale = {
     cleared: string
     invalid: string
     bannerHint: string
+    executorBannerHint: string
     adminTitle: string
     adminHint: string
     adminColName: string
@@ -118,6 +119,18 @@ export type Locale = {
     approvalCancelled: string
     reasonNotSpecified: string
     waitingDefault: string
+    signMethodTabs: string
+    tabQrMobile: string
+    tabNcaLayer: string
+    waitingQrScan: string
+    ncalayerHint: string
+    ncalayerStepInstall: string
+    ncalayerStepLaunch: string
+    ncalayerStepSign: string
+    ncalayerStepSignShort: string
+    ncalayerSignBtn: string
+    ncalayerNotRunning: string
+    ncalayerCancelled: string
   }
   signEligibility: {
     notOnApproval: string
@@ -179,6 +192,9 @@ export type Locale = {
     rejectedHint: string
     rejectedBadge: string
     rejectedReasonFallback: string
+    resubmitEdit: string
+    resubmitBusy: string
+    resubmitPerformerHint: string
   }
   notices: {
     issuedTitle: string
@@ -345,14 +361,16 @@ export const ru: Locale = {
     cleared: 'Email для уведомлений удалён',
     invalid: 'Укажите реальный email (не @nova.local)',
     bannerHint: 'На эту почту приходят письма о подписи и статусе НДПР.',
+    executorBannerHint:
+      'Укажите личную почту и включите Push в шапке — так вы получите уведомления о наряде и ознакомлении с АБР.',
     adminTitle: 'Админка · email для уведомлений',
     adminHint:
-      'Укажите почту для согласующих, допускающих, выдающих, ERT, инспектора и др. Работникам письма не отправляются.',
+      'Укажите почту для всех участников, включая работников. Для @nova.local нужен отдельный реальный email.',
     adminColName: 'ФИО',
     adminColRole: 'Роль',
     adminColLogin: 'Логин',
     adminColNotify: 'Email для писем',
-    adminExecutorNote: 'работникам email не отправляется',
+    adminExecutorNote: 'укажите реальный email',
     adminSavedFor: 'Сохранено для {name}',
   },
   common: {
@@ -416,6 +434,20 @@ export const ru: Locale = {
     approvalCancelled: 'Согласование отменено',
     reasonNotSpecified: 'Причина не указана.',
     waitingDefault: 'Подпись ставит назначенное лицо этой роли, когда наступит его очередь.',
+    signMethodTabs: 'Способ подписания',
+    tabQrMobile: 'eGov Mobile (QR)',
+    tabNcaLayer: 'Файл-ключа (NCALayer)',
+    waitingQrScan: 'Отсканируйте QR в eGov Mobile и подтвердите подпись на телефоне.',
+    ncalayerHint:
+      'Подпись через NCALayer на этом компьютере: файл-ключ (.p12) или токен НУЦ РК. Ключ не передаётся на сервер — только готовая CMS-подпись.',
+    ncalayerStepInstall: 'Установите NCALayer с портала pki.gov.kz (если ещё не установлен).',
+    ncalayerStepLaunch: 'Запустите NCALayer — иконка в трее Windows должна быть активна.',
+    ncalayerStepSign: 'Нажмите кнопку ниже → выберите файл-ключа → введите пароль → подпись сохранится автоматически.',
+    ncalayerStepSignShort: 'Файл-ключа',
+    ncalayerSignBtn: 'Выбрать файл-ключа и подписать',
+    ncalayerNotRunning:
+      'NCALayer не отвечает. Запустите приложение NCALayer на этом ПК и повторите.',
+    ncalayerCancelled: 'Подписание отменено в NCALayer.',
   },
   signEligibility: {
     notOnApproval: 'Наряд не на этапе «На согласовании».',
@@ -480,9 +512,13 @@ export const ru: Locale = {
     loginPrefix: 'вход:',
     rejectedTitle: 'Согласование отклонено',
     rejectedHint:
-      'Пакет НДПР отклонён на этапе согласования. Ваша подпись больше не требуется — ниже указана причина.',
+      'Пакет НДПР отклонён на этапе согласования. Производитель может исправить замечания в том же наряде и снова отправить на согласование.',
     rejectedBadge: '✕ Отклонено',
     rejectedReasonFallback: 'Причина отклонения указана в карточке НДПР.',
+    resubmitEdit: 'Исправить и отправить снова',
+    resubmitBusy: 'Открываем черновик…',
+    resubmitPerformerHint:
+      'Исправьте замечания из комментария отклонения, затем снова отправьте пакет на согласование.',
   },
   notices: {
     issuedTitle: 'НДПР открыт для всех',

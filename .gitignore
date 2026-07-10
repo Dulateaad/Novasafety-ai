@@ -28,7 +28,12 @@ serviceAccount.json
 recovery/
 releases/
 tmp-*/
+.tmp-ab/
 .tsc-cache/
+
+# Сторонние проекты в рабочей папке (не часть NOVA Safety)
+charity-raffle-bot/
+whatsapp-sales-bot/
 
 # Сборка / деплой логи
 build-check.txt

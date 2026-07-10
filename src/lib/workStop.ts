@@ -55,7 +55,10 @@ export function liftWorkStopPatch(
     throw new Error('Укажите комментарий инспектора (не менее 3 символов)')
   }
   return {
-    status: ws.previousPermitStatus,
+    status:
+      ws.previousPermitStatus === 'issued' || ws.previousPermitStatus === 'in_progress'
+        ? ws.previousPermitStatus
+        : 'in_progress',
     workStop: {
       ...ws,
       status: 'lifted',
