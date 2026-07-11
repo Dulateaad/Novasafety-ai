@@ -77,9 +77,15 @@ export async function syncWorkPermissionsLive(args: {
     documents = await renderWorkPermissionsBundle(documents, pdfOpts)
   }
 
+  const savedAtIso =
+    mergedBundle.permitterPreWorkSavedAtIso?.trim() ||
+    permit.workPermissions?.permitterPreWorkSavedAtIso?.trim() ||
+    ''
   const bundle: WorkPermissionsBundle = {
     documents,
     updatedAtIso: new Date().toISOString(),
+    // Не терять метку «Сохранить проверки» — без неё кнопка ЭЦП допускающего не открывалась.
+    ...(savedAtIso ? { permitterPreWorkSavedAtIso: savedAtIso } : {}),
   }
 
   const shouldRebuildPackage =

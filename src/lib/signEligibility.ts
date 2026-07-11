@@ -1,6 +1,6 @@
 import type { DemoUser, Permit, UserRole } from '../types/domain'
-import type { EgovSignRole } from '../types/egovSignature'
 import { ROLE_LABELS } from '../types/domain'
+import type { EgovSignRole } from '../types/egovSignature'
 import {
   approvalStepLabel,
   canSignRoleNow,

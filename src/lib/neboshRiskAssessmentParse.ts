@@ -6,6 +6,7 @@ import type {
   AsorNeboshSignatureRow,
 } from '../types/asor'
 import { parseNeboshScale } from '../config/neboshRiskMatrix'
+import { sanitizeNeboshRiskAnnotations } from './neboshRiskText'
 
 export type NeboshHazardPayload = {
   operationText?: string
@@ -117,14 +118,20 @@ export function parseNeboshRiskAssessmentJson(raw: string): NeboshRiskAssessment
                 .filter((h): h is Record<string, unknown> => !!h && typeof h === 'object')
                 .map((h) => ({
                   operationText: String(h.operationText ?? '').trim(),
-                  factorDescription: String(h.factorDescription ?? '').trim(),
+                  factorDescription: sanitizeNeboshRiskAnnotations(
+                    String(h.factorDescription ?? '').trim(),
+                  ),
                   whoAtRisk: String(h.whoAtRisk ?? 'Операторы, персонал площадки').trim(),
                   initialLikelihood: parseNeboshScale(h.initialLikelihood),
                   initialSeverity: parseNeboshScale(h.initialSeverity),
-                  protectiveMeasures: String(h.protectiveMeasures ?? '').trim(),
+                  protectiveMeasures: sanitizeNeboshRiskAnnotations(
+                    String(h.protectiveMeasures ?? '').trim(),
+                  ),
                   residualLikelihood: parseNeboshScale(h.residualLikelihood),
                   residualSeverity: parseNeboshScale(h.residualSeverity),
-                  residualNote: String(h.residualNote ?? '').trim(),
+                  residualNote: sanitizeNeboshRiskAnnotations(
+                    String(h.residualNote ?? '').trim(),
+                  ),
                   responsiblePerson: String(h.responsiblePerson ?? '').trim(),
                 }))
                 .filter((h) => h.factorDescription || h.protectiveMeasures)

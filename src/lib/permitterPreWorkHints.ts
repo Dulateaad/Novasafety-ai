@@ -216,10 +216,22 @@ export function permitterPreWorkSavedForSign(permit: Permit): boolean {
   return Boolean(permit.workPermissions?.permitterPreWorkSavedAtIso?.trim())
 }
 
+/** Подпись допускающего не блокируется разделом 3 — проверки опциональны для PDF. */
+export function permitterPreWorkAllowsSign(permit: Permit): boolean {
+  if (!requiresWorkPermissions(permit)) return true
+  // Без сформированных разрешений подписывать нечего в PDF, но ЭЦП НДПР не блокируем.
+  return true
+}
+
+export function permitterPreWorkSignBlockedReason(permit: Permit): string {
+  void permit
+  return ''
+}
+
+/** Задание допускающего закрыто только после явного «Сохранить проверки». */
 export function permitterPreWorkComplete(permit: Permit): boolean {
   if (!requiresWorkPermissions(permit)) return true
-  if (permitterPreWorkSavedForSign(permit)) return true
-  return permitterPreWorkDocsNeedingFill(permit) === 0
+  return permitterPreWorkSavedForSign(permit)
 }
 
 export function permitterPreWorkTaskSummary(permit: Permit): string | null {

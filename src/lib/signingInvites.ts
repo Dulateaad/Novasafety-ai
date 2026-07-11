@@ -101,3 +101,11 @@ export function openSigningInvites(
     return true
   })
 }
+
+/** Ссылка на карточку наряда из уведомления о подписи. ERT — с начала карточки (пакет → газотест → подпись). */
+export function permitHrefForSigningInvite(invite: SigningInvite): string {
+  const base = `/p/${invite.permitId}`
+  if (invite.inviteType === 'crew_ack') return `${base}#crew-ack-section`
+  if (invite.signRole === 'ert') return base
+  return `${base}#signatures-section`
+}

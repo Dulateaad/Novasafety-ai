@@ -1,5 +1,5 @@
 import type { Permit, PermitDraft } from '../types/domain'
-import { clearResumePermitId } from './resumePermitPackage'
+import { clearResumePermitId, readResumePermitId } from './resumePermitPackage'
 
 /** Учитывает только строки «001», «12» и т.д. (одни цифры). Прочее — 0 для выбора следующего номера. */
 export function parseRegistrationSequence(ref: string | undefined): number {
@@ -54,9 +54,9 @@ export function nextRegistrationNumber(permits: Permit[]): string {
   return formatRegistrationNumber(maxRegistrationSequence(permits) + 1)
 }
 
-/** Номер из возобновлённого наряда или следующий свободный рег. номер (не № бейджа). */
+/** Номер из возобновлённого наряда, из черновика (если наряд ещё есть) или следующий свободный. */
 export function resolveRegistrationRefNo(
-  _draft: PermitDraft,
+  draft: PermitDraft,
   permits: Permit[],
   resumePermitId?: string | null,
 ): string {
@@ -68,9 +68,31 @@ export function resolveRegistrationRefNo(
   const resumedRef = resumed?.registrationRefNo?.trim()
   if (resumedRef) return resumedRef
 
-  // Не подставляем registrationRefNo из sessionStorage: после удаления нарядов
-  // в черновике мог остаться «003», хотя в журнале уже пусто и нужен «001».
+  const draftRef = draft.registrationRefNo?.trim()
+  if (draftRef) {
+    // Сохраняем № при пересогласовании: если наряд с этим номером ещё в журнале.
+    const stillExists = permits.some((p) => p.registrationRefNo?.trim() === draftRef)
+    if (stillExists) return draftRef
+  }
+
+  // Не подставляем «мёртвый» номер из session после удаления нарядов.
   return nextRegistrationNumber(permits)
+}
+
+/** Актуальный рег. № для черновика: из черновика, возобновлённого наряда или следующий свободный. */
+export function resolveDraftRegistrationRefNo(
+  draft: PermitDraft,
+  permits: readonly Permit[],
+  resumePermitId?: string | null,
+): string {
+  const trimmed = draft.registrationRefNo.trim()
+  if (trimmed) return trimmed
+  const resumeId = resumePermitId?.trim() || readResumePermitId()
+  const fromPermit = resumeId
+    ? permits.find((p) => p.id === resumeId)?.registrationRefNo?.trim()
+    : ''
+  if (fromPermit) return fromPermit
+  return resolveRegistrationRefNo(draft, [...permits], resumeId)
 }
 
 /** Перенумеровать список нарядов 001… по дате создания (локальный журнал). */

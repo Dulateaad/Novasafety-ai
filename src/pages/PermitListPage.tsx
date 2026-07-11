@@ -401,7 +401,7 @@ export function PermitListPage() {
   }
 
   async function removePermitFromJournal(permit: Permit) {
-    if (!canDeleteAll) return
+    if (!user || !canUserDeletePermit(user, permit)) return
     const label = permit.registrationRefNo || permit.title
     if (!window.confirm(fillTemplate(t.confirm.deletePermit, { label }))) return
     setDeletingId(permit.id)
@@ -563,15 +563,15 @@ export function PermitListPage() {
         />
       ) : null}
 
+      {user?.role === 'permitter' ? (
+        <PermitterPreWorkTasksPanel tasks={permitterPreWorkTasks} />
+      ) : null}
+
       <SigningInvitesPanel
         invites={signingInvites}
         permitCreatedAtIso={permitCreatedAtIso}
         title={user?.role === 'executor' ? inv.ackTitle : inv.signTitle}
       />
-
-      {user?.role === 'permitter' ? (
-        <PermitterPreWorkTasksPanel tasks={permitterPreWorkTasks} />
-      ) : null}
 
       <WorkStopResolutionNoticesPanel
         permits={workStopResolutionNotices}
@@ -641,7 +641,15 @@ export function PermitListPage() {
                   resolveUser={resolveUser}
                   variant="inline"
                 />
-                <Link className="btn primary small" to={`/p/${item.permit.id}`} style={{ marginTop: '0.65rem' }}>
+                <Link
+                  className="btn primary small"
+                  to={
+                    item.action === 'fill_permitter_pre_work'
+                      ? `/p/${item.permit.id}#permitter-pre-work`
+                      : `/p/${item.permit.id}`
+                  }
+                  style={{ marginTop: '0.65rem' }}
+                >
                   {approval.openAndApprove}
                 </Link>
               </li>
@@ -737,7 +745,11 @@ export function PermitListPage() {
                 showRejectionStrip={
                   user ? shouldShowRejectionNotice(p, user, dismissedRejections) : true
                 }
-                onDelete={canDeleteAll ? () => void removePermitFromJournal(p) : undefined}
+                onDelete={
+                  user && canUserDeletePermit(user, p)
+                    ? () => void removePermitFromJournal(p)
+                    : undefined
+                }
                 deleteDisabled={deletingId === p.id}
               />
             ))}
@@ -783,14 +795,18 @@ export function PermitListPage() {
                     </td>
                     {canDeleteAll ? (
                       <td>
-                        <button
-                          type="button"
-                          className="btn ghost small danger"
-                          disabled={deletingId === p.id}
-                          onClick={() => void removePermitFromJournal(p)}
-                        >
-                          {deletingId === p.id ? c.deleting : c.delete}
-                        </button>
+                        {canUserDeletePermit(user!, p) ? (
+                          <button
+                            type="button"
+                            className="btn ghost small danger"
+                            disabled={deletingId === p.id}
+                            onClick={() => void removePermitFromJournal(p)}
+                          >
+                            {deletingId === p.id ? c.deleting : c.delete}
+                          </button>
+                        ) : (
+                          <span className="muted small">—</span>
+                        )}
                       </td>
                     ) : null}
                     <td>

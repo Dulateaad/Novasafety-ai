@@ -1,15 +1,24 @@
 import type { DemoUser, Permit } from '../types/domain'
+import { uidMatchesAccount } from './permitAccess'
 
 /** Серверная (репозиторий) проверка: менять подпись может только назначенный участник или координатор. */
 export function assertSignaturePatchAllowed(
   actor: DemoUser,
   permit: Permit,
   patch: Partial<Permit['signatures']>,
+  directory: DemoUser[] = [],
 ): void {
-  if (patch.issuerSigned !== undefined && patch.issuerSigned !== permit.signatures.issuerSigned) {
+  const current = permit.signatures ?? {
+    performerSigned: false,
+    issuerSigned: false,
+    permitterSigned: false,
+    leadExpertSigned: false,
+    ertSigned: false,
+  }
+  if (patch.issuerSigned !== undefined && patch.issuerSigned !== current.issuerSigned) {
     const ok =
       actor.role === 'coordinator' ||
-      (actor.role === 'issuer' && actor.id === permit.issuerUid)
+      (actor.role === 'issuer' && uidMatchesAccount(permit.issuerUid, actor, directory))
     if (!ok) {
       throw new Error('Подпись «Выдающий НД» может поставить только назначенный выдающий')
     }
@@ -17,11 +26,11 @@ export function assertSignaturePatchAllowed(
 
   if (
     patch.permitterSigned !== undefined &&
-    patch.permitterSigned !== permit.signatures.permitterSigned
+    patch.permitterSigned !== current.permitterSigned
   ) {
     const ok =
       actor.role === 'coordinator' ||
-      (actor.role === 'permitter' && actor.id === permit.permitterUid)
+      (actor.role === 'permitter' && uidMatchesAccount(permit.permitterUid, actor, directory))
     if (!ok) {
       throw new Error('Подпись «Допускающий» может поставить только назначенный допускающий')
     }
@@ -29,11 +38,11 @@ export function assertSignaturePatchAllowed(
 
   if (
     patch.leadExpertSigned !== undefined &&
-    patch.leadExpertSigned !== permit.signatures.leadExpertSigned
+    patch.leadExpertSigned !== current.leadExpertSigned
   ) {
     const ok =
       actor.role === 'coordinator' ||
-      (actor.role === 'leadExpert' && actor.id === permit.leadExpertUid)
+      (actor.role === 'leadExpert' && uidMatchesAccount(permit.leadExpertUid, actor, directory))
     if (!ok) {
       throw new Error(
         'Подпись тех. эксперта может поставить только назначенный представитель руководства',

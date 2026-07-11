@@ -7,7 +7,6 @@ import {
   normalizePreWorkChecksInBundle,
   permitterPreWorkBlockedHint,
   permitterPreWorkHasUnsavedChanges,
-  permitterPreWorkItemsRemaining,
   permitterPreWorkRequiredDocuments,
   permitterPreWorkSavedForSign,
   preWorkAvailableColumnCompleteForKind,
@@ -88,12 +87,11 @@ export function PermitterPreWorkLivePanel(props: {
           document.getElementById('signatures-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         })
       } else {
-        const itemsLeft = permitterPreWorkItemsRemaining(savedPermitPreview)
-        if (itemsLeft > 0) {
-          setStatus('Отметьте пункты «Имеется» и нажмите «Сохранить проверки».')
-        } else {
-          setStatus('Нажмите «Сохранить проверки», затем можно подписать ЭЦП.')
-        }
+        setStatus(
+          permitterPreWorkSavedForSign(savedPermitPreview)
+            ? 'Проверки уже сохранены. Подпись появится, когда наступит очередь допускающего.'
+            : 'Отметьте нужные пункты «Имеется» (можно не все) и нажмите «Сохранить проверки» — затем можно подписать ЭЦП.',
+        )
       }
       window.setTimeout(() => setStatus(null), 5000)
       return
@@ -123,19 +121,16 @@ export function PermitterPreWorkLivePanel(props: {
       onDraftChange?.(updated, false)
       const savedPermit = { ...permit, workPermissions: updated }
       const signTurn = nextRoleToSign(savedPermit, userDirectory)
-      if (signTurn === 'permitter') {
+      if (signTurn === 'permitter' && permitterPreWorkSavedForSign(savedPermit)) {
         setStatus(`${wp.savedPermPdf} Можно подписать в блоке «Подписи» ниже.`)
         requestAnimationFrame(() => {
           document.getElementById('signatures-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         })
       } else {
-        const itemsLeft = permitterPreWorkItemsRemaining(savedPermit)
         setStatus(
           signTurn
             ? 'Проверки сохранены. Подпись появится после подписи предыдущего участника очереди (см. блок «Подписи» ниже).'
-            : itemsLeft > 0
-              ? `Сохранено. При необходимости отметьте ещё ${itemsLeft} пунктов «Имеется».`
-              : wp.savedPermPdf,
+            : `${wp.savedPermPdf} Отметьте нужные пункты (можно не все) и сохраните — затем подпись ЭЦП.`,
         )
       }
       if (permitterPreWorkSavedForSign(savedPermit)) {
@@ -243,7 +238,14 @@ export function PermitterPreWorkLivePanel(props: {
         <p className="work-perm-ert-panel__blocked small" style={{ margin: 0 }}>
           {permitterPreWorkBlockedHint(permit.status)}
         </p>
-      ) : null}
+      ) : (
+        <header className="work-perm-ert-panel__head">
+          <h2 style={{ margin: 0 }}>{pwc.tasksTitle}</h2>
+          <p className="muted small" style={{ margin: '0.35rem 0 0' }}>
+            {pwc.tasksHint}
+          </p>
+        </header>
+      )}
 
       {visibleDocs.map((doc) => {
         const needsFill = !preWorkAvailableColumnCompleteForKind(

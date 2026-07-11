@@ -24,6 +24,7 @@ export function PermitRejectionNotice({
 }: Props) {
   const { t } = useLanguage()
   const r = t.rejection
+  const i = t.invites
   const ui = t.signingUi
   const rejection = permit.lastRejection
   if (!rejection) return null
@@ -40,12 +41,16 @@ export function PermitRejectionNotice({
         role="alert"
         style={style}
       >
+        <span className="permit-rejection-card__badge">{i.rejectedTitle}</span>
         <div className="permit-rejection-card__who">
           <span className="permit-rejection-card__who-label">{ui.reject}</span>
           <strong className="permit-rejection-card__who-name">{name}</strong>
           <span className="permit-rejection-card__who-role">{role}</span>
         </div>
-        <blockquote className="permit-rejection-card__comment">{comment}</blockquote>
+        <div className="permit-rejection-card__comment-wrap">
+          <span className="permit-rejection-card__comment-label">{r.commentLabel}</span>
+          <blockquote className="permit-rejection-card__comment">{comment}</blockquote>
+        </div>
         <footer className="permit-rejection-card__meta">
           <span>{when}</span>
         </footer>

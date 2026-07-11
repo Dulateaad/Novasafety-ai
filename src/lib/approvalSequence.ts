@@ -86,10 +86,16 @@ export function requiredSignRoles(permit: Permit): EgovSignRole[] {
   return signingRoleOrder(permit)
 }
 
-/** Этап подписания активен: on_approval или наряд ошибочно выдан без всех подписей. */
+/** Этап подписания активен: on_approval, черновик (ЭЦП производителя) или наряд выдан без всех подписей. */
 export function permitSigningPhaseActive(permit: Permit): boolean {
   if (isPermitSigningRejected(permit)) return true
   if (permit.status === 'on_approval') return true
+  if (
+    permit.status === 'draft' &&
+    !isRoleSigned(permit, 'performer')
+  ) {
+    return true
+  }
   if (
     (permit.status === 'issued' ||
       permit.status === 'in_progress' ||
@@ -168,8 +174,12 @@ export function outOfOrderRoleSignature(
 }
 
 export function nextRoleToSign(permit: Permit, directory: DemoUser[] = []): EgovSignRole | null {
-  if (!permitSigningPhaseActive(permit)) return null
   if (isPermitSigningRejected(permit)) return null
+  if (permit.status === 'draft') {
+    if (!isRoleSigned(permit, 'performer', directory)) return 'performer'
+    return null
+  }
+  if (!permitSigningPhaseActive(permit)) return null
   if (!isRoleSigned(permit, 'performer', directory)) return 'performer'
   if (!allCrewAcknowledged(permit, directory)) return null
   if (permitRequiresErtApproval(permit) && !isRoleSigned(permit, 'ert', directory)) {
@@ -189,11 +199,15 @@ export function canSignRoleNow(
   role: EgovSignRole,
   directory: DemoUser[] = [],
 ): boolean {
+  if (permit.status === 'draft') {
+    return role === 'performer' && !isRoleSigned(permit, 'performer', directory)
+  }
   if (!permitSigningPhaseActive(permit)) return false
   if (isPermitSigningRejected(permit)) return false
   if (displayRoleSigned(permit, role, directory)) return false
   if (!requiredSignRoles(permit).includes(role)) return false
-  return nextRoleToSign(permit, directory) === role
+  if (nextRoleToSign(permit, directory) !== role) return false
+  return true
 }
 
 export function pdfApprovalRoleLabel(role: EgovSignRole): string {

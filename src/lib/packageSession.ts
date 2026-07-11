@@ -5,7 +5,7 @@ import { NEW_PERMIT_DRAFT_AUTOSAVE_KEY } from './newPermitDraftAutosave'
 import { clearNdGate } from './ndGate'
 import { clearPprGate } from './pprGate'
 import { clearPprForm } from './pprAutosave'
-import { clearResumePermitId } from './resumePermitPackage'
+import { clearResumePermitId, setResubmitAfterRejection } from './resumePermitPackage'
 
 export const PACKAGE_CLEARED_EVENT = 'nova-package-cleared'
 
@@ -63,6 +63,7 @@ export function clearPackageSession(): void {
   clearPprGate()
   clearPprForm()
   clearResumePermitId()
+  setResubmitAfterRejection(false)
   setNdprManualFillMode(false)
   try {
     for (const key of SESSION_KEYS_TO_CLEAR) {

@@ -28,7 +28,11 @@ import {
   syncSigningInvitesAfterSign,
   refreshCrewAckInvites,
 } from './signing/provisionSigners'
+import { cancelActiveSigningInvites } from './signing/cancelSigningInvites'
 import { renumberAllPermits } from './admin/renumberPermits'
+import { createDirectoryUser } from './admin/createDirectoryUser'
+import { deleteDirectoryUser } from './admin/deleteDirectoryUser'
+import { updateDirectoryUser } from './admin/updateDirectoryUser'
 import {
   cleanupOrphanPermitRelatedData,
   deletePermitRelatedDataForPermitsAdmin,
@@ -509,6 +513,99 @@ export const ensureDefaultWorkersFn = onCall(CALLABLE_OPTIONS, async (request) =
   }
 })
 
+/** Создать / обновить согласованта или работника (ФИО + роль) — только координатор. */
+export const createDirectoryUserFn = onCall(CALLABLE_OPTIONS, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Требуется вход')
+  }
+  const callerSnap = await db.collection('users').doc(request.auth.uid).get()
+  if (!callerSnap.exists) {
+    throw new HttpsError('permission-denied', 'Нет профиля пользователя')
+  }
+  const callerRole = String(callerSnap.data()?.role ?? '')
+  if (callerRole !== 'coordinator') {
+    throw new HttpsError('permission-denied', 'Только координатор может добавлять пользователей')
+  }
+
+  try {
+    return await createDirectoryUser(db, {
+      displayName: String(request.data?.displayName ?? ''),
+      role: String(request.data?.role ?? ''),
+      email: String(request.data?.email ?? ''),
+      password: request.data?.password != null ? String(request.data.password) : undefined,
+      position: request.data?.position != null ? String(request.data.position) : undefined,
+      iin: request.data?.iin != null ? String(request.data.iin) : undefined,
+      badgeNo: request.data?.badgeNo != null ? String(request.data.badgeNo) : undefined,
+    })
+  } catch (e) {
+    if (e instanceof HttpsError) throw e
+    throw new HttpsError(
+      'internal',
+      e instanceof Error ? e.message : 'Не удалось создать пользователя',
+    )
+  }
+})
+
+/** Удалить учётную запись (Auth + Firestore) — только координатор. */
+export const deleteDirectoryUserFn = onCall(CALLABLE_OPTIONS, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Требуется вход')
+  }
+  const callerSnap = await db.collection('users').doc(request.auth.uid).get()
+  if (!callerSnap.exists) {
+    throw new HttpsError('permission-denied', 'Нет профиля пользователя')
+  }
+  if (String(callerSnap.data()?.role ?? '') !== 'coordinator') {
+    throw new HttpsError('permission-denied', 'Только координатор может удалять пользователей')
+  }
+
+  try {
+    return await deleteDirectoryUser(db, {
+      targetUid: String(request.data?.uid ?? ''),
+      callerUid: request.auth.uid,
+    })
+  } catch (e) {
+    if (e instanceof HttpsError) throw e
+    throw new HttpsError(
+      'internal',
+      e instanceof Error ? e.message : 'Не удалось удалить пользователя',
+    )
+  }
+})
+
+/** Обновить учётную запись (ФИО, роль, email, пароль…) — только координатор. */
+export const updateDirectoryUserFn = onCall(CALLABLE_OPTIONS, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Требуется вход')
+  }
+  const callerSnap = await db.collection('users').doc(request.auth.uid).get()
+  if (!callerSnap.exists) {
+    throw new HttpsError('permission-denied', 'Нет профиля пользователя')
+  }
+  if (String(callerSnap.data()?.role ?? '') !== 'coordinator') {
+    throw new HttpsError('permission-denied', 'Только координатор может изменять пользователей')
+  }
+
+  try {
+    return await updateDirectoryUser(db, {
+      uid: String(request.data?.uid ?? ''),
+      displayName: String(request.data?.displayName ?? ''),
+      role: String(request.data?.role ?? ''),
+      email: String(request.data?.email ?? ''),
+      password: request.data?.password != null ? String(request.data.password) : undefined,
+      position: request.data?.position != null ? String(request.data.position) : undefined,
+      iin: request.data?.iin != null ? String(request.data.iin) : undefined,
+      badgeNo: request.data?.badgeNo != null ? String(request.data.badgeNo) : undefined,
+    })
+  } catch (e) {
+    if (e instanceof HttpsError) throw e
+    throw new HttpsError(
+      'internal',
+      e instanceof Error ? e.message : 'Не удалось обновить пользователя',
+    )
+  }
+})
+
 /** Перенумеровать наряды 001, 002… по дате создания (координатор). */
 export const renumberPermitsFn = onCall(CALLABLE_OPTIONS, async (request) => {
   if (!request.auth?.uid) {
@@ -983,7 +1080,7 @@ export const resolveWorkStopFn = onCall(CALLABLE_OPTIONS, async (request) => {
   if (!isInspectorFirestoreUser(user)) {
     throw new HttpsError(
       'permission-denied',
-      'Аннулировать НДПР и снимать остановку может только Инженер по ОТ, ТБ и ООС',
+      'Аннулировать НДПР и снимать остановку может только Ведущий инженер по ОТ, ТБ',
     )
   }
 
@@ -1034,6 +1131,13 @@ export const resolveWorkStopFn = onCall(CALLABLE_OPTIONS, async (request) => {
   })
 
   await resolveWorkStopAlertsAdmin(db, permitId)
+  if (action === 'annul') {
+    await cancelActiveSigningInvites(
+      db,
+      permitId,
+      'Наряд аннулирован — подпись больше не требуется',
+    )
+  }
   return { ok: true, status: nextStatus }
 })
 

@@ -34,6 +34,8 @@ export async function buildCrewAckPackagePdf(
     let abr = rawAbr
     if (permit.ppr) {
       abr = applyAbrHeaderFromPprNd(abr, permit.ppr, permit)
+    } else if (permit.registrationRefNo?.trim()) {
+      abr = { ...abr, permitNo: permit.registrationRefNo.trim() }
     }
     abr = mergeAbrPeopleFromNd(abr, permit, resolveName, resolveBadge)
     const { base64 } = await buildAbrPdf(abr, permit.abrDailyAcks, {

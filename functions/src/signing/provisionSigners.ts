@@ -21,6 +21,7 @@ import { ERT_ACCOUNT_TEMPLATE, type ErtAccountTemplate } from './ertTemplate'
 import { executorBriefingDone } from './crewAck'
 import { normalizePermitExecutorUids, resolveWorkerUidOnServer } from './resolveWorkerUid'
 import { notifyUser } from '../notifications/notifyUser'
+import { isDirectoryEmailDeleted } from '../admin/deletedDirectoryEmails'
 import type { EgovSignRole } from './types'
 
 const ROLE_UID_FIELD: Record<EgovSignRole, string> = {
@@ -96,6 +97,14 @@ export async function ensureWorkerAccount(
   db: Firestore,
   template: WorkerAccountTemplate,
 ): Promise<ProvisionedAccount> {
+  if (await isDirectoryEmailDeleted(db, template.email)) {
+    return {
+      uid: '',
+      email: template.email,
+      displayName: template.displayName,
+      created: false,
+    }
+  }
   const auth = getAuth()
   let userRecord
   let created = false
@@ -143,14 +152,16 @@ export async function ensureDefaultWorkerAccounts(
   const accounts = await Promise.all(
     WORKER_ACCOUNT_TEMPLATES.map((template) => ensureWorkerAccount(db, template)),
   )
-  return accounts.map((account, i) => ({
-    uid: account.uid,
-    email: account.email,
-    displayName: account.displayName,
-    role: 'executor',
-    badgeNo: WORKER_ACCOUNT_TEMPLATES[i].badgeNo,
-    created: account.created,
-  }))
+  return accounts
+    .map((account, i) => ({
+      uid: account.uid,
+      email: account.email,
+      displayName: account.displayName,
+      role: 'executor' as const,
+      badgeNo: WORKER_ACCOUNT_TEMPLATES[i].badgeNo,
+      created: account.created,
+    }))
+    .filter((account) => Boolean(account.uid))
 }
 
 async function provisionCrewInvites(
@@ -223,6 +234,14 @@ export async function ensureRoleAccount(
   db: Firestore,
   template: SignerAccountTemplate,
 ): Promise<ProvisionedAccount> {
+  if (await isDirectoryEmailDeleted(db, template.email)) {
+    return {
+      uid: '',
+      email: template.email,
+      displayName: template.displayName,
+      created: false,
+    }
+  }
   const auth = getAuth()
   let userRecord
   let created = false
@@ -269,6 +288,17 @@ export async function ensureInspectorAccount(
   db: Firestore,
   template: InspectorAccountTemplate = INSPECTOR_ACCOUNT_TEMPLATE,
 ): Promise<InspectorProvisionedAccount> {
+  if (await isDirectoryEmailDeleted(db, template.email)) {
+    return {
+      uid: '',
+      email: template.email,
+      displayName: template.displayName,
+      role: template.role,
+      badgeNo: template.badgeNo,
+      inspectorSites: template.inspectorSites,
+      created: false,
+    }
+  }
   const auth = getAuth()
   let userRecord
   let created = false
@@ -318,6 +348,16 @@ export async function ensureErtAccount(
   db: Firestore,
   template: ErtAccountTemplate = ERT_ACCOUNT_TEMPLATE,
 ): Promise<ErtProvisionedAccount> {
+  if (await isDirectoryEmailDeleted(db, template.email)) {
+    return {
+      uid: '',
+      email: template.email,
+      displayName: template.displayName,
+      role: template.role,
+      badgeNo: template.badgeNo,
+      created: false,
+    }
+  }
   const auth = getAuth()
   let userRecord
   let created = false
@@ -360,11 +400,42 @@ export async function ensureErtAccount(
   }
 }
 
+function egovSignedByUid(permit: DocumentData, role: EgovSignRole): string {
+  const egov = permit.egovSignatures as
+    | Record<string, { cmsBase64?: string; signedByUid?: string }>
+    | undefined
+  const stored = egov?.[role]
+  if (!stored?.cmsBase64?.trim()) return ''
+  return String(stored.signedByUid ?? '').trim()
+}
+
 async function resolveSignerUid(
   db: Firestore,
   permit: DocumentData,
   role: EgovSignRole,
 ): Promise<ResolvedSigner> {
+  const fromEgov = egovSignedByUid(permit, role)
+  if (fromEgov) {
+    const snap = await db.collection('users').doc(fromEgov).get()
+    if (snap.exists) {
+      const data = snap.data() ?? {}
+      if (role === 'ert') {
+        return {
+          uid: fromEgov,
+          email: String(data.email ?? ERT_ACCOUNT_TEMPLATE.email),
+          displayName: String(data.displayName ?? ERT_ACCOUNT_TEMPLATE.displayName),
+          accountCreated: false,
+        }
+      }
+      const template = SIGNER_ACCOUNT_TEMPLATES[role]
+      return {
+        uid: fromEgov,
+        email: String(data.email ?? template.email),
+        displayName: String(data.displayName ?? template.displayName),
+        accountCreated: false,
+      }
+    }
+  }
   if (role === 'ert') {
     const currentUid = assigneeUidForRole(permit, role)
     if (currentUid && !isPlaceholderAssigneeUid(currentUid)) {
@@ -427,54 +498,55 @@ export async function ensureDefaultNdprSignerAccounts(db: Firestore): Promise<{
   const additionalPerformers = await Promise.all(
     ADDITIONAL_PERFORMER_ACCOUNT_TEMPLATES.map((template) => ensureRoleAccount(db, template)),
   )
+  const accounts: NdprSignerSlot[] = [
+    {
+      slot: 'performer' as const,
+      uid: performer.uid,
+      email: performer.email,
+      displayName: performer.displayName,
+      role: 'performer' as const,
+      badgeNo: SIGNER_ACCOUNT_TEMPLATES.performer.badgeNo,
+      created: performer.created,
+    },
+    ...additionalPerformers.map((account, i) => ({
+      slot: 'performer' as const,
+      uid: account.uid,
+      email: account.email,
+      displayName: account.displayName,
+      role: 'performer' as const,
+      badgeNo: ADDITIONAL_PERFORMER_ACCOUNT_TEMPLATES[i].badgeNo,
+      created: account.created,
+    })),
+    {
+      slot: 'permitter' as const,
+      uid: permitter.uid,
+      email: permitter.email,
+      displayName: permitter.displayName,
+      role: 'permitter' as const,
+      badgeNo: SIGNER_ACCOUNT_TEMPLATES.permitter.badgeNo,
+      created: permitter.created,
+    },
+    {
+      slot: 'issuer' as const,
+      uid: issuer.uid,
+      email: issuer.email,
+      displayName: issuer.displayName,
+      role: 'issuer' as const,
+      badgeNo: SIGNER_ACCOUNT_TEMPLATES.issuer.badgeNo,
+      created: issuer.created,
+    },
+    {
+      slot: 'leadExpert' as const,
+      uid: leadExpert.uid,
+      email: leadExpert.email,
+      displayName: leadExpert.displayName,
+      role: 'leadExpert' as const,
+      badgeNo: SIGNER_ACCOUNT_TEMPLATES.leadExpert.badgeNo,
+      created: leadExpert.created,
+    },
+  ].filter((account) => Boolean(account.uid)) as NdprSignerSlot[]
   return {
-    accounts: [
-      {
-        slot: 'performer',
-        uid: performer.uid,
-        email: performer.email,
-        displayName: performer.displayName,
-        role: 'performer',
-        badgeNo: SIGNER_ACCOUNT_TEMPLATES.performer.badgeNo,
-        created: performer.created,
-      },
-      ...additionalPerformers.map((account, i) => ({
-        slot: 'performer' as const,
-        uid: account.uid,
-        email: account.email,
-        displayName: account.displayName,
-        role: 'performer' as const,
-        badgeNo: ADDITIONAL_PERFORMER_ACCOUNT_TEMPLATES[i].badgeNo,
-        created: account.created,
-      })),
-      {
-        slot: 'permitter',
-        uid: permitter.uid,
-        email: permitter.email,
-        displayName: permitter.displayName,
-        role: 'permitter',
-        badgeNo: SIGNER_ACCOUNT_TEMPLATES.permitter.badgeNo,
-        created: permitter.created,
-      },
-      {
-        slot: 'issuer',
-        uid: issuer.uid,
-        email: issuer.email,
-        displayName: issuer.displayName,
-        role: 'issuer',
-        badgeNo: SIGNER_ACCOUNT_TEMPLATES.issuer.badgeNo,
-        created: issuer.created,
-      },
-      {
-        slot: 'leadExpert',
-        uid: leadExpert.uid,
-        email: leadExpert.email,
-        displayName: leadExpert.displayName,
-        role: 'leadExpert',
-        badgeNo: SIGNER_ACCOUNT_TEMPLATES.leadExpert.badgeNo,
-        created: leadExpert.created,
-      },
-    ],
+    accounts,
     inspector,
     ert,
   }

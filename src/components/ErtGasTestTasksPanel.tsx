@@ -37,7 +37,7 @@ export function ErtGasTestTasksPanel(props: { tasks: ErtGasTestTask[] }) {
             <p className="small" style={{ margin: '0.5rem 0 0.65rem' }}>
               {summary}
             </p>
-            <Link className="btn primary small" to={`/p/${permit.id}#ert-gas-tests`}>
+            <Link className="btn primary small" to={`/p/${permit.id}`}>
               {t.ert.openGasTest}
             </Link>
           </li>

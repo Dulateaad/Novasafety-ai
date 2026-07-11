@@ -6,7 +6,7 @@ import {
   NEBOSH_MATRIX_COLS,
   NEBOSH_MATRIX_ROWS,
   NEBOSH_PDF_COLORS,
-  NEBOSH_RISK_BAND_EN,
+  NEBOSH_RISK_BAND_LABELS,
   NEBOSH_SEVERITY_SHORT,
   neboshCellColor,
   neboshCellTextColor,
@@ -26,6 +26,7 @@ import { mergeNeboshApprovalPeopleFromNd } from './ndprApprovalPeople'
 import { resolveUserBadgeNo } from './userBadgeNumbers'
 import { wrapTextAtWords } from './pdfTextWrap'
 import { initPdfMake, pdfBase64Async } from './pdfMakeEngine'
+import { sanitizeNeboshRiskAnnotations } from './neboshRiskText'
 import { inferNeboshScores } from './inferNeboshScores'
 import { buildPermitCrewRows } from './permitCrewRows'
 import { crewAckDatePdfText, crewAckSignaturePdfText } from './crewAckPdfText'
@@ -84,7 +85,7 @@ const REGISTRY_COLSPAN_FILLERS = (): PdfCell[] =>
 function riskBandCell(band: NeboshRiskBand, fontSize = FS_RISK_BAND): PdfCell {
   if (!band) return scoreCell('—', NEBOSH_PDF_COLORS.white)
   return {
-    text: NEBOSH_RISK_BAND_EN[band],
+    text: NEBOSH_RISK_BAND_LABELS[band],
     fillColor: neboshRiskBandFill(band),
     color: neboshRiskBandTextColor(band),
     alignment: 'center',
@@ -287,20 +288,7 @@ function formatListedText(text: string): string {
 }
 
 function stripResidualRiskAnnotations(text: string): string {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => {
-      if (!line) return false
-      if (/^\(?\s*остаточн/i.test(line)) return false
-      if (/^\(?\s*residual\s+risk/i.test(line)) return false
-      if (/^\(\s*(LOW|MEDIUM|HIGH|НИЗКИЙ|СРЕДНИЙ|ВЫСОКИЙ)\s*\)$/i.test(line)) return false
-      return true
-    })
-    .join('\n')
-    .replace(/\s*\(\s*остаточн[^)]*\)/gi, '')
-    .replace(/\s*\(\s*residual\s+risk[^)]*\)/gi, '')
-    .trim()
+  return sanitizeNeboshRiskAnnotations(text)
 }
 
 function formatMeasures(text: string): string {
@@ -393,7 +381,7 @@ function registryTable(form: AsorForm): Record<string, unknown> | null {
     ],
     [
       {
-        text: 'В = Вероятность (1–5)   Т = Тяжесть (1–5)   Риск = В×Т   HIGH ≥15   MEDIUM 8–14   LOW 1–7',
+        text: 'В = Вероятность (1–5)   Т = Тяжесть (1–5)   Риск = В×Т   ВЫСОКИЙ ≥15   СРЕДНИЙ 8–14   НИЗКИЙ 1–7',
         colSpan: 11,
         fillColor: NEBOSH_PDF_COLORS.headerMid,
         color: '#FFFFFF',

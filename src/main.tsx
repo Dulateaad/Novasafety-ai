@@ -13,6 +13,7 @@ import './toast-overrides.css'
 import './crew-ack-worker.css'
 import './work-stop-modal.css'
 import './egov-sign-tabs.css'
+import './rejection-notice.css'
 import App from './App.tsx'
 
 void ensureFreshServiceWorker().then(() => {

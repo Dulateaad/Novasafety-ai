@@ -41,6 +41,8 @@ function prepareAbrForPermit(
   let abr = raw
   if (permit.ppr) {
     abr = applyAbrHeaderFromPprNd(abr, permit.ppr, permit)
+  } else if (permit.registrationRefNo?.trim()) {
+    abr = { ...abr, permitNo: permit.registrationRefNo.trim() }
   }
   return mergeAbrPeopleFromNd(abr, permit, resolveName, resolveBadge)
 }

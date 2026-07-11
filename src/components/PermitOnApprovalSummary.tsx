@@ -165,14 +165,25 @@ export function PermitOnApprovalSummary({
   if (variant === 'inline') return inner
 
   return (
-    <section className="card" style={{ marginBottom: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>
-        {rejected
-          ? 'Согласование отклонено'
-          : permit.status === 'on_approval'
+    <section className={`card${rejected ? ' rejected-permits-panel rejected-permits-panel--single' : ''}`} style={{ marginBottom: '1rem' }}>
+      {rejected ? (
+        <header className="rejected-permits-panel__header">
+          <span className="rejected-permits-panel__badge" aria-hidden>
+            ✕
+          </span>
+          <div>
+            <h2 className="rejected-permits-panel__title" style={{ marginTop: 0 }}>
+              Согласование отклонено
+            </h2>
+          </div>
+        </header>
+      ) : (
+        <h2 style={{ marginTop: 0 }}>
+          {permit.status === 'on_approval'
             ? 'Статус согласования НДПР'
             : 'Согласование НДПР (завершено)'}
-      </h2>
+        </h2>
+      )}
       {inner}
     </section>
   )

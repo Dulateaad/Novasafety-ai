@@ -6,6 +6,7 @@ import { seedApprovalNamesFromPermit } from './approvalSequence'
 import { renderWorkPermissionsBundle } from './buildWorkPermissionPdf'
 import { buildSigningPackagePdf } from './buildSigningPackagePdf'
 import { finalizeAsorFormForReady } from './finalizeGeneratedRiskDocs'
+import { resolveDraftRegistrationRefNo } from './registrationNumber'
 import { resolveUserBadgeNo } from './userBadgeNumbers'
 import {
   packageDraftToPermitFields,
@@ -13,6 +14,7 @@ import {
   clearResumePermitId,
   writeResumePermitId,
 } from './resumePermitPackage'
+import { findReusablePermitIdForSubmit } from './submitNdprPackageFlow'
 import { enrichWorkPermissionsBundle, initializeWorkPermissionsBundle } from './workPermissions'
 import type { WorkPermissionsBundle } from '../types/workPermissions'
 
@@ -21,6 +23,7 @@ export type PersistPermitAfterRiskDeps = {
   form: AsorForm
   ppr: PprForm | undefined
   existingStatus?: PermitStatus
+  permits?: readonly Permit[]
   createPermit: (draft: PermitDraft) => Promise<Permit>
   updatePermit: (id: string, patch: Partial<Permit>) => Promise<void>
   transition: (id: string, next: PermitStatus) => Promise<void>
@@ -37,6 +40,7 @@ export async function persistPermitAfterRiskAssessment(
     form,
     ppr,
     existingStatus,
+    permits = [],
     createPermit,
     updatePermit,
     transition,
@@ -45,35 +49,41 @@ export async function persistPermitAfterRiskAssessment(
   } = deps
 
   const resolveBadge = (uid: string) => resolveUserBadgeNo(uid, userDirectory)
+  const registrationRefNo = resolveDraftRegistrationRefNo(
+    draft,
+    permits,
+    readResumePermitId(),
+  )
+  const draftWithReg: PermitDraft = { ...draft, registrationRefNo }
   const asorWithApprovers = finalizeAsorFormForReady(
-    seedApprovalNamesFromPermit(form, draft, resolveUser, resolveBadge),
+    seedApprovalNamesFromPermit(form, draftWithReg, resolveUser, resolveBadge),
     ppr,
+    draftWithReg,
   )
   const abrShift =
-    draft.f02.shift ||
+    draftWithReg.f02.shift ||
     (asorWithApprovers.abr?.shiftNight
       ? 'night'
       : asorWithApprovers.abr?.shiftDay
         ? 'day'
         : '')
 
-  let packageDraft = applyAsorToPermitDraft(draft, asorWithApprovers)
+  let packageDraft = applyAsorToPermitDraft(draftWithReg, asorWithApprovers)
   packageDraft = {
     ...packageDraft,
-    title: draft.title.trim() || packageDraft.title,
-    workStages: draft.workStages,
+    title: draftWithReg.title.trim() || packageDraft.title,
+    workStages: draftWithReg.workStages,
     workDescription:
-      draft.workStages.trim() ||
-      draft.workDescription.trim() ||
+      draftWithReg.workStages.trim() ||
+      draftWithReg.workDescription.trim() ||
       packageDraft.workDescription,
     ppr,
     asor: asorWithApprovers,
     f02: { ...packageDraft.f02, shift: abrShift },
-    f04: draft.permitType === 'cold' ? undefined : draft.f04,
+    f04: draftWithReg.permitType === 'cold' ? undefined : draftWithReg.f04,
     isContractorPermit: false,
-    performerUid: draft.performerUid,
-    registrationRefNo:
-      draft.registrationRefNo.trim() || packageDraft.registrationRefNo,
+    performerUid: draftWithReg.performerUid,
+    registrationRefNo,
   }
 
   let bundle = initializeWorkPermissionsBundle(packageDraft, ppr)
@@ -81,22 +91,35 @@ export async function persistPermitAfterRiskAssessment(
   packageDraft = { ...packageDraft, workPermissions: bundle }
 
   const resumePermitId = readResumePermitId()
-  let permitId: string
+  const reusableId = findReusablePermitIdForSubmit(packageDraft, permits)
   let status: PermitStatus = existingStatus ?? 'draft'
 
-  if (resumePermitId) {
+  const tryIds = [resumePermitId, reusableId].filter(
+    (id, i, arr): id is string => Boolean(id) && arr.indexOf(id) === i,
+  )
+
+  let permitId = ''
+  for (const id of tryIds) {
     try {
-      await updatePermit(resumePermitId, packageDraftToPermitFields(packageDraft))
-      permitId = resumePermitId
+      const existing = permits.find((p) => p.id === id)
+      const keepReg =
+        existing?.registrationRefNo?.trim() || packageDraft.registrationRefNo.trim()
+      await updatePermit(
+        id,
+        packageDraftToPermitFields({
+          ...packageDraft,
+          ...(keepReg ? { registrationRefNo: keepReg } : {}),
+        }),
+      )
+      permitId = id
+      writeResumePermitId(id)
+      break
     } catch (e) {
       if (!(e instanceof Error && e.message === 'Permit not found')) throw e
-      clearResumePermitId()
-      const created = await createPermit(packageDraft)
-      permitId = created.id
-      status = created.status
-      writeResumePermitId(permitId)
+      if (id === resumePermitId) clearResumePermitId()
     }
-  } else {
+  }
+  if (!permitId) {
     const created = await createPermit(packageDraft)
     permitId = created.id
     status = created.status

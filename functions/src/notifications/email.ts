@@ -96,6 +96,36 @@ function buildHtml(payload: PushPayload): string {
 </body></html>`
 }
 
+function resolveEmailFrom(): string {
+  const configured = process.env.EMAIL_FROM?.trim()
+  const smtpUser = process.env.SMTP_USER?.trim() || ''
+
+  if (configured) {
+    const addrMatch = configured.match(/<([^>]+)>/)
+    const addr = (addrMatch?.[1] ?? configured).trim()
+    if (LOCAL_EMAIL.test(addr)) {
+      console.warn(
+        '[NOVA] EMAIL_FROM uses a local/example domain and will land in JUNK; falling back to SMTP_USER',
+        addr,
+      )
+      if (isValidEmail(smtpUser)) {
+        return `NOVA SAFETY AI <${smtpUser}>`
+      }
+    }
+    return configured
+  }
+
+  if (isValidEmail(smtpUser)) {
+    console.warn('[NOVA] EMAIL_FROM not set; using SMTP_USER as From to reduce spam risk')
+    return `NOVA SAFETY AI <${smtpUser}>`
+  }
+
+  console.warn(
+    '[NOVA] EMAIL_FROM missing and SMTP_USER is not a valid public email — messages may go to JUNK',
+  )
+  return 'NOVA SAFETY AI <noreply@nova.local>'
+}
+
 /** Отправляет email пользователю, если настроен SMTP и указана рабочая почта. */
 export async function sendEmailToUid(
   db: Firestore,
@@ -111,12 +141,13 @@ export async function sendEmailToUid(
   const to = await getUserNotificationEmail(db, uid)
   if (!to) return false
 
-  const from = process.env.EMAIL_FROM?.trim() || 'NOVA SAFETY AI <noreply@nova.local>'
+  const from = resolveEmailFrom()
 
   try {
     await transport.sendMail({
       from,
       to,
+      replyTo: process.env.SMTP_USER?.trim() || undefined,
       subject: payload.title,
       text: payload.body
         ? `${payload.title}\n\n${payload.body}\n\n${publicAppUrl()}`

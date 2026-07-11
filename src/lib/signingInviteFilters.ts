@@ -1,11 +1,21 @@
-import type { DemoUser, Permit } from '../types/domain'
+import type { DemoUser, Permit, PermitStatus } from '../types/domain'
 import type { EgovSignRole } from '../types/egovSignature'
 import { isPermitSigningRejected } from './permitRejectionDisplay'
 import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
+import { permitterPreWorkAllowsSign } from './permitterPreWorkHints'
 import { isRoleSigned } from './signatureStatus'
 import type { SigningInvite } from '../types/signingInvite'
 import { isExecutorCrewAckDone } from './crewAckComplete'
 import { ertGasTestBlocksErtSign } from './ertGasTestHints'
+
+/** Статусы, при которых подпись/ознакомление больше не требуются. */
+const SIGNING_INVITE_INACTIVE_STATUSES = new Set<PermitStatus>([
+  'annulled',
+  'closed',
+  'archived',
+  'suspended',
+  'draft',
+])
 
 function crewAckDone(
   permit: Permit,
@@ -31,6 +41,7 @@ export function isSigningInviteStillActionable(
 ): boolean {
   if (invite.status !== 'active') return false
   if (!permit) return false
+  if (SIGNING_INVITE_INACTIVE_STATUSES.has(permit.status)) return false
   if (isPermitSigningRejected(permit)) return false
 
   if (invite.inviteType === 'crew_ack') {
@@ -59,7 +70,8 @@ export function filterSigningInvitesForViewer(
     if (invite.inviteType !== 'approval' || invite.signRole !== 'permitter') return true
     const permit = byId.get(invite.permitId)
     if (!permit) return false
-    return permitterOnApprovalUnlocked(permit, directory)
+    if (!permitterOnApprovalUnlocked(permit, directory)) return false
+    return permitterPreWorkAllowsSign(permit)
   })
 }
 

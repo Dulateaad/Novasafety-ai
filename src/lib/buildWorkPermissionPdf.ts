@@ -246,8 +246,8 @@ function metaHeaderTable(
 }
 
 function gasTestModesBlock(f: WorkPermissionForm): PdfBlock[] {
-  const primary = f.gasTestPrimary ?? true
   const continuous = f.gasTestContinuous ?? false
+  const primary = continuous ? false : (f.gasTestPrimary ?? true)
   if (!primary && !continuous) return []
   const lines: string[] = []
   if (primary) {

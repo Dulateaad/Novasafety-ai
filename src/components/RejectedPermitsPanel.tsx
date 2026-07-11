@@ -26,6 +26,9 @@ export function RejectedPermitsPanel({ permits, resolveUser, onDismiss }: Props)
   return (
     <section className="rejected-permits-panel" role="alert">
       <header className="rejected-permits-panel__header">
+        <span className="rejected-permits-panel__badge" aria-hidden>
+          ✕
+        </span>
         <div>
           <h2 className="rejected-permits-panel__title">{i.rejectedTitle}</h2>
           <p className="rejected-permits-panel__lead">

@@ -24,7 +24,7 @@ import { assertSignaturePatchAllowed } from '../lib/signatureGuard'
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
 import { mergeAbrDailyAcksBundles, normalizeAbrDailyAcks } from '../lib/abrDailyAck'
-import { resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { nextRegistrationNumber, resolveRegistrationRefNo } from '../lib/registrationNumber'
 import { readResumePermitId } from '../lib/resumePermitPackage'
 import { deleteSigningInvitesForPermit, deleteSigningInvitesForPermits } from '../lib/deletePermitInvites'
 import { cleanupPermitRelatedDataClient } from '../lib/cleanupPermitRelatedData'
@@ -172,7 +172,11 @@ export class FirestorePermitRepository implements PermitRepository {
 
   async create(draft: PermitDraft, actor: DemoUser): Promise<Permit> {
     const existing = await this.list()
-    const regNo = resolveRegistrationRefNo(draft, existing, readResumePermitId())
+    let regNo = resolveRegistrationRefNo(draft, existing, readResumePermitId())
+    // Не допускаем два наряда с одним № — если номер занят, берём следующий.
+    if (existing.some((p) => p.registrationRefNo?.trim() === regNo)) {
+      regNo = nextRegistrationNumber(existing)
+    }
     const id = uid()
     const p: Permit = {
       ...draft,
@@ -211,6 +215,7 @@ export class FirestorePermitRepository implements PermitRepository {
     id: string,
     patch: Partial<Permit>,
     actor: DemoUser,
+    directory: DemoUser[] = [],
   ): Promise<void> {
     const ref = doc(this.fs, 'permits', id)
     const cur = await this.getById(id)
@@ -290,8 +295,8 @@ export class FirestorePermitRepository implements PermitRepository {
       }
       if (d.permitType === 'cold') next = { ...next, f04: undefined }
     }
-    if (patch.signatures) {
-      assertSignaturePatchAllowed(actor, cur, patch.signatures)
+    if (patch.signatures && !patch.lastRejection) {
+      assertSignaturePatchAllowed(actor, cur, patch.signatures, directory)
     }
     await setDoc(ref, forFirestore(next), { merge: true })
     if (patch.signatures || patch.contractorSafetyApproved !== undefined) {
@@ -582,7 +587,7 @@ export class FirestorePermitRepository implements PermitRepository {
       throw new Error('Исправить отклонённый пакет может производитель работ по наряду')
     }
     const atIso = nowIso()
-    const fields = rejectedPermitResubmitFields()
+    const fields = rejectedPermitResubmitFields(permit)
     const ref = doc(this.fs, 'permits', id)
     await setDoc(
       ref,
@@ -632,8 +637,12 @@ export class FirestorePermitRepository implements PermitRepository {
 
   async deleteAllPermits(_actor: DemoUser): Promise<void> {
     const snap = await getDocs(this.permitsCol())
-    const permitIds = snap.docs.map((d) => d.id)
-    for (const permitDoc of snap.docs) {
+    const toDelete = snap.docs.filter((d) => {
+      const status = String(d.data()?.status ?? '')
+      return status !== 'draft'
+    })
+    const permitIds = toDelete.map((d) => d.id)
+    for (const permitDoc of toDelete) {
       const journalSnap = await getDocs(this.journalCol(permitDoc.id))
       const batch = writeBatch(this.fs)
       journalSnap.forEach((d) => batch.delete(d.ref))

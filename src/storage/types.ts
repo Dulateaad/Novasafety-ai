@@ -37,6 +37,7 @@ export interface PermitRepository {
     id: string,
     patch: Partial<Permit>,
     actor: DemoUser,
+    directory?: DemoUser[],
   ): Promise<void>
   transition(
     id: string,

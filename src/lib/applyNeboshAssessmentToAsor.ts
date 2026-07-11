@@ -10,6 +10,7 @@ import {
   emptyHazard,
   emptyTask,
 } from '../types/asor'
+import { sanitizeNeboshRiskAnnotations } from './neboshRiskText'
 import type { NeboshRiskAssessmentPayload } from './neboshRiskAssessmentParse'
 
 export function applyNeboshAssessmentToAsor(
@@ -29,9 +30,10 @@ export function applyNeboshAssessmentToAsor(
           (h.residualSeverity ?? 0) as NeboshScaleValue,
         ),
       )
-      let measures = h.protectiveMeasures || ''
-      if (h.residualNote?.trim()) {
-        measures = measures ? `${measures}\n${h.residualNote}` : h.residualNote
+      let measures = sanitizeNeboshRiskAnnotations(h.protectiveMeasures || '')
+      const residualNote = sanitizeNeboshRiskAnnotations(h.residualNote || '')
+      if (residualNote) {
+        measures = measures ? `${measures}\n${residualNote}` : residualNote
       }
       return {
         ...emptyHazard(),

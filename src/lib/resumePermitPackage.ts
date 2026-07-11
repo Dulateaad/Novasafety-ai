@@ -3,6 +3,7 @@ import { ASOR_EDITOR_AUTOSAVE_KEY } from '../types/asor'
 import { emptyPprForm, normalizePprForm } from '../types/ppr'
 import { setNdGatePassed } from './ndGate'
 import { setPprGatePassed } from './pprGate'
+import { clearRiskGate, setRiskGatePassed } from './riskGate'
 import { notifyNavGatesChanged } from './navGates'
 import {
   NEW_PERMIT_DRAFT_AUTOSAVE_KEY,
@@ -13,10 +14,35 @@ import {
   prepareNdprDraftForValidation,
   validateNdprDraft,
 } from './validateNdprDraft'
+import { resetExecutorsBriefingAck } from './resubmitRejectedPermit'
 
 export const RESUME_PERMIT_ID_KEY = 'nova_resume_permit_id_v1'
+/** Флаг: идёт исправление отклонённого наряда — не сбрасывать resume-id при from=ppr. */
+export const RESUBMIT_AFTER_REJECTION_KEY = 'nova_resubmit_after_rejection_v1'
 
 export type PackageResumeRoute = '/ppr' | '/new' | '/risk-assessment'
+
+export function isResubmitAfterRejection(): boolean {
+  try {
+    return sessionStorage.getItem(RESUBMIT_AFTER_REJECTION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setResubmitAfterRejection(on: boolean): void {
+  try {
+    if (on) sessionStorage.setItem(RESUBMIT_AFTER_REJECTION_KEY, '1')
+    else sessionStorage.removeItem(RESUBMIT_AFTER_REJECTION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Наряд уже проходил мастер и отправлялся на согласование — ППР повторно не нужен. */
+export function isPermitPackagePreviouslySubmitted(permit: Permit): boolean {
+  return Boolean(permit.packagePdf || permit.asor)
+}
 
 export function readResumePermitId(): string | null {
   try {
@@ -65,7 +91,10 @@ export function permitToPermitDraft(permit: Permit): PermitDraft {
 }
 
 /** Загружает данные наряда-черновика в sessionStorage для мастера ППР → НДПР → Оценка Риска. */
-export function restorePackageSessionFromPermit(permit: Permit): void {
+export function restorePackageSessionFromPermit(
+  permit: Permit,
+  opts?: { resubmitAfterRejection?: boolean },
+): void {
   const ppr = permit.ppr
     ? normalizePprForm(permit.ppr) ?? emptyPprForm()
     : emptyPprForm()
@@ -73,10 +102,13 @@ export function restorePackageSessionFromPermit(permit: Permit): void {
 
   const ndDraft = permitToPermitDraft(permit)
   const { asor, ppr: _ppr, ...ndOnly } = ndDraft
+  const ndForSession = opts?.resubmitAfterRejection
+    ? { ...ndOnly, executors: resetExecutorsBriefingAck(ndDraft.executors) }
+    : ndOnly
   try {
     sessionStorage.setItem(
       NEW_PERMIT_DRAFT_AUTOSAVE_KEY,
-      JSON.stringify({ ...ndOnly, asor: undefined, ppr: undefined }),
+      JSON.stringify({ ...ndForSession, asor: undefined, ppr: undefined }),
     )
   } catch {
     /* ignore quota */
@@ -90,17 +122,27 @@ export function restorePackageSessionFromPermit(permit: Permit): void {
     }
   }
 
-  try {
-    sessionStorage.setItem(RESUME_PERMIT_ID_KEY, permit.id)
-  } catch {
-    /* ignore */
-  }
+  writeResumePermitId(permit.id)
+  setResubmitAfterRejection(Boolean(opts?.resubmitAfterRejection))
 
-  if (pprHasNdprSource(ppr) && validatePprForm(ppr) === null) {
+  if (
+    isPermitPackagePreviouslySubmitted(permit) ||
+    (pprHasNdprSource(ppr) && validatePprForm(ppr) === null)
+  ) {
     setPprGatePassed()
   }
   setNdGatePassed()
+  if (permit.asor && !opts?.resubmitAfterRejection) {
+    setRiskGatePassed()
+  } else if (opts?.resubmitAfterRejection) {
+    clearRiskGate()
+  }
   notifyNavGatesChanged()
+}
+
+/** После отклонения — всегда на НДПР (ППР уже пройден). */
+export function resolveRejectedPermitResubmitRoute(permit: Permit): PackageResumeRoute {
+  return resolvePackageResumeRoute(permit, null, [])
 }
 
 /** Определяет вкладку мастера, на которой пользователь остановился. */
@@ -113,8 +155,14 @@ export function resolvePackageResumeRoute(
     ? normalizePprForm(permit.ppr) ?? emptyPprForm()
     : emptyPprForm()
 
-  if (!pprHasNdprSource(ppr) || validatePprForm(ppr) !== null) {
+  const skipPpr = isPermitPackagePreviouslySubmitted(permit)
+
+  if (!skipPpr && (!pprHasNdprSource(ppr) || validatePprForm(ppr) !== null)) {
     return '/ppr'
+  }
+
+  if (skipPpr) {
+    return '/new'
   }
 
   const parsed = parseStoredNewPermitDraft(permitToPermitDraft(permit))
@@ -131,6 +179,7 @@ export function resolvePackageResumeRoute(
 }
 
 export function packageDraftToPermitFields(draft: PermitDraft): Partial<Permit> {
+  const registrationRefNo = draft.registrationRefNo.trim()
   return {
     title: draft.title,
     permitType: draft.permitType,
@@ -149,7 +198,7 @@ export function packageDraftToPermitFields(draft: PermitDraft): Partial<Permit> 
     ertUid: draft.ertUid,
     isContractorPermit: draft.isContractorPermit,
     samePersonException: draft.samePersonException,
-    registrationRefNo: draft.registrationRefNo,
+    ...(registrationRefNo ? { registrationRefNo } : {}),
     f02: draft.f02,
     f04: draft.f04,
     executors: draft.executors,

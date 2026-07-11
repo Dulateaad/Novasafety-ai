@@ -1,7 +1,10 @@
 import { ABR_CONTROLS, ABR_HAZARDS } from '../config/abrCatalog'
+import type { PermitDraft } from '../types/domain'
+import type { PprForm } from '../types/ppr'
 import type { AbrForm, AbrStageRow } from '../types/abr'
 import type { AsorForm, AsorHazardRow } from '../types/asor'
-import type { PprForm } from '../types/ppr'
+import { applyAbrHeaderFromPprNd } from './prefillAbrFromPackage'
+import { sanitizeNeboshRiskAnnotations } from './neboshRiskText'
 
 const ABR_STAGE_PRESETS: Array<{ hazardNumbers: number[]; controlNumbers: number[] }> = [
   { hazardNumbers: [19, 7], controlNumbers: [7, 18, 48] },
@@ -104,8 +107,9 @@ function finalizeHazardRow(h: AsorHazardRow, taskTitle: string): AsorHazardRow {
     taskTitle.trim()
   return {
     ...h,
-    operationText: h.operationText.trim() || taskTitle.trim(),
-    factorDescription,
+    operationText: sanitizeNeboshRiskAnnotations(h.operationText.trim() || taskTitle.trim()),
+    factorDescription: sanitizeNeboshRiskAnnotations(factorDescription),
+    protectiveMeasures: sanitizeNeboshRiskAnnotations(h.protectiveMeasures),
   }
 }
 
@@ -123,10 +127,18 @@ export function finalizeNeboshTasksForReady(form: AsorForm): AsorForm {
   }
 }
 
-export function finalizeAsorFormForReady(form: AsorForm, ppr?: PprForm): AsorForm {
+export function finalizeAsorFormForReady(
+  form: AsorForm,
+  ppr?: PprForm,
+  nd?: Pick<PermitDraft, 'registrationRefNo' | 'f02'> | null,
+): AsorForm {
   let next = finalizeNeboshTasksForReady(form)
   if (next.abr?.stages.length) {
-    next = { ...next, abr: normalizeAbrStagesForReady(next.abr, ppr) }
+    let abr = normalizeAbrStagesForReady(next.abr, ppr)
+    if (ppr) {
+      abr = applyAbrHeaderFromPprNd(abr, ppr, nd)
+    }
+    next = { ...next, abr }
   }
   return next
 }

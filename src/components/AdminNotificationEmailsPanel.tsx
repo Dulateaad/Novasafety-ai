@@ -7,6 +7,7 @@ import {
   isNotificationEmailValid,
   saveNotificationEmail,
 } from '../lib/notificationEmail'
+import { useSession } from '../context/SessionContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useToast } from '../context/ToastContext'
 import { fillTemplate, roleLabel } from '../i18n/getLocale'
@@ -34,12 +35,18 @@ function roleRank(role: UserRole): number {
 
 export function AdminNotificationEmailsPanel() {
   const { t, language } = useLanguage()
+  const { userDirectory } = useSession()
   const ne = t.notificationEmail
   const { showError, showInfo } = useToast()
   const [rows, setRows] = useState<EmailRow[]>([])
   const [loading, setLoading] = useState(true)
   const [savingUid, setSavingUid] = useState<string | null>(null)
   const draftsRef = useRef<Record<string, string>>({})
+
+  const directoryKey = useMemo(
+    () => userDirectory.map((u) => u.id).sort().join('\u0000'),
+    [userDirectory],
+  )
 
   const loadRows = useCallback(async () => {
     if (!firebaseConfigured || !db) {
@@ -81,6 +88,14 @@ export function AdminNotificationEmailsPanel() {
   useEffect(() => {
     void loadRows()
   }, [loadRows])
+
+  useEffect(() => {
+    const activeIds = new Set(userDirectory.map((u) => u.id))
+    setRows((prev) => prev.filter((r) => activeIds.has(r.id)))
+    for (const uid of Object.keys(draftsRef.current)) {
+      if (!activeIds.has(uid)) delete draftsRef.current[uid]
+    }
+  }, [directoryKey, userDirectory])
 
   const approverRows = useMemo(
     () => rows.filter((r) => r.role !== 'executor'),

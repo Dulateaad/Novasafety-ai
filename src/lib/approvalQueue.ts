@@ -5,12 +5,14 @@ import { localeMessages } from '../i18n/getLocale'
 import { permitSigningPhaseActive } from './approvalSequence'
 import { permitRequiresErtApproval } from './fireWorkApproval'
 import { permitterOnApprovalUnlocked } from './permitterApprovalGate'
+import { permitterPreWorkAllowsSign } from './permitterPreWorkHints'
 import { isRoleSigned } from './signatureStatus'
 import { allCrewAcknowledged } from './crewAckComplete'
 import { ertGasTestComplete } from './ertGasTestHints'
 
 export type ApprovalAction =
   | 'sign_performer'
+  | 'fill_permitter_pre_work'
   | 'sign_permitter'
   | 'sign_issuer'
   | 'sign_lead_expert'
@@ -100,15 +102,31 @@ export function pendingApprovalsForUser(
     }
 
     if (permitterOnApprovalUnlocked(p, directory)) {
-      pushSignItem(items, p, user, directory, {
-        role: 'permitter',
-        assigneeUid: p.permitterUid,
-        signed: isRoleSigned(p, 'permitter', directory),
-        action: 'sign_permitter',
-        labelSelf: 'Поставить подпись допускающего',
-        labelCoord: 'Ожидает подпись допускающего',
-        priority: 2,
-      })
+      const preWorkReady = permitterPreWorkAllowsSign(p)
+      const isAssignedPermitter =
+        user.role === 'permitter' && uidMatchesAccount(p.permitterUid, user, directory)
+      if (
+        isAssignedPermitter &&
+        !preWorkReady &&
+        !isRoleSigned(p, 'permitter', directory)
+      ) {
+        items.push({
+          permit: p,
+          action: 'fill_permitter_pre_work',
+          label: localeMessages().preWorkCheck.tasksTitle,
+          priority: 2,
+        })
+      } else {
+        pushSignItem(items, p, user, directory, {
+          role: 'permitter',
+          assigneeUid: p.permitterUid,
+          signed: isRoleSigned(p, 'permitter', directory),
+          action: 'sign_permitter',
+          labelSelf: 'Поставить подпись допускающего',
+          labelCoord: 'Ожидает подпись допускающего',
+          priority: 2,
+        })
+      }
     }
 
     pushSignItem(items, p, user, directory, {
@@ -177,6 +195,8 @@ export function approvalActionHint(action: ApprovalAction): string {
   switch (action) {
     case 'sign_performer':
       return 'Откройте карточку → подпись производителя работ (составителя пакета).'
+    case 'fill_permitter_pre_work':
+      return 'Откройте карточку → заполните раздел 3 (проверки на рабочем месте) и сохраните.'
     case 'sign_permitter':
       return 'Раздел «Подписи и согласования» → отметьте подпись допускающего.'
     case 'sign_issuer':
@@ -186,7 +206,7 @@ export function approvalActionHint(action: ApprovalAction): string {
     case 'sign_ert':
       return 'После заполнения и сохранения таблицы газотеста → «Согласовать (ЭЦП eGov)».'
     case 'issue_permit':
-      return 'Все подписи собраны — нажмите «→ Выдан» в разделе «Смена статуса».'
+      return 'Все этапы согласования завершены — наряд будет выдан автоматически после последней подписи.'
     default:
       return ''
   }

@@ -33,3 +33,27 @@
 .pdf-package-heading{scroll-margin-top:.75rem}
 .package-brief__doc-links>.package-brief__doc-link{color:var(--brand-blue-deep);background:#e3f2fd;border:1px solid #90caf9;font-weight:600}
 .package-brief__doc-links>.package-brief__doc-link:hover:not(:disabled){color:var(--brand-blue-deep);background:#bbdefb;border-color:var(--brand-blue)}
+
+.admin-add-user{border:1px solid var(--border);background:var(--bg-elevated);border-radius:12px;margin:1rem 0 1.25rem;padding:1rem}
+.admin-add-user__title{margin:0 0 .35rem;font-size:1rem;font-weight:700;color:var(--text-h)}
+.admin-add-user__grid{grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:.75rem;margin-top:.75rem;display:grid}
+.admin-add-user .field{flex-direction:column;gap:.3rem;margin:0;display:flex}
+.admin-add-user .field-label{color:var(--muted);font-size:.78rem;font-weight:600}
+.admin-add-user input,.admin-add-user select{font:inherit;box-sizing:border-box;border:1px solid var(--border);background:var(--surface);width:100%;color:var(--text);border-radius:10px;min-height:2.5rem;padding:.45rem .65rem}
+.admin-add-user__actions{margin-top:.85rem}
+.admin-add-user__creds{border:1px solid color-mix(in srgb,var(--success) 35%,var(--border));background:var(--success-soft);border-radius:10px;margin:.75rem 0 0;padding:.65rem .75rem;line-height:1.45}
+.admin-add-user--edit{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));background:color-mix(in srgb,var(--accent-soft) 55%,var(--bg-elevated))}
+.admin-add-user--inline{margin:.35rem .5rem .65rem}
+.admin-panel__people-row--editing td{background:color-mix(in srgb,var(--accent-soft) 35%,transparent)}
+.admin-panel__people-edit-row td{padding:0 0 .35rem;border-top:0;vertical-align:top}
+.admin-panel__edit-active{font-weight:700}
+@media (width<=640px){.admin-add-user__grid{grid-template-columns:1fr}.admin-add-user__actions .btn{width:100%}}
+
+.admin-panel__row-actions{flex-wrap:wrap;align-items:center;gap:.55rem;display:inline-flex}
+.admin-panel__delete{color:var(--danger)!important}
+.admin-panel__delete:disabled{opacity:.45;cursor:not-allowed}
+.admin-panel__journal-toolbar{align-items:center;margin:.75rem 0}
+.admin-panel__journal-empty{margin:.5rem 0 0}
+.admin-panel__journal-table{margin-top:.25rem}
+.admin-panel__select-col{width:2.5rem;text-align:center;vertical-align:middle}
+.admin-panel__select-col input[type=checkbox]{cursor:pointer;width:1rem;height:1rem;accent-color:var(--brand-blue-deep)}

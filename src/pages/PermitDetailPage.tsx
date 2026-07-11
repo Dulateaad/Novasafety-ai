@@ -8,6 +8,7 @@ import { EgovSignatureRoleRow } from '../components/EgovSignatureRoleRow'
 import { CrewAckSignRow } from '../components/CrewAckSignRow'
 import { WorkerCrewAckPanel } from '../components/WorkerCrewAckPanel'
 import { PermitOnApprovalSummary } from '../components/PermitOnApprovalSummary'
+import { PermitRejectionNotice } from '../components/PermitRejectionNotice'
 import { ResubmitRejectedPermitButton } from '../components/ResubmitRejectedPermitButton'
 import { WorkStopActionCard } from '../components/WorkStopActionCard'
 import { WorkStopModal } from '../components/WorkStopModal'
@@ -31,12 +32,7 @@ import { DocumentKitSummary } from '../components/DocumentKitSummary'
 import { userById } from '../demoUsers'
 import { WORK_PERMISSION_BY_KIND } from '../config/workPermissionsConfig'
 import { PTW_SITE_OPTIONS } from '../config/ptwSites'
-import {
-  allowedNextStatuses,
-  canUserTriggerStatus,
-  issueStatusPatchIfApprovalsComplete,
-  validateTransition,
-} from '../lib/transitions'
+import { issueStatusPatchIfApprovalsComplete } from '../lib/transitions'
 import { matrixRow } from '../lib/matrix'
 import { addOneCalendarMonthFromStart } from '../lib/calendarMonth'
 import { formatStoredDateTime, toDatetimeLocalInput, normalizeDatetimeLocalInput } from '../lib/datetimeLocal'
@@ -103,8 +99,7 @@ import type { WorkStopPhoto } from '../types/workStop'
 import type { WorkStopResolveAction } from '../lib/workStopFunctions'
 import type { EgovSignRole, StoredEgovSignature } from '../types/egovSignature'
 import type { StoredCrewAckSignature } from '../types/crewAck'
-import type { PermitStatus } from '../types/domain'
-import { STATUS_LABELS, ZONE_CLASS_LABELS, PERMIT_TYPE_LABELS } from '../types/domain'
+import { ZONE_CLASS_LABELS, PERMIT_TYPE_LABELS } from '../types/domain'
 
 export function PermitDetailPage() {
   const { id } = useParams()
@@ -191,6 +186,24 @@ export function PermitDetailPage() {
       'work-stop-section',
       'inspector-rejected-section',
       'pdf-package',
+      'signatures-section',
+      'crew-ack-section',
+    ])
+    if (!hash || !scrollTargets.has(hash)) {
+      return scrollAppToTopWithRetries()
+    }
+  }, [id, location.hash])
+
+  useEffect(() => {
+    const hash = location.hash.slice(1)
+    const scrollTargets = new Set([
+      'ert-gas-tests',
+      'permitter-pre-work',
+      'work-stop-section',
+      'inspector-rejected-section',
+      'pdf-package',
+      'signatures-section',
+      'crew-ack-section',
     ])
     if (!hash || !scrollTargets.has(hash)) return
     if (hash === 'pdf-package' && !showPackageSection) return
@@ -322,6 +335,15 @@ export function PermitDetailPage() {
 
   const showInteractiveApproval = actor.role !== 'executor' && showApprovalFlow
 
+  /** Работники и остальные видят историю/статус ЭЦП без права подписи чужих ролей. */
+  const showSignaturesReadonly =
+    !showInteractiveApproval &&
+    (showApprovalFlow ||
+      (['issued', 'in_progress', 'suspended', 'closed', 'archived', 'annulled'].includes(
+        p.status,
+      ) &&
+        signingRoleOrder(p).some((role) => isRoleSigned(p, role))))
+
   const showWorkStopBtn =
     canUserInitiateWorkStop(p, actor) &&
     p.status !== 'closed' &&
@@ -425,12 +447,6 @@ export function PermitDetailPage() {
 
   const signingRoles = signingRoleOrder(p)
 
-  const showApprovalHistory =
-    actor.role !== 'executor' &&
-    !showApprovalFlow &&
-    ['issued', 'in_progress', 'suspended', 'closed', 'archived'].includes(p.status) &&
-    signingRoles.some((role) => isRoleSigned(p, role))
-
   function canEditWorkFields(): boolean {
     if (locked) return false
     return (
@@ -448,20 +464,11 @@ export function PermitDetailPage() {
     actorOnCrew &&
     isCrewAckPeriodActive(p.status)
 
-  const nextStatuses = allowedNextStatuses(p.status).filter((next) => {
-    if (!canUserTriggerStatus(p, next, actor.role)) return false
-    const v = validateTransition(p, next)
-    return v.ok
-  })
-
-  const blockedNext = allowedNextStatuses(p.status).filter((next) => {
-    if (!canUserTriggerStatus(p, next, user.role)) return false
-    return !validateTransition(p, next).ok
-  })
-
-  async function go(next: PermitStatus) {
-    await transition(p.id, next)
-  }
+  const showErtGasTestSection =
+    actor.role === 'ert' &&
+    permitHasGasTestDocuments(p) &&
+    (p.workPermissions?.documents?.length ?? 0) > 0 &&
+    (p.status === 'on_approval' || canErtEditGasTests(p, userDirectory))
 
   async function rejectPermit() {
     const comment = window.prompt(t.detail.rejectPrompt)
@@ -567,7 +574,7 @@ export function PermitDetailPage() {
   }
 
   async function removePermit() {
-    if (!canUserDeletePermit(actor)) return
+    if (!canUserDeletePermit(actor, p)) return
     const label = p.registrationRefNo || p.title
     if (!window.confirm(fillTemplate(t.confirm.deletePermit, { label }))) {
       return
@@ -576,7 +583,7 @@ export function PermitDetailPage() {
     nav('/')
   }
 
-  const canDelete = canUserDeletePermit(actor)
+  const canDelete = canUserDeletePermit(actor, p)
   const isWorkerView = actor.role === 'executor'
 
   return (
@@ -616,7 +623,7 @@ export function PermitDetailPage() {
         </div>
       ) : null}
 
-      {showPackageSection && packageBrief && !isWorkerView ? (
+      {showPackageSection && packageBrief ? (
         <section className="card" style={{ marginBottom: '1rem' }}>
           <h2 id="pdf-package" className="pdf-package-heading" style={{ marginTop: 0 }}>
             {dp.viewFullPdf}
@@ -689,24 +696,78 @@ export function PermitDetailPage() {
       ) : null}
 
       {showPerformerResubmit ? (
-        <section className="card" style={{ marginBottom: '1rem' }}>
-          <h2 style={{ marginTop: 0 }}>{t.invites.rejectedTitle}</h2>
-          <p className="muted small" style={{ marginTop: 0 }}>
-            {t.invites.resubmitPerformerHint}
-          </p>
-          <ResubmitRejectedPermitButton permit={p} className="btn primary" />
+        <section className="rejected-permits-panel rejected-permits-panel--single" style={{ marginBottom: '1rem' }}>
+          <header className="rejected-permits-panel__header">
+            <span className="rejected-permits-panel__badge" aria-hidden>
+              ✕
+            </span>
+            <div>
+              <h2 className="rejected-permits-panel__title">{t.invites.rejectedTitle}</h2>
+              <p className="rejected-permits-panel__lead">{t.invites.resubmitPerformerHint}</p>
+            </div>
+          </header>
+          {p.lastRejection ? (
+            <PermitRejectionNotice permit={p} resolveUser={resolveUser} variant="card" />
+          ) : null}
+          <div className="rejected-permits-panel__actions">
+            <ResubmitRejectedPermitButton permit={p} className="btn primary" />
+          </div>
         </section>
       ) : null}
 
-      {showInteractiveApproval || showApprovalHistory ? (
+      {showErtGasTestSection ? (
+        <ErtGasTestLivePanel
+          permit={p}
+          actor={actor}
+          updatePermit={updatePermit}
+          resolveUser={resolveUser}
+          userDirectory={userDirectory}
+          refresh={refresh}
+        />
+      ) : null}
+
+      {showInteractiveApproval || showSignaturesReadonly ? (
         <>
+          {actor.role === 'permitter' &&
+          showInteractiveApproval &&
+          !canUserSignRole('permitter') ? (
+            <section className="card alert" role="status" style={{ marginBottom: '1rem' }}>
+              <p className="small" style={{ margin: 0 }}>
+                {approvalSignWaitingMessage('permitter') ??
+                  'Подпись ЭЦП пока недоступна — см. очередь в блоке «Подписи» ниже.'}
+              </p>
+            </section>
+          ) : null}
+
+          {actor.role === 'permitter' &&
+          showInteractiveApproval &&
+          canUserSignRole('permitter') ? (
+            <section className="card alert" role="status" style={{ marginBottom: '1rem' }}>
+              <p className="small" style={{ margin: 0 }}>
+                Ваша очередь — нажмите «Подписать ЭЦП» в блоке «Подписи» ниже.
+              </p>
+              <button
+                type="button"
+                className="btn primary small"
+                style={{ marginTop: '0.5rem' }}
+                onClick={() => {
+                  document
+                    .getElementById('signatures-section')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              >
+                Перейти к подписи ЭЦП
+              </button>
+            </section>
+          ) : null}
+
           <PermitOnApprovalSummary
             permit={signingP}
             resolveUser={resolveUser}
             userDirectory={userDirectory}
             rejectAction={rejectPermitButton}
             crewAckAction={
-              canSignCrewAck() ? (
+              actor.role !== 'executor' && canSignCrewAck() ? (
                 <CrewAckSignRow
                   permit={p}
                   actor={actor}
@@ -782,20 +843,6 @@ export function PermitDetailPage() {
           updatePermit={updatePermit}
           resolveUser={resolveUser}
           userDirectory={userDirectory}
-        />
-      ) : null}
-
-      {actor.role === 'ert' &&
-      canErtEditGasTests(p, userDirectory) &&
-      permitHasGasTestDocuments(p) &&
-      p.workPermissions?.documents?.length ? (
-        <ErtGasTestLivePanel
-          permit={p}
-          actor={actor}
-          updatePermit={updatePermit}
-          resolveUser={resolveUser}
-          userDirectory={userDirectory}
-          refresh={refresh}
         />
       ) : null}
 
@@ -1109,45 +1156,6 @@ export function PermitDetailPage() {
         ) : null}
       </div>
       ) : null}
-
-      {actor.role !== 'executor' && (
-      <>
-      <section className="card">
-        <h2>Смена статуса</h2>
-        <p className="small muted">
-          Доступные переходы с учётом роли и правил матрицы/подписей.
-        </p>
-        <div className="btn-row">
-          {nextStatuses.map((next) => (
-            <button
-              key={next}
-              type="button"
-              className="btn primary"
-              onClick={() => void go(next)}
-            >
-              → {STATUS_LABELS[next]}
-            </button>
-          ))}
-        </div>
-        {blockedNext.length > 0 && (
-          <div className="small muted" style={{ marginTop: '0.75rem' }}>
-            Недоступно сейчас:
-            <ul className="compact-list">
-              {blockedNext.map((next) => {
-                const v = validateTransition(p, next)
-                return (
-                  <li key={next}>
-                    {STATUS_LABELS[next]}
-                    {!v.ok ? ` — ${v.reason}` : null}
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
-      </section>
-      </>
-      )}
 
       {actor.role !== 'executor' && (
       <section className="card">

@@ -17,11 +17,17 @@ export function canUserResubmitRejectedPermit(
   return Boolean(permit.performerUid && permit.performerUid === user.id)
 }
 
+/** Сброс ознакомления бригады с АБР — нужен повторный цикл после исправления. */
+export function resetExecutorsBriefingAck(
+  executors: Permit['executors'],
+): Permit['executors'] {
+  return executors.map((ex) => ({ ...ex, briefingAcknowledged: false }))
+}
+
 /** Патч полей после сброса отклонения (без lastRejection — его чистит репозиторий). */
-export function rejectedPermitResubmitFields(): Pick<
-  Permit,
-  'status' | 'egovSignatures' | 'crewAckSignatures' | 'signatures'
-> {
+export function rejectedPermitResubmitFields(
+  permit: Pick<Permit, 'executors'>,
+): Pick<Permit, 'status' | 'egovSignatures' | 'crewAckSignatures' | 'signatures' | 'executors'> {
   return {
     status: 'draft',
     egovSignatures: {},
@@ -33,5 +39,6 @@ export function rejectedPermitResubmitFields(): Pick<
       leadExpertSigned: false,
       ertSigned: false,
     },
+    executors: resetExecutorsBriefingAck(permit.executors),
   }
 }

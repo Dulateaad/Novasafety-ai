@@ -4,13 +4,13 @@ import { RequireAuth } from './components/RequireAuth'
 import { LoginPage } from './pages/LoginPage'
 import { NewPermitPage } from './pages/NewPermitPage'
 import { PermitDetailPage } from './pages/PermitDetailPage'
-import { PermitListPage } from './pages/PermitListPage'
 import { PprPage } from './pages/PprPage'
 import { RiskAssessmentPage } from './pages/RiskAssessmentPage'
 import { PermissionsPage } from './pages/PermissionsPage'
 import { CertificatesPage } from './pages/CertificatesPage'
 import { HelpPage } from './pages/HelpPage'
 import { AdminPanelPage } from './pages/AdminPanelPage'
+import { HomeRoute } from './pages/HomeRoute'
 
 export default function App() {
   return (
@@ -23,7 +23,7 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<PermitListPage />} />
+        <Route index element={<HomeRoute />} />
         <Route path="ppr" element={<PprPage />} />
         <Route path="new" element={<NewPermitPage />} />
         <Route path="risk-assessment" element={<RiskAssessmentPage />} />

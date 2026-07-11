@@ -93,14 +93,18 @@ export function isRoleSigned(
   role: EgovSignRole,
   directory: DemoUser[] = [],
 ): boolean {
+  const sig = getEgovSignatures(permit)[role]
+  if (sig?.cmsBase64?.trim()) return true
   const dir = signingDirectory(directory)
   if (validEgovRoleSignature(permit, role, dir)) return true
   if (strictEgovSigningPhase(permit)) return false
-  if (role === 'performer') return !!permit.signatures.performerSigned
-  if (role === 'permitter') return permit.signatures.permitterSigned
-  if (role === 'issuer') return permit.signatures.issuerSigned
-  if (role === 'ert') return !!permit.signatures.ertSigned
-  return permit.signatures.leadExpertSigned
+  const flags = permit.signatures
+  if (!flags) return false
+  if (role === 'performer') return !!flags.performerSigned
+  if (role === 'permitter') return !!flags.permitterSigned
+  if (role === 'issuer') return !!flags.issuerSigned
+  if (role === 'ert') return !!flags.ertSigned
+  return !!flags.leadExpertSigned
 }
 
 export function allRequiredSignaturesComplete(

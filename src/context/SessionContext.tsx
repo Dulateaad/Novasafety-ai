@@ -72,6 +72,10 @@ interface SessionValue {
   user: DemoUser | null
   /** Участники для выбора в формах (Firebase: коллекция users) */
   userDirectory: DemoUser[]
+  /** Добавить/обновить запись в локальном справочнике после создания в админке. */
+  upsertDirectoryUser: (entry: DemoUser) => void
+  /** Убрать запись из локального справочника после удаления. */
+  removeDirectoryUser: (uid: string) => void
   profileError: string | null
   resolveUser: (id: string) => DemoUser | undefined
   setUserId: (id: string) => void
@@ -131,12 +135,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [userDirectory],
   )
 
+  const upsertDirectoryUser = useCallback((entry: DemoUser) => {
+    setUserDirectory((prev) => {
+      const byUid = new Map(prev.map((u) => [u.id, u]))
+      byUid.set(entry.id, entry)
+      return [...byUid.values()]
+    })
+  }, [])
+
+  const removeDirectoryUser = useCallback((uid: string) => {
+    setUserDirectory((prev) => prev.filter((u) => u.id !== uid))
+  }, [])
+
   useEffect(() => {
     if (authMode !== 'firebase' || !auth || !db) return
     const authInstance = auth
     const firestore = db
 
-    const unsub = onAuthStateChanged(authInstance, async (fbUser) => {
+    const unsub = onAuthStateChanged(
+      authInstance,
+      async (fbUser) => {
       if (!fbUser) {
         setFirebaseActor(null)
         setUserDirectory([])
@@ -146,6 +164,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       setProfileError(null)
       try {
+        // Проверка сессии: просроченный/битый refresh token даёт 400 на accounts:lookup.
+        try {
+          await fbUser.getIdToken()
+        } catch (tokenErr) {
+          console.warn('[NOVA] auth token invalid, signing out', tokenErr)
+          setFirebaseActor(null)
+          setUserDirectory([])
+          setAuthReady(true)
+          await signOut(authInstance)
+          return
+        }
+
         const ref = doc(firestore, 'users', fbUser.uid)
         const snap = await getDoc(ref)
         if (!snap.exists()) {
@@ -219,10 +249,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           e instanceof Error ? e.message : 'Не удалось загрузить профиль',
         )
         setUserDirectory([])
-        await signOut(auth!)
+        await signOut(authInstance)
       }
       setAuthReady(true)
-    })
+    },
+      (authError) => {
+        console.warn('[NOVA] auth state error', authError)
+        setFirebaseActor(null)
+        setUserDirectory([])
+        setAuthReady(true)
+        void signOut(authInstance).catch(() => {})
+      },
+    )
 
     return () => unsub()
   }, [authMode, auth, db])
@@ -298,13 +336,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Нет пользователя сессии')
       setError(null)
       try {
-        await repo.updateFields(id, patch, user)
+        await repo.updateFields(id, patch, user, userDirectory)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
         throw e
       }
     },
-    [repo, user],
+    [repo, user, userDirectory],
   )
 
   const transition = useCallback(
@@ -324,11 +362,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const deletePermit = useCallback(
     async (id: string) => {
       if (!user) throw new Error('Нет пользователя сессии')
-      if (!canUserDeletePermit(user)) {
-        throw new Error('Недостаточно прав для удаления наряда')
+      const target = permits.find((p) => p.id === id)
+      if (!canUserDeletePermit(user, target ?? null)) {
+        throw new Error(
+          target?.status === 'draft'
+            ? 'Черновики нельзя удалять'
+            : 'Недостаточно прав для удаления наряда',
+        )
       }
       setError(null)
-      const deletedPermit = permits.find((p) => p.id === id)
+      const deletedPermit = target
       try {
         await repo.deletePermit(id, user)
         if (readResumePermitId() === id) {
@@ -408,7 +451,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Нет пользователя сессии')
       if (!isInspectorUser(user)) {
         throw new Error(
-          'Решение по остановке работ доступно только инженеру по ОТ, ТБ и ООС (temirlan-safety@nova.local).',
+          'Решение по остановке работ доступно только ведущему инженеру по ОТ, ТБ.',
         )
       }
       setError(null)
@@ -472,6 +515,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       authReady,
       user,
       userDirectory,
+      upsertDirectoryUser,
+      removeDirectoryUser,
       profileError,
       resolveUser,
       setUserId,
@@ -497,6 +542,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       authReady,
       user,
       userDirectory,
+      upsertDirectoryUser,
+      removeDirectoryUser,
       profileError,
       resolveUser,
       setUserId,

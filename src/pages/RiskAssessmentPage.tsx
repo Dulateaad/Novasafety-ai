@@ -13,9 +13,17 @@ import { openPprAttachmentInBrowser } from '../lib/pprAttachment'
 import { prefillAsorTeamFromNd } from '../lib/pprAsorPrefill'
 import { restoreNewPermitDraftFromSession } from '../lib/newPermitDraftAutosave'
 import { clearPackageSession, PACKAGE_CLEARED_EVENT } from '../lib/packageSession'
+import { resolveDraftRegistrationRefNo } from '../lib/registrationNumber'
+import { readResumePermitId } from '../lib/resumePermitPackage'
+import { LoadingProgress } from '../components/LoadingProgress'
 import {
-  ensurePermitForPackageSubmit,
+  finalizeNdprPackageSubmit,
+  packagePerformerSignTarget,
+  prepareNdprPackageForSubmit,
+  type PackagePerformerSignTarget,
 } from '../lib/submitNdprPackageFlow'
+import { isRoleSigned } from '../lib/signatureStatus'
+import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import { setRiskGatePassed } from '../lib/riskGate'
 import {
   initializeWorkPermissionsBundle,
@@ -40,7 +48,7 @@ import {
   isNeboshAiAvailable,
 } from '../lib/generateNeboshRiskAssessment'
 import { AbrManualReview } from '../components/AbrManualReview'
-import { LoadingProgress } from '../components/LoadingProgress'
+import { SubmitPackagePerformerSignModal } from '../components/SubmitPackagePerformerSignModal'
 import { NeboshManualReview } from '../components/NeboshManualReview'
 import { ABR_LABEL, APP_NAME, SOURCE_DOCUMENT_LABEL } from '../config/branding'
 import { useLanguage } from '../context/LanguageContext'
@@ -77,7 +85,8 @@ export function RiskAssessmentPage() {
   const { t } = useLanguage()
   const p = t.pages
   const rp = t.riskPage
-  const { createPermit, updatePermit, transition, resolveUser, user, userDirectory } = useSession()
+  const { createPermit, updatePermit, transition, resolveUser, user, userDirectory, permits, authMode, refresh } =
+    useSession()
   const { showError } = useToast()
   const [form, setForm] = useState<AsorForm>(() => emptyAsorForm())
   const [boot, setBoot] = useState(true)
@@ -97,6 +106,7 @@ export function RiskAssessmentPage() {
   const [riskSectionMode, setRiskSectionMode] = useState<RiskSectionMode>('manual')
   const [abrReviewOpen, setAbrReviewOpen] = useState(false)
   const [neboshReviewOpen, setNeboshReviewOpen] = useState(false)
+  const [signTarget, setSignTarget] = useState<PackagePerformerSignTarget | null>(null)
   const suppressAutosaveRef = useRef(false)
 
   const resolveBadge = (uid: string) => resolveUserBadgeNo(uid, userDirectory)
@@ -110,15 +120,21 @@ export function RiskAssessmentPage() {
   const abrReady = isAbrReady(form)
   const neboshReady = isRiskAssessmentReady(form)
   const maySubmitPackage = canUserSubmitPermitPackage(user)
-  const ndDraft = useMemo(
-    () =>
-      prepareNdprDraftForValidation(
-        restoreNewPermitDraftFromSession(),
-        user,
-        participantDirectory,
+  const ndDraft = useMemo(() => {
+    const prepared = prepareNdprDraftForValidation(
+      restoreNewPermitDraftFromSession(),
+      user,
+      participantDirectory,
+    )
+    return {
+      ...prepared,
+      registrationRefNo: resolveDraftRegistrationRefNo(
+        prepared,
+        permits,
+        readResumePermitId(),
       ),
-    [user, participantDirectory, location.key],
-  )
+    }
+  }, [user, participantDirectory, permits, location.key])
   const ndprAccessible = useMemo(
     () => validateNdprDraft(ndDraft) === null,
     [ndDraft],
@@ -210,7 +226,10 @@ export function RiskAssessmentPage() {
     setAbrGenError(null)
     setAbrGenNote(null)
     try {
-      const nd = restoreNewPermitDraftFromSession()
+      const nd = {
+        ...restoreNewPermitDraftFromSession(),
+        registrationRefNo: ndDraft.registrationRefNo,
+      }
       const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
       const abr = mergeAbrPeopleFromNd(
         await generateAbrFromPpr(ppr, {
@@ -250,7 +269,10 @@ export function RiskAssessmentPage() {
     setNeboshGenError(null)
     setNeboshGenNote(null)
     try {
-      const nd = restoreNewPermitDraftFromSession()
+      const nd = {
+        ...restoreNewPermitDraftFromSession(),
+        registrationRefNo: ndDraft.registrationRefNo,
+      }
       const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
       const contractorOrg = nd.f02?.company?.trim() || ppr.contractorOrg
       const payload = await generateNeboshRiskAssessmentFromPpr(ppr, {
@@ -292,7 +314,10 @@ export function RiskAssessmentPage() {
     setAbrPdfBusy(true)
     try {
       const ppr = loadPprForm()
-      const nd = restoreNewPermitDraftFromSession()
+      const nd = {
+        ...restoreNewPermitDraftFromSession(),
+        registrationRefNo: ndDraft.registrationRefNo,
+      }
       const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
       const abr = mergeAbrPeopleFromNd(
         applyAbrHeaderFromPprNd(
@@ -320,7 +345,10 @@ export function RiskAssessmentPage() {
     }
     setNeboshPdfBusy(true)
     try {
-      const nd = restoreNewPermitDraftFromSession()
+      const nd = {
+        ...restoreNewPermitDraftFromSession(),
+        registrationRefNo: ndDraft.registrationRefNo,
+      }
       const resolveName = (uid: string) => resolveUser(uid)?.displayName ?? uid
       const merged = mergeNeboshApprovalPeopleFromNd(
         form,
@@ -471,7 +499,10 @@ export function RiskAssessmentPage() {
       return
     }
 
-    const draft = restoreNewPermitDraftFromSession()
+    const draft = {
+      ...restoreNewPermitDraftFromSession(),
+      registrationRefNo: ndDraft.registrationRefNo,
+    }
     if (draft.executors.some((ex) => !ex.userUid.trim())) {
       setSubmitError('В НДПР у каждого работника должен быть выбран пользователь.')
       return
@@ -481,6 +512,7 @@ export function RiskAssessmentPage() {
     const asorWithApprovers = finalizeAsorFormForReady(
       seedApprovalNamesFromPermit(form, draft, resolveUser, resolveBadge),
       ppr,
+      draft,
     )
     let packageDraft = applyAsorToPermitDraft(draft, asorWithApprovers)
     const performerUid = resolvePerformerUidForPackage(
@@ -501,41 +533,53 @@ export function RiskAssessmentPage() {
       f04: draft.permitType === 'cold' ? undefined : draft.f04,
       isContractorPermit: false,
       performerUid,
-      registrationRefNo:
-        draft.registrationRefNo.trim() || packageDraft.registrationRefNo,
+      registrationRefNo: draft.registrationRefNo,
     }
 
     setBusy(true)
     try {
-      setSubmitStage('Сохранение наряда в базе…')
-      const p = await ensurePermitForPackageSubmit({
+      setSubmitStage(rp.saveToDb)
+      const prepared = await prepareNdprPackageForSubmit({
         packageDraft,
         createPermit,
         updatePermit,
+        resolveUser,
+        userDirectory: participantDirectory,
+        permits,
       })
-      setSubmitStage('Формирование PDF-пакета для согласования…')
-      const { buildSigningPackagePdf } = await import('../lib/buildSigningPackagePdf')
-      const packagePdf = await buildSigningPackagePdf(p, resolveUser, participantDirectory)
-      await updatePermit(p.id, { packagePdf })
-      setSubmitStage('Отправка на согласование…')
-      await transition(p.id, 'on_approval')
-      setSubmitStage('Назначение подписантов и уведомления…')
-      let provisionWarning: string | null = null
-      try {
-        const { provisionPermitSignersClient } = await import('../lib/provisionSigners')
-        const result = await provisionPermitSignersClient(p.id)
-        if (!result) {
-          provisionWarning =
-            'Наряд отправлен, но уведомления подписантам не созданы (Firebase Functions недоступны).'
-        }
-      } catch (e) {
-        provisionWarning =
-          e instanceof Error
-            ? `Наряд отправлен, но уведомления не созданы: ${e.message}`
-            : 'Наряд отправлен, но уведомления подписантам не созданы.'
+
+      if (isRoleSigned(prepared, 'performer', participantDirectory)) {
+        setSubmitStage(rp.submitApproval)
+        const { provisionWarning } = await finalizeNdprPackageSubmit({
+          permitId: prepared.id,
+          transition,
+        })
+        notifySigningInvitesRefresh()
+        nav(`/p/${prepared.id}`, { state: { provisionWarning } })
+        return
       }
-      clearPackageSession()
-      nav(`/p/${p.id}#pdf-package`, { state: { provisionWarning } })
+
+      setSignTarget(packagePerformerSignTarget(prepared, resolveUser))
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+      setSubmitStage(null)
+    }
+  }
+
+  async function completeSubmitAfterPerformerSign() {
+    if (!signTarget) return
+    setBusy(true)
+    setSubmitStage(rp.submitApproval)
+    try {
+      const { provisionWarning } = await finalizeNdprPackageSubmit({
+        permitId: signTarget.permit.id,
+        transition,
+      })
+      setSignTarget(null)
+      notifySigningInvitesRefresh()
+      nav(`/p/${signTarget.permit.id}`, { state: { provisionWarning } })
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -900,7 +944,7 @@ export function RiskAssessmentPage() {
               disabled={!canSubmit}
               onClick={() => void submitNdprPackage()}
             >
-              {busy ? submitStage ?? 'Отправка…' : 'Отправить на согласование'}
+              {busy ? submitStage ?? rp.submitAndSignBusy : rp.submitAndSign}
             </button>
           )}
         </div>
@@ -944,6 +988,16 @@ export function RiskAssessmentPage() {
           </div>
         )}
       </section>
+
+      <SubmitPackagePerformerSignModal
+        target={signTarget}
+        authMode={authMode}
+        userDirectory={userDirectory}
+        updatePermit={updatePermit}
+        refresh={refresh}
+        onClose={() => setSignTarget(null)}
+        onSignedComplete={() => completeSubmitAfterPerformerSign()}
+      />
     </div>
   )
 }

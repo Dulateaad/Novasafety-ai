@@ -26,8 +26,7 @@ export function prefillAbrHeaderFromPprNd(
   AbrForm,
   'workLocation' | 'permitNo' | 'dateIso' | 'shiftDay' | 'shiftNight' | 'jobDescription'
 > {
-  const permitNo =
-    nd?.registrationRefNo?.trim() || nd?.f02?.badgeNo?.trim() || ''
+  const permitNo = nd?.registrationRefNo?.trim() || ''
   const dateIso =
     ppr.periodStart ||
     nd?.f02?.startDate?.slice(0, 10) ||

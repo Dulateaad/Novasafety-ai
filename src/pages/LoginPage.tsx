@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { AppLogo } from '../components/AppLogo'
 import { useLanguage } from '../context/LanguageContext'
 import { useSession } from '../context/SessionContext'
+import { postLoginRoute } from '../lib/homeRoute'
 import '../login-page.css'
 
 export function LoginPage() {
@@ -33,7 +34,7 @@ export function LoginPage() {
   }
 
   if (authReady && user && !profileError) {
-    return <Navigate to={from} replace />
+    return <Navigate to={postLoginRoute(user, from)} replace />
   }
 
   async function onSubmit(e: React.FormEvent) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DocumentKitSummary } from '../components/DocumentKitSummary'
+import { SubmitPackagePerformerSignModal } from '../components/SubmitPackagePerformerSignModal'
 import { LoadingProgress } from '../components/LoadingProgress'
 import { WorkPermissionIcon } from '../components/WorkPermissionIcon'
 import { WorkPermissionFormEditor } from '../components/WorkPermissionFormEditor'
@@ -14,7 +15,7 @@ import { setPermissionsGatePassed } from '../lib/permissionsGate'
 import { loadPprForm } from '../lib/pprAutosave'
 import { restoreNewPermitDraftFromSession } from '../lib/newPermitDraftAutosave'
 import { prepareNdprDraftForValidation } from '../lib/validateNdprDraft'
-import { resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { resolveDraftRegistrationRefNo } from '../lib/registrationNumber'
 import { readResumePermitId } from '../lib/resumePermitPackage'
 import { openWorkPermissionPdf } from '../lib/openWorkPermissionPdf'
 import {
@@ -26,7 +27,14 @@ import { applyAsorToPermitDraft } from '../lib/asorPrefill'
 import { resolveUserBadgeNo } from '../lib/userBadgeNumbers'
 import { finalizeAsorFormForReady } from '../lib/finalizeGeneratedRiskDocs'
 import { seedApprovalNamesFromPermit } from '../lib/approvalSequence'
-import { executeNdprPackageSubmit } from '../lib/submitNdprPackageFlow'
+import {
+  finalizeNdprPackageSubmit,
+  packagePerformerSignTarget,
+  prepareNdprPackageForSubmit,
+  type PackagePerformerSignTarget,
+} from '../lib/submitNdprPackageFlow'
+import { isRoleSigned } from '../lib/signatureStatus'
+import { notifySigningInvitesRefresh } from '../lib/refreshSigningInvites'
 import {
   initializeWorkPermissionsBundle,
   enrichWorkPermissionsBundle,
@@ -73,6 +81,7 @@ export function PermissionsPage() {
     authReady,
     profileError,
     permits,
+    refresh,
   } = useSession()
   const { t } = useLanguage()
   const p = t.pages
@@ -85,6 +94,7 @@ export function PermissionsPage() {
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState<string | null>(null)
   const [bundle, setBundle] = useState<WorkPermissionsBundle | null>(null)
+  const [signTarget, setSignTarget] = useState<PackagePerformerSignTarget | null>(null)
 
   const draft = useMemo(() => {
     const prepared = prepareNdprDraftForValidation(
@@ -92,7 +102,7 @@ export function PermissionsPage() {
       user,
       userDirectory,
     )
-    const registrationRefNo = resolveRegistrationRefNo(
+    const registrationRefNo = resolveDraftRegistrationRefNo(
       prepared,
       permits,
       readResumePermitId(),
@@ -185,6 +195,7 @@ export function PermissionsPage() {
       const asorWithApprovers = finalizeAsorFormForReady(
         seedApprovalNamesFromPermit(form, draft, resolveUser, resolveBadge),
         ppr ?? undefined,
+        draft,
       )
       const performerUid = resolvePerformerUidForPackage(
         draft.performerUid,
@@ -202,17 +213,48 @@ export function PermissionsPage() {
       }
 
       setPermissionsGatePassed()
-      setStage(pp.submitApproval)
-      const { provisionWarning, permitId } = await executeNdprPackageSubmit({
+      setStage(pp.prepPackage)
+      const prepared = await prepareNdprPackageForSubmit({
         packageDraft,
         createPermit,
         updatePermit,
-        transition,
         resolveUser,
         userDirectory,
-        nav,
+        permits,
       })
-      nav(`/p/${permitId}#pdf-package`, { state: { provisionWarning } })
+
+      if (isRoleSigned(prepared, 'performer', userDirectory)) {
+        setStage(pp.submitApproval)
+        const { provisionWarning, permitId } = await finalizeNdprPackageSubmit({
+          permitId: prepared.id,
+          transition,
+        })
+        notifySigningInvitesRefresh()
+        nav(`/p/${permitId}`, { state: { provisionWarning } })
+        return
+      }
+
+      setSignTarget(packagePerformerSignTarget(prepared, resolveUser))
+    } catch (e) {
+      showError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+      setStage(null)
+    }
+  }
+
+  async function completeSubmitAfterPerformerSign() {
+    if (!signTarget) return
+    setBusy(true)
+    setStage(pp.submitApproval)
+    try {
+      const { provisionWarning, permitId } = await finalizeNdprPackageSubmit({
+        permitId: signTarget.permit.id,
+        transition,
+      })
+      setSignTarget(null)
+      notifySigningInvitesRefresh()
+      nav(`/p/${permitId}`, { state: { provisionWarning } })
     } catch (e) {
       showError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -371,6 +413,16 @@ export function PermissionsPage() {
           />
         ) : null}
       </section>
+
+      <SubmitPackagePerformerSignModal
+        target={signTarget}
+        authMode={authMode}
+        userDirectory={userDirectory}
+        updatePermit={updatePermit}
+        refresh={refresh}
+        onClose={() => setSignTarget(null)}
+        onSignedComplete={() => completeSubmitAfterPerformerSign()}
+      />
     </div>
   )
 }

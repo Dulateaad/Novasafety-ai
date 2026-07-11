@@ -1,5 +1,11 @@
-import type { DemoUser } from '../types/domain'
+import type { DemoUser, Permit } from '../types/domain'
 
-export function canUserDeletePermit(actor: DemoUser): boolean {
-  return actor.role === 'coordinator'
+/** Координатор может удалять наряды, кроме черновиков. */
+export function canUserDeletePermit(
+  actor: DemoUser,
+  permit?: Pick<Permit, 'status'> | null,
+): boolean {
+  if (actor.role !== 'coordinator') return false
+  if (permit && permit.status === 'draft') return false
+  return true
 }

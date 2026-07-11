@@ -34,7 +34,7 @@ import {
 } from '../lib/newPermitDraftAutosave'
 import { clearPackageSession, PACKAGE_CLEARED_EVENT, isNdprManualFillMode, setNdprManualFillMode } from '../lib/packageSession'
 import { shouldAutofillNdprFromPpr } from '../lib/ndprManualFill'
-import { clearResumePermitId } from '../lib/resumePermitPackage'
+import { clearResumePermitId, isResubmitAfterRejection } from '../lib/resumePermitPackage'
 import { resolvePerformerUidForPackage } from '../lib/permitAccess'
 import {
   loadPprForm,
@@ -116,7 +116,7 @@ function loadInitialPermitDraft(): PermitDraft {
     let draft = shouldAutofillNdprFromPpr(ppr)
       ? mergePermitDraftWithPpr(base, ppr)
       : base
-    if (fromPpr) {
+    if (fromPpr && !isResubmitAfterRejection()) {
       clearResumePermitId()
       draft = { ...draft, executors: [] }
     }

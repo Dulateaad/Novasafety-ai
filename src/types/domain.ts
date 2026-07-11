@@ -128,6 +128,21 @@ function dedupeSpecialWorkActivities(
   return out
 }
 
+/** Газоопасные и огневые работы не совмещаются — при газоопасных огневые снимаются. */
+export function reconcileGasFireExclusiveActivities(
+  activities: SpecialWorkActivity[],
+): SpecialWorkActivity[] {
+  if (!activities.includes('gas_hazard')) return activities
+  return activities.filter((a) => a !== 'open_flame_fire')
+}
+
+export function isSpecialWorkActivityDisabled(
+  activity: SpecialWorkActivity,
+  selected: SpecialWorkActivity[],
+): boolean {
+  return activity === 'open_flame_fire' && selected.includes('gas_hazard')
+}
+
 /** Нормализует массив видов работ из хранилища или AI. */
 export function normalizeSpecialWorkActivities(
   raw: unknown,
@@ -138,10 +153,10 @@ export function normalizeSpecialWorkActivities(
       (x): x is SpecialWorkActivity =>
         typeof x === 'string' && SPECIAL_IDS.has(x),
     )
-    return dedupeSpecialWorkActivities(ids)
+    return reconcileGasFireExclusiveActivities(dedupeSpecialWorkActivities(ids))
   }
   if (typeof raw === 'string' && SPECIAL_IDS.has(raw)) {
-    return [raw as SpecialWorkActivity]
+    return reconcileGasFireExclusiveActivities([raw as SpecialWorkActivity])
   }
   if (opts?.single) return [opts.single]
   if (opts?.permitType === 'fire') return ['open_flame_fire']
@@ -175,7 +190,9 @@ export function applyWorkActivitiesToDraft(
   draft: PermitDraft,
   activities: SpecialWorkActivity[],
 ): PermitDraft {
-  const specialWorkActivities = normalizeSpecialWorkActivities(activities)
+  const specialWorkActivities = reconcileGasFireExclusiveActivities(
+    normalizeSpecialWorkActivities(activities),
+  )
   const specialWorkActivity = primarySpecialWorkActivity(specialWorkActivities)
   const derived = applySpecialWorkActivity(specialWorkActivity)
   const needsErt = activitiesRequireErtApproval(specialWorkActivities)
@@ -225,7 +242,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   executor: 'Работник',
   coordinator: 'Координатор НД / админ',
   contractor: 'Подрядчик',
-  safety: 'Инженер по ОТ, ТБ и ООС',
+  safety: 'Ведущий инженер по ОТ, ТБ',
   ert: 'ПАС (Пожарно-аварийная служба)',
   leadExpert: 'Утверждающий НД',
 }

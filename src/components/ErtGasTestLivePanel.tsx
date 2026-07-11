@@ -86,8 +86,6 @@ export function ErtGasTestLivePanel(props: {
       onSaved?.(updated)
       if (refresh) await refresh()
       setLastSavedAt(Date.now())
-      setStatus(wp.savedPermPdf)
-      showSuccess(gt.savedConfirm)
       const savedPermit: Permit = { ...permit, workPermissions: updated }
       if (
         ertGasTestComplete(savedPermit) &&
@@ -101,6 +99,8 @@ export function ErtGasTestLivePanel(props: {
           console.warn('[NOVA] provision ERT sign after gas test', e)
         }
       }
+      setStatus(wp.savedPermPdf)
+      showSuccess(gt.savedConfirm)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setStatus(msg)
@@ -127,7 +127,7 @@ export function ErtGasTestLivePanel(props: {
 
   if (!localBundle?.documents?.length) return null
   if (!isErt) return null
-  if (!canErtEditGasTests(permit, userDirectory)) return null
+  if (!canErtEditGasTests(permit, userDirectory) && permit.status !== 'on_approval') return null
 
   const visibleDocs = localBundle.documents.filter((doc) => {
     const meta = WORK_PERMISSION_BY_KIND[doc.kind]

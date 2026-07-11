@@ -101,6 +101,13 @@ export type UiExtension = {
     adminLabel: string
     activeBadge: string
     exportExcel: string
+    journalTitle: string
+    journalHint: string
+    journalEmpty: string
+    selectAllLabel: string
+    deleteSelected: string
+    deleteSelectedConfirm: string
+    selectedCount: string
     personnelTitle: string
     personnelHint: string
     personnelEmpty: string
@@ -113,6 +120,41 @@ export type UiExtension = {
     edit: string
     firebaseOnlyHint: string
     navLabel: string
+    addUserTitle: string
+    addUserHint: string
+    addUserName: string
+    addUserNamePlaceholder: string
+    addUserNameRequired: string
+    addUserPosition: string
+    addUserPositionPlaceholder: string
+    addUserRole: string
+    addUserEmail: string
+    addUserEmailPlaceholder: string
+    addUserEmailRequired: string
+    addUserPassword: string
+    addUserPasswordPlaceholder: string
+    addUserIin: string
+    addUserIinPlaceholder: string
+    addUserSubmit: string
+    addUserSaving: string
+    addUserCreated: string
+    addUserUpdated: string
+    addUserFirebaseOnly: string
+    addUserCredsCreated: string
+    addUserCredsUpdated: string
+    addUserCredsPassword: string
+    deleteUser: string
+    deleteUserConfirm: string
+    deleteUserDone: string
+    deleteUserSelfBlocked: string
+    editUserTitle: string
+    editUserHint: string
+    editUserSubmit: string
+    editUserDone: string
+    editUserPasswordKeep: string
+    addUserBadgeNo: string
+    addUserBadgeNoPlaceholder: string
+    editUserCancel: string
   }
   journalTable: {
     siteTopic: string
@@ -408,6 +450,9 @@ export type UiExtension = {
     saveToDb: string
     buildPdfPackage: string
     submitApproval: string
+    submitAndSign: string
+    submitAndSignBusy: string
+    signingPerformer: string
     provisionSigners: string
     submittedNoInvitesFunctions: string
     submittedNoInvites: string
@@ -433,6 +478,9 @@ export type UiExtension = {
     pdfFailed: string
     prepPackage: string
     submitApproval: string
+    submitAndSign: string
+    submitAndSignBusy: string
+    signingPerformer: string
   }
   detailPage: {
     notFound: string
@@ -501,6 +549,7 @@ export type UiExtension = {
   }
   rejection: {
     reasonFallback: string
+    commentLabel: string
     closeAria: string
     closeTitle: string
   }
@@ -571,6 +620,7 @@ export type UiExtension = {
     permissionsRequired: string
     hint: string
     fireNote: string
+    gasBlocksFireNote: string
   }
   riskForm: {
     clearForm: string
@@ -806,6 +856,14 @@ export const uiExtRu: UiExtension = {
     adminLabel: 'Администратор',
     activeBadge: 'Активен',
     exportExcel: 'Выгрузить в Excel',
+    journalTitle: 'Журнал нарядов',
+    journalHint:
+      'Выберите наряды для удаления. Очистка уведомлений сбрасывает устаревшие приглашения. Всего: {count}.',
+    journalEmpty: 'Нарядов в системе нет.',
+    selectAllLabel: 'Выбрать все наряды',
+    deleteSelected: 'Удалить выбранные',
+    deleteSelectedConfirm: 'Удалить {count} наряд(ов) без возможности восстановления?',
+    selectedCount: '{count} выбрано',
     personnelTitle: 'Справочник пользователей',
     personnelHint: 'Учётные записи с ролями в системе наряд-допуска.',
     personnelEmpty: 'Пользователи не найдены в Firestore.',
@@ -818,6 +876,42 @@ export const uiExtRu: UiExtension = {
     edit: 'Изменить',
     firebaseOnlyHint: 'Расширенные настройки доступны при входе через Firebase.',
     navLabel: 'Админ-панель',
+    addUserTitle: 'Добавить согласованта / работника',
+    addUserHint:
+      'Создаёт учётную запись для входа и добавляет человека в справочник (выбор в НДПР и согласование).',
+    addUserName: 'ФИО',
+    addUserNamePlaceholder: 'Иванов Иван Иванович',
+    addUserNameRequired: 'Укажите ФИО',
+    addUserPosition: 'Должность',
+    addUserPositionPlaceholder: 'например: мастер участка',
+    addUserRole: 'Роль в системе',
+    addUserEmail: 'Email для входа',
+    addUserEmailPlaceholder: 'ivanov@nova.local',
+    addUserEmailRequired: 'Укажите email',
+    addUserPassword: 'Пароль',
+    addUserPasswordPlaceholder: 'пусто — сгенерировать',
+    addUserIin: 'ИИН (для ЭЦП)',
+    addUserIinPlaceholder: 'необязательно',
+    addUserSubmit: 'Добавить',
+    addUserSaving: 'Сохранение…',
+    addUserCreated: 'Пользователь создан',
+    addUserUpdated: 'Учётная запись обновлена (email уже был)',
+    addUserFirebaseOnly: 'Добавление доступно только при входе через Firebase.',
+    addUserCredsCreated: 'Создано. Логин:',
+    addUserCredsUpdated: 'Обновлено. Логин:',
+    addUserCredsPassword: 'пароль',
+    deleteUser: 'Удалить',
+    deleteUserConfirm: 'Удалить аккаунт «{name}» ({email})? Вход станет недоступен.',
+    deleteUserDone: 'Аккаунт удалён',
+    deleteUserSelfBlocked: 'Нельзя удалить свой аккаунт',
+    editUserTitle: 'Изменить учётную запись',
+    editUserHint: 'Обновляет ФИО, должность, роль, email, пароль и данные для ЭЦП.',
+    editUserSubmit: 'Сохранить изменения',
+    editUserDone: 'Учётная запись обновлена',
+    editUserPasswordKeep: 'пусто — не менять пароль',
+    addUserBadgeNo: '№ бейджа',
+    addUserBadgeNoPlaceholder: 'например: 012',
+    editUserCancel: 'Отмена',
   },
   journalTable: {
     siteTopic: 'Объект / тема',
@@ -895,10 +989,10 @@ export const uiExtRu: UiExtension = {
     signaturesLegend: 'Подписи и утверждение (4 роли из НДПР)',
   },
   admin: {
-    inspectorScopeAll: 'все инспекторы на объекте',
+    inspectorScopeAll: 'все ведущие инженеры по ОТ, ТБ на объекте',
     inspectorScopeZone: 'по зоне ответственности (поле inspectorSites в профиле)',
     enableZoneScope: 'Включить привязку по зоне',
-    enableGlobalScope: 'Включить глобальный доступ инспектора',
+    enableGlobalScope: 'Включить глобальный доступ ведущего инженера по ОТ, ТБ',
     fioVerifyLabel: 'Проверка ФИО при подписи eGov',
     disableFioVerify: 'Выключить проверку ФИО',
     enableFioVerify: 'Включить проверку ФИО',
@@ -1105,12 +1199,12 @@ export const uiExtRu: UiExtension = {
       'Заполните раздел 3 (проверки на рабочем месте) в разрешениях. Осталось без проверок: {empty}.',
     checksFilled: 'Раздел 3 заполнен.',
     tasksTitle: 'Задание: проверки на рабочем месте (допускающий)',
-    tasksHint: 'Наряды с незаполненным разделом 3 в разрешениях — отметьте колонку «Имеется» и сохраните в PDF.',
+    tasksHint: 'Наряды с незаполненным разделом 3 — отметьте нужные пункты (можно не все) и сохраните.',
     openChecks: 'Открыть проверки',
-    savedConfirm: 'Раздел 3 сохранён. Проверки на рабочем месте заполнены.',
+    savedConfirm: 'Раздел 3 сохранён. Можно подписать ЭЦП (полный список «Имеется» не обязателен).',
     editAgain: 'Изменить проверки',
     signBlockedHint:
-      'Отметьте пункты раздела 3 (колонка «Имеется»), нажмите «Сохранить проверки» — затем можно подписать ЭЦП.',
+      'Отметьте нужные пункты раздела 3 (можно не все), нажмите «Сохранить проверки» — затем можно подписать ЭЦП.',
   },
   closure: {
     closeBusy: 'Закрытие…',
@@ -1138,6 +1232,9 @@ export const uiExtRu: UiExtension = {
     saveToDb: 'Сохранение наряда в базе…',
     buildPdfPackage: 'Формирование PDF-пакета для согласования…',
     submitApproval: 'Отправка на согласование…',
+    submitAndSign: 'Отправить и подписать',
+    submitAndSignBusy: 'Подготовка…',
+    signingPerformer: 'Подпись производителя ЭЦП…',
     provisionSigners: 'Назначение подписантов и уведомления…',
     submittedNoInvitesFunctions: 'НДПР отправлен, но уведомления подписантам не созданы (Firebase Functions недоступны).',
     submittedNoInvites: 'НДПР отправлен, но уведомления подписантам не созданы.',
@@ -1163,6 +1260,9 @@ export const uiExtRu: UiExtension = {
     pdfFailed: 'Не удалось сформировать PDF разрешения',
     prepPackage: 'Подготовка пакета…',
     submitApproval: 'Отправка на согласование…',
+    submitAndSign: 'Отправить и подписать',
+    submitAndSignBusy: 'Подготовка…',
+    signingPerformer: 'Подпись производителя ЭЦП…',
   },
   detailPage: {
     notFound: 'Наряд-допуск не найден.',
@@ -1232,6 +1332,7 @@ export const uiExtRu: UiExtension = {
   },
   rejection: {
     reasonFallback: 'Причина не указана.',
+    commentLabel: 'Причина отклонения',
     closeAria: 'Закрыть уведомление об отклонении',
     closeTitle: 'Закрыть уведомление',
   },
@@ -1307,6 +1408,8 @@ export const uiExtRu: UiExtension = {
     permissionsRequired: 'Требуются разрешения',
     hint: '{app} определит виды по исходному документу. Двойной щелчок по строке снимает галочку.',
     fireNote: 'Разрешения на огневые работы',
+    gasBlocksFireNote:
+      'При газоопасных работах огневые работы с открытым источником огня недоступны.',
   },
   riskForm: {
     clearForm: 'Очистить анкету',
@@ -1423,7 +1526,7 @@ export const uiExtRu: UiExtension = {
         desc: 'Слесарь, электромонтёр, сварщик, аппаратчик, машинист крана, газорезчик, оператор. Знакомятся с нарядом и подтверждают ознакомление.',
       },
       {
-        title: 'Инспектор ОТ, ТБ и ООС',
+        title: 'Ведущий инженер по ОТ, ТБ',
         desc: 'Контролирует охрану труда. Может приостанавливать, восстанавливать или аннулировать наряд.',
       },
       {
@@ -1510,7 +1613,7 @@ export const uiExtRu: UiExtension = {
     workStop: [
       {
         title: 'Остановка работ',
-        desc: 'Любой пользователь с учётной записью может приостановить работы, указав причину. Инженер по ОТ, ТБ и ООС получает уведомление и решает: восстановить наряд или аннулировать его.',
+        desc: 'Любой пользователь с учётной записью может приостановить работы, указав причину. Ведущий инженер по ОТ, ТБ получает уведомление и решает: восстановить наряд или аннулировать его.',
       },
       {
         title: 'Досрочное закрытие',
@@ -1629,6 +1732,14 @@ export const uiExtEn: UiExtension = {
     adminLabel: 'Administrator',
     activeBadge: 'Active',
     exportExcel: 'Export to Excel',
+    journalTitle: 'Permit journal',
+    journalHint:
+      'Select permits to delete. Clean notifications removes stale signing invites. Total: {count}.',
+    journalEmpty: 'No permits in the system.',
+    selectAllLabel: 'Select all permits',
+    deleteSelected: 'Delete selected',
+    deleteSelectedConfirm: 'Delete {count} permit(s) permanently?',
+    selectedCount: '{count} selected',
     personnelTitle: 'User directory',
     personnelHint: 'Accounts and roles in the permit-to-work system.',
     personnelEmpty: 'No users found in Firestore.',
@@ -1641,6 +1752,42 @@ export const uiExtEn: UiExtension = {
     edit: 'Edit',
     firebaseOnlyHint: 'Advanced settings are available with Firebase sign-in.',
     navLabel: 'Admin panel',
+    addUserTitle: 'Add approver / worker',
+    addUserHint:
+      'Creates a login account and adds the person to the directory (NDPR selection and approvals).',
+    addUserName: 'Full name',
+    addUserNamePlaceholder: 'John Smith',
+    addUserNameRequired: 'Enter full name',
+    addUserPosition: 'Job title',
+    addUserPositionPlaceholder: 'e.g. site supervisor',
+    addUserRole: 'System role',
+    addUserEmail: 'Login email',
+    addUserEmailPlaceholder: 'smith@nova.local',
+    addUserEmailRequired: 'Enter email',
+    addUserPassword: 'Password',
+    addUserPasswordPlaceholder: 'empty — auto-generate',
+    addUserIin: 'IIN (for e-sign)',
+    addUserIinPlaceholder: 'optional',
+    addUserSubmit: 'Add',
+    addUserSaving: 'Saving…',
+    addUserCreated: 'User created',
+    addUserUpdated: 'Account updated (email already existed)',
+    addUserFirebaseOnly: 'Adding users requires Firebase sign-in.',
+    addUserCredsCreated: 'Created. Login:',
+    addUserCredsUpdated: 'Updated. Login:',
+    addUserCredsPassword: 'password',
+    deleteUser: 'Delete',
+    deleteUserConfirm: 'Delete account “{name}” ({email})? Sign-in will stop working.',
+    deleteUserDone: 'Account deleted',
+    deleteUserSelfBlocked: 'You cannot delete your own account',
+    editUserTitle: 'Edit account',
+    editUserHint: 'Updates name, job title, role, email, password and e-sign fields.',
+    editUserSubmit: 'Save changes',
+    editUserDone: 'Account updated',
+    editUserPasswordKeep: 'empty — keep current password',
+    addUserBadgeNo: 'Badge No.',
+    addUserBadgeNoPlaceholder: 'e.g. 012',
+    editUserCancel: 'Cancel',
   },
   journalTable: {
     siteTopic: 'Site / topic',
@@ -1718,10 +1865,10 @@ export const uiExtEn: UiExtension = {
     signaturesLegend: 'Signatures and approval (4 WP roles)',
   },
   admin: {
-    inspectorScopeAll: 'all inspectors on site',
+    inspectorScopeAll: 'all lead HSE engineers (OT, TB) on site',
     inspectorScopeZone: 'by responsibility zone (inspectorSites in profile)',
     enableZoneScope: 'Enable zone-based access',
-    enableGlobalScope: 'Enable global inspector access',
+    enableGlobalScope: 'Enable global lead HSE engineer access',
     fioVerifyLabel: 'eGov name verification',
     disableFioVerify: 'Disable name verification',
     enableFioVerify: 'Enable name verification',
@@ -1928,12 +2075,12 @@ export const uiExtEn: UiExtension = {
       'Fill section 3 (workplace checks) in permissions. Remaining without checks: {empty}.',
     checksFilled: 'Section 3 complete.',
     tasksTitle: 'Task: workplace checks (work supervisor)',
-    tasksHint: 'Permits with unfilled section 3 in permissions — complete and save to PDF.',
+    tasksHint: 'Permits with unfilled section 3 — mark the needed items (not all required) and save.',
     openChecks: 'Open checks',
-    savedConfirm: 'Section 3 saved. Workplace checks are complete.',
+    savedConfirm: 'Section 3 saved. You can sign with e-signature (full checklist is optional).',
     editAgain: 'Edit checks',
     signBlockedHint:
-      'Mark section 3 items (the «Available» column), click «Save checks» — then you can sign with e-signature.',
+      'Mark the needed section 3 items (not all required), click «Save checks» — then you can sign with e-signature.',
   },
   closure: {
     closeBusy: 'Closing…',
@@ -1961,6 +2108,9 @@ export const uiExtEn: UiExtension = {
     saveToDb: 'Saving permit to database…',
     buildPdfPackage: 'Building PDF package for approval…',
     submitApproval: 'Submitting for approval…',
+    submitAndSign: 'Submit and sign',
+    submitAndSignBusy: 'Preparing…',
+    signingPerformer: 'Performer e-signature…',
     provisionSigners: 'Assigning signers and notifications…',
     submittedNoInvitesFunctions: 'Permit submitted but signer notifications were not created (Firebase Functions unavailable).',
     submittedNoInvites: 'Permit submitted but signer notifications were not created.',
@@ -1986,6 +2136,9 @@ export const uiExtEn: UiExtension = {
     pdfFailed: 'Could not generate permission PDF',
     prepPackage: 'Preparing package…',
     submitApproval: 'Submitting for approval…',
+    submitAndSign: 'Submit and sign',
+    submitAndSignBusy: 'Preparing…',
+    signingPerformer: 'Performer e-signature…',
   },
   detailPage: {
     notFound: 'Work permit not found.',
@@ -2055,6 +2208,7 @@ export const uiExtEn: UiExtension = {
   },
   rejection: {
     reasonFallback: 'No reason specified.',
+    commentLabel: 'Rejection reason',
     closeAria: 'Dismiss rejection notification',
     closeTitle: 'Dismiss notification',
   },
@@ -2130,6 +2284,8 @@ export const uiExtEn: UiExtension = {
     permissionsRequired: 'Permissions required',
     hint: '{app} infers types from the source document. Double-click a row to uncheck.',
     fireNote: 'Hot work permits',
+    gasBlocksFireNote:
+      'Open-flame hot work cannot be selected when gas-hazard work is selected.',
   },
   riskForm: {
     clearForm: 'Clear form',
@@ -2243,7 +2399,7 @@ export const uiExtEn: UiExtension = {
         desc: 'Fitters, electricians, welders, operators, crane drivers, gas cutters, and others. They review the permit and confirm acknowledgement.',
       },
       {
-        title: 'HSE inspector',
+        title: 'Lead HSE engineer (OT, TB)',
         desc: 'Monitors occupational safety. Can suspend, resume, or void a permit.',
       },
       {
@@ -2330,7 +2486,7 @@ export const uiExtEn: UiExtension = {
     workStop: [
       {
         title: 'Work stop',
-        desc: 'Any worker can stop work when a hazard is found, with a reason. The HSE inspector decides whether to resume or void the permit.',
+        desc: 'Any worker can stop work when a hazard is found, with a reason. The lead HSE engineer (OT, TB) decides whether to resume or void the permit.',
       },
       {
         title: 'Early closure',

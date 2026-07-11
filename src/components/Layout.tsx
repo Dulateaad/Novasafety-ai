@@ -16,7 +16,6 @@ import {
   disablePushOnSignOut,
   PushNotificationsToggle,
 } from './PushNotificationsToggle'
-import { NotificationEmailField } from './NotificationEmailField'
 import { pushConfigured } from '../lib/push'
 import { PACKAGE_CLEARED_EVENT } from '../lib/packageSession'
 import { NAV_GATES_CHANGED, isPermissionsNavVisible } from '../lib/navGates'
@@ -422,18 +421,6 @@ export function Layout() {
             {firestoreOfflineCache ? t.layout.offlineSync : t.layout.offlineLimited}
           </div>
         )}
-
-        {authMode === 'firebase' &&
-        (user.role === 'coordinator' || user.role === 'executor') ? (
-          <div className="notification-email-banner">
-            <NotificationEmailField user={user} />
-            <p className="muted xsmall notification-email-banner__hint">
-              {user.role === 'executor'
-                ? t.notificationEmail.executorBannerHint
-                : t.notificationEmail.bannerHint}
-            </p>
-          </div>
-        ) : null}
 
         <main className="main">
           <Outlet />

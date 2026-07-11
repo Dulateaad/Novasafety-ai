@@ -18,7 +18,8 @@ import { validateTransition, canUserTriggerStatus, issueStatusPatchIfApprovalsCo
 import { mergeExecutorPatch } from '../lib/mergeExecutorPatch'
 import { migratePermit } from './normalizePermit'
 import { mergeAbrDailyAcksBundles, normalizeAbrDailyAcks } from '../lib/abrDailyAck'
-import { resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { nextRegistrationNumber, resolveRegistrationRefNo } from '../lib/registrationNumber'
+import { readResumePermitId } from '../lib/resumePermitPackage'
 import { coercePtwSite } from '../config/ptwSites'
 import { emptyF02 } from '../uog/permitDefaults'
 import { initialNdprResponses } from '../uog/ndprChecklistTemplate'
@@ -152,7 +153,11 @@ export class LocalPermitRepository implements PermitRepository {
 
   async create(draft: PermitDraft, actor: DemoUser): Promise<Permit> {
     const s = loadShape()
-    const regNo = resolveRegistrationRefNo(draft, s.permits.map(migratePermit))
+    const existing = s.permits.map(migratePermit)
+    let regNo = resolveRegistrationRefNo(draft, existing, readResumePermitId())
+    if (existing.some((p) => p.registrationRefNo?.trim() === regNo)) {
+      regNo = nextRegistrationNumber(existing)
+    }
     const p: Permit = {
       ...draft,
       siteName: coercePtwSite(draft.siteName),
@@ -192,6 +197,7 @@ export class LocalPermitRepository implements PermitRepository {
     id: string,
     patch: Partial<Permit>,
     actor: DemoUser,
+    _directory: DemoUser[] = [],
   ): Promise<void> {
     const s = loadShape()
     const idx = s.permits.findIndex((p) => p.id === id)
@@ -556,7 +562,7 @@ export class LocalPermitRepository implements PermitRepository {
       throw new Error('Исправить отклонённый пакет может производитель работ по наряду')
     }
     const atIso = nowIso()
-    const fields = rejectedPermitResubmitFields()
+    const fields = rejectedPermitResubmitFields(permit)
     const { lastRejection: _drop, ...rest } = permit
     const updated: Permit = {
       ...rest,
@@ -591,9 +597,10 @@ export class LocalPermitRepository implements PermitRepository {
 
   async deleteAllPermits(_actor: DemoUser): Promise<void> {
     const s = loadShape()
-    const permitIds = s.permits.map((p) => p.id)
-    s.permits = []
-    s.journal = []
+    const kept = s.permits.filter((p) => p.status === 'draft')
+    const permitIds = s.permits.filter((p) => p.status !== 'draft').map((p) => p.id)
+    s.permits = kept
+    s.journal = s.journal.filter((j) => kept.some((p) => p.id === j.permitId))
     saveShape(s)
     removeLocalPermitNoticesForPermits(permitIds)
     removeLocalWorkStopAlertsForPermits(permitIds)

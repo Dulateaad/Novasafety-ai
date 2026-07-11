@@ -81,8 +81,13 @@ export function normalizeWorkPermissionsBundle(raw: unknown): WorkPermissionsBun
     .map((d) => normalizeWorkPermissionDocument(d))
     .filter(Boolean) as WorkPermissionDocument[]
   if (!documents.length) return undefined
+  const savedAt =
+    typeof o.permitterPreWorkSavedAtIso === 'string'
+      ? o.permitterPreWorkSavedAtIso.trim()
+      : ''
   return {
     documents,
     updatedAtIso: typeof o.updatedAtIso === 'string' ? o.updatedAtIso : new Date().toISOString(),
+    ...(savedAt ? { permitterPreWorkSavedAtIso: savedAt } : {}),
   }
 }

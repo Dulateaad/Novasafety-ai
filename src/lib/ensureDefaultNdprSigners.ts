@@ -50,6 +50,7 @@ export function mergeEnsuredInspectorIntoDirectory(
   directory: DemoUser[],
   inspector: NonNullable<EnsureDefaultSignersResponse['inspector']>,
 ): DemoUser[] {
+  if (!inspector.uid) return directory
   const byUid = new Map(directory.map((u) => [u.id, u]))
   byUid.set(inspector.uid, {
     id: inspector.uid,
@@ -66,6 +67,7 @@ export function mergeEnsuredErtIntoDirectory(
   directory: DemoUser[],
   ert: NonNullable<EnsureDefaultSignersResponse['ert']>,
 ): DemoUser[] {
+  if (!ert.uid) return directory
   const byUid = new Map(directory.map((u) => [u.id, u]))
   byUid.set(ert.uid, {
     id: ert.uid,
@@ -88,6 +90,7 @@ export function mergeEnsuredSignersIntoDirectory(
 ): DemoUser[] {
   const byUid = new Map(directory.map((u) => [u.id, u]))
   for (const account of accounts) {
+    if (!account.uid) continue
     const role =
       (account.role as DemoUser['role']) ||
       (DEFAULT_NDPR_SIGNERS.find((s) => s.slot === account.slot)?.roles[0] as DemoUser['role']) ||

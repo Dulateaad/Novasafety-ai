@@ -109,3 +109,17 @@
   font-weight: 600;
   background: var(--bg-elevated, #f5f9fd);
 }
+
+.work-activities-field__option.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.work-activities-field__option.is-disabled:hover,
+.work-activities-field__option.is-disabled:focus-within {
+  background: transparent;
+}
+
+.work-activities-field__option.is-disabled .work-activities-field__checkbox {
+  cursor: not-allowed;
+}

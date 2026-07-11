@@ -29,7 +29,7 @@ export function ResubmitRejectedPermitButton(props: {
     setBusy(true)
     try {
       const updated = await resetRejectedPermitToDraft(permit.id)
-      restorePackageSessionFromPermit(updated)
+      restorePackageSessionFromPermit(updated, { resubmitAfterRejection: true })
       showInfo(t.invites.resubmitPerformerHint)
       nav(resolvePackageResumeRoute(updated, user, userDirectory))
     } catch (e) {
