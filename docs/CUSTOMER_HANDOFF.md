@@ -1,9 +1,11 @@
 # Передача NOVA Safety AI заказчику
 
 Дата снимка: **11.07.2026**.  
+Word: `docs/CUSTOMER_HANDOFF.docx` (сборка: `node scripts/generate-handoff-docx.mjs`).  
 Рабочий стенд: https://naryad-67194.web.app  
 Исходники (fork): https://github.com/Dulateaad/Novasafety-ai  
 Орг. репозиторий: https://github.com/novasafetykz/Novasafety-ai  
+Копия (akmaliyev): https://github.com/akmaliyev-commits/NOVASAFETYAI
 
 ## Что передаётся сейчас
 
