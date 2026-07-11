@@ -3,6 +3,8 @@
 **NOVA Safety** — веб-приложение нарядов-допусков: React, Vite, TypeScript, Firebase (Firestore + Hosting).  
 Каталог исходников в репозитории может называться `e-ptw`; при желании переименуйте его в `NOVA-Safety`, когда среда не держит файлы открытыми.
 
+**Передача заказчику:** чеклист артефактов, секретов (отдельный канал) и шаги деплоя — [`docs/CUSTOMER_HANDOFF.md`](docs/CUSTOMER_HANDOFF.md).
+
 ## Локально
 
 Перейдите в каталог с `package.json` (например `D:\gp_2026_cad26\e-ptw` или `...\NOVA-Safety`).

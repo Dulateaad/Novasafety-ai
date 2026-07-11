@@ -227,7 +227,7 @@
 | Репозиторий | https://github.com/novasafetykz/Novasafety-ai |
 | Локальный запуск | `npm install` → `npm run dev` (см. README) |
 | Деплой | `npm run deploy` / `deploy:hosting` / `deploy:functions` |
-| Секреты | Не передаются; шаблоны `.env.example`, `functions/.env.example` |
+| Секреты | Не передаются в git; шаблоны `.env.example`, `functions/.env.example`; чеклист — `docs/CUSTOMER_HANDOFF.md` |
 
 ---
 
