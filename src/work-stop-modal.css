@@ -1,0 +1,286 @@
+/* Модальное окно «Остановить работу» и поля причины / комментария */
+
+.work-stop-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(11 33 71 / 0.52);
+  backdrop-filter: blur(4px);
+  animation: work-stop-fade-in 0.2s ease;
+}
+
+@keyframes work-stop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.work-stop-modal {
+  width: min(100%, 32rem);
+  max-height: min(92vh, 44rem);
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgb(198 40 40 / 0.22);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 48px rgb(11 33 71 / 0.22);
+  animation: work-stop-slide-up 0.24s ease;
+}
+
+@keyframes work-stop-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.work-stop-modal__hero {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1.15rem 1.25rem 1rem;
+  background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 48%, #dc2626 100%);
+  color: #fff;
+}
+
+.work-stop-modal__hero-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.16);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.work-stop-modal__hero-text {
+  min-width: 0;
+}
+
+.work-stop-modal__eyebrow {
+  display: block;
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+
+.work-stop-modal__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.work-stop-modal__desc {
+  margin: 0.45rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.92);
+}
+
+.work-stop-modal__body {
+  padding: 1.1rem 1.25rem 1.25rem;
+  background: var(--surface);
+}
+
+.work-stop-reason-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.work-stop-reason-field__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.work-stop-reason-field__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.work-stop-reason-field__hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.work-stop-reason-field__textarea {
+  width: 100%;
+  min-height: 7.5rem;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  resize: vertical;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.work-stop-reason-field__textarea::placeholder {
+  color: #8a9bb5;
+}
+
+.work-stop-reason-field__textarea:hover:not(:disabled) {
+  border-color: #b8cfe8;
+}
+
+.work-stop-reason-field__textarea:focus {
+  outline: none;
+  border-color: var(--danger);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.work-stop-reason-field__textarea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.work-stop-reason-field__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.work-stop-reason-field__meta--warn {
+  color: var(--warning);
+}
+
+.work-stop-modal__photo {
+  margin-top: 1rem;
+}
+
+.work-stop-modal__photo-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-align: center;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.work-stop-modal__photo-zone:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.work-stop-modal__photo-zone:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.work-stop-modal__photo-zone-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.work-stop-modal__photo-zone-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.work-stop-modal__photo-preview {
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.work-stop-modal__photo-preview img {
+  display: block;
+  width: 100%;
+  max-height: 11rem;
+  object-fit: cover;
+}
+
+.work-stop-modal__photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
+.work-stop-modal__error {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+.work-stop-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.work-stop-modal__submit {
+  flex: 1 1 12rem;
+  min-height: var(--touch-min);
+  background: linear-gradient(135deg, #b91c1c, #dc2626);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.work-stop-modal__submit:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.work-stop-modal__submit:disabled {
+  opacity: 0.45;
+}
+
+.work-stop-inspector__resolve .work-stop-reason-field,
+.work-stop-alerts__item .work-stop-reason-field {
+  margin-top: 0.85rem;
+}
+
+.work-stop-inspector__lift {
+  background: linear-gradient(135deg, #0d7a4e, #16a34a);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.work-stop-inspector__lift:hover:not(:disabled) {
+  filter: brightness(1.05);
+}

@@ -1,0 +1,58 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+!functions/.env.example
+
+# Firebase local cache / deploy artifacts
+.firebase/
+
+# Firebase Admin SDK (никогда не коммитить)
+serviceAccount.json
+**/serviceAccount*.json
+**/*firebase-adminsdk*.json
+
+# Локальные бэкапы и черновики (могут содержать ключи)
+recovery/
+releases/
+tmp-*/
+.tmp-ab/
+.tsc-cache/
+
+# Сторонние проекты в рабочей папке (не часть NOVA Safety)
+charity-raffle-bot/
+whatsapp-sales-bot/
+
+# Сборка / деплой логи
+build-check.txt
+build-log.txt
+deploy-log.txt
+tmp-nebosh-parse.txt
+dir
+npm
+
+# Скомпилированный JS functions (собирается npm run build в functions/)
+functions/lib/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

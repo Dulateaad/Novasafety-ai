@@ -1,0 +1,364 @@
+import { workStagesTitlesText } from './formatWorkStagesDisplay'
+import type { DemoUser, Permit, PermitDraft, SpecialWorkActivity } from '../types/domain'
+import type { PprForm } from '../types/ppr'
+import {
+  WORK_ACTIVITIES_REQUIRING_PERMISSIONS,
+  emptyWorkPermissionForm,
+  type GasTestReading,
+  type WorkPermissionDocument,
+  type WorkPermissionKind,
+  type WorkPermissionsBundle,
+} from '../types/workPermissions'
+import {
+  WORK_PERMISSION_TEMPLATES,
+  WORK_PERMISSION_BY_KIND,
+  type WorkPermissionTemplateMeta,
+} from '../config/workPermissionsConfig'
+import {
+  fillTemplate,
+  localeMessages,
+  workPermissionKindLabel,
+  type LanguageCode,
+} from '../i18n/getLocale'
+import { renderSingleWorkPermission } from './buildWorkPermissionPdf'
+import { resolveRegistrationRefNo } from './registrationNumber'
+import { readResumePermitId } from './resumePermitPackage'
+import {
+  buildPprWorkTypesHaystack,
+  inferPermissionActivitiesFromText,
+} from './inferSpecialWorkActivityFromPpr'
+
+type WorkPermissionRefSource = Pick<PermitDraft, 'registrationRefNo'>
+
+const PERMISSION_KIND_SUFFIX: Record<WorkPermissionKind, string> = {
+  gas_hazard: 'Г',
+  open_flame_fire: 'О',
+  confined_space: 'З',
+}
+
+/** № наряд-допуска (НДПР) для шапки разрешения — только рег. № наряда, не № пропуска (f02). */
+export function resolveNdprRefForWorkPermission(
+  source: WorkPermissionRefSource,
+  existingPermits: Permit[] = [],
+  resumePermitId?: string | null,
+): string {
+  return resolveRegistrationRefNo(
+    { registrationRefNo: source.registrationRefNo ?? '' } as PermitDraft,
+    existingPermits,
+    resumePermitId ?? readResumePermitId(),
+  )
+}
+
+export function resolvePermissionRefNo(
+  ndRef: string,
+  kind: WorkPermissionKind,
+  kinds: WorkPermissionKind[],
+): string {
+  if (!ndRef) return ''
+  if (kinds.length <= 1) return ndRef
+  return `${ndRef}-${PERMISSION_KIND_SUFFIX[kind]}`
+}
+
+function applyWorkPermissionRefs(
+  form: WorkPermissionDocument['form'],
+  kind: WorkPermissionKind,
+  kinds: WorkPermissionKind[],
+  ndRef: string,
+): WorkPermissionDocument['form'] {
+  const next = { ...form }
+  const ref = ndRef.trim()
+  if (!ref) return next
+  next.pprRef = ref
+  next.permissionRefNo = resolvePermissionRefNo(ref, kind, kinds)
+  return next
+}
+
+export function requiredPermissionKinds(
+  draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
+): WorkPermissionKind[] {
+  const activities =
+    draft.specialWorkActivities?.length > 0
+      ? draft.specialWorkActivities
+      : [draft.specialWorkActivity]
+  const kinds = new Set<WorkPermissionKind>()
+  for (const activity of activities) {
+    const tpl = WORK_PERMISSION_TEMPLATES.find((t) => t.activity === activity)
+    if (tpl) kinds.add(tpl.kind)
+  }
+  return [...kinds]
+}
+
+export function requiresWorkPermissions(
+  draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
+): boolean {
+  return requiredPermissionKinds(draft).length > 0
+}
+
+/** Газоопасные / огневые / ЗП — только эти виды открывают вкладку «Разрешения». */
+export function hasPermissionRequiringActivities(
+  activities: SpecialWorkActivity[],
+): boolean {
+  const required = new Set<string>(WORK_ACTIVITIES_REQUIRING_PERMISSIONS)
+  return activities.some((a) => required.has(a))
+}
+
+const PERMISSION_ACTIVITY_SET = new Set<string>(WORK_ACTIVITIES_REQUIRING_PERMISSIONS)
+
+/**
+ * Виды работ ППР, для которых нужны спецразрешения (ГО/ОР/ЗП).
+ * gas_hazard — только при явных признаках в тексте (не «продувка» из холодных работ).
+ */
+export function effectivePermissionActivitiesFromPpr(ppr: PprForm): SpecialWorkActivity[] {
+  const haystack = buildPprWorkTypesHaystack(ppr)
+  const fromPermissionRules = inferPermissionActivitiesFromText(haystack)
+  const result = new Set<SpecialWorkActivity>(fromPermissionRules)
+
+  for (const activity of ppr.specialWorkActivities.filter(Boolean)) {
+    if (!PERMISSION_ACTIVITY_SET.has(activity)) continue
+    if (activity === 'gas_hazard') {
+      if (fromPermissionRules.includes('gas_hazard')) result.add(activity)
+      continue
+    }
+    result.add(activity)
+  }
+
+  return [...result]
+}
+
+export function pprRequiresSpecialPermissions(ppr: PprForm): boolean {
+  return effectivePermissionActivitiesFromPpr(ppr).length > 0
+}
+
+/** Разрешения для слияния в общий PDF-пакет (без дубля «замкнутое пространство», если есть газоопасные). */
+export function workPermissionDocumentsForSigningPackage(
+  permit: Pick<Permit, 'specialWorkActivities' | 'specialWorkActivity' | 'workPermissions'>,
+): WorkPermissionDocument[] {
+  const required = new Set(requiredPermissionKinds(permit))
+  const docs = (permit.workPermissions?.documents ?? []).filter((d) => required.has(d.kind))
+  const hasOrangeOrRed = docs.some((d) => {
+    const style = WORK_PERMISSION_BY_KIND[d.kind]?.style
+    return style === 'orange' || style === 'red'
+  })
+  if (!hasOrangeOrRed) return docs
+  return docs.filter((d) => WORK_PERMISSION_BY_KIND[d.kind]?.style !== 'blue')
+}
+
+export function permissionNoticesForActivities(
+  draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
+): WorkPermissionTemplateMeta[] {
+  const activities =
+    draft.specialWorkActivities?.length > 0
+      ? draft.specialWorkActivities
+      : [draft.specialWorkActivity]
+  return WORK_PERMISSION_TEMPLATES.filter((t) => activities.includes(t.activity))
+}
+
+export function wizardStepCount(
+  draft: Pick<PermitDraft, 'specialWorkActivities' | 'specialWorkActivity'>,
+): number {
+  return requiresWorkPermissions(draft) ? 4 : 3
+}
+
+export function buildWorkPermissionTitle(
+  kind: WorkPermissionKind,
+  ppr?: PprForm,
+  code?: LanguageCode,
+): string {
+  const base = workPermissionKindLabel(kind, code)
+  const work = ppr?.workTitle?.trim()
+  return work ? `${base} — ${work}` : base
+}
+
+export function initializeWorkPermissionsBundle(
+  draft: PermitDraft,
+  ppr?: PprForm,
+  existingPermits: Permit[] = [],
+): WorkPermissionsBundle {
+  const kinds = requiredPermissionKinds(draft)
+  const existing = draft.workPermissions?.documents ?? []
+  const byKind = new Map(existing.map((d) => [d.kind, d]))
+  const ndRef = resolveNdprRefForWorkPermission(draft, existingPermits)
+
+  const documents: WorkPermissionDocument[] = kinds.map((kind) => {
+    const prev = byKind.get(kind)
+    if (prev) {
+      return {
+        ...prev,
+        form: applyWorkPermissionRefs(prev.form, kind, kinds, ndRef),
+      }
+    }
+    const form = emptyWorkPermissionForm(kind)
+    form.siteObject = draft.siteName.trim() || ppr?.siteName?.trim() || ''
+    form.workDescription =
+      workStagesTitlesText(
+        draft.workStages?.trim() ||
+          draft.workDescription.trim() ||
+          ppr?.workStagesText?.trim() ||
+          '',
+      ) ||
+      draft.title.trim() ||
+      ppr?.workTitle?.trim() ||
+      ''
+    form.equipmentAndDocs = draft.toolsAndEquipment.trim()
+    if (kind === 'open_flame_fire') {
+      form.fireCategory = draft.category === 1 ? '1' : '2'
+    }
+    return {
+      kind,
+      title: buildWorkPermissionTitle(kind, ppr),
+      form: applyWorkPermissionRefs(form, kind, kinds, ndRef),
+      gasTests: [],
+      signatures: [],
+    }
+  })
+
+  return {
+    documents,
+    updatedAtIso: new Date().toISOString(),
+  }
+}
+
+export function mergeGasTestReading(
+  doc: WorkPermissionDocument,
+  readingId: string,
+  patch: Partial<GasTestReading>,
+): WorkPermissionDocument {
+  return {
+    ...doc,
+    gasTests: doc.gasTests.map((r) =>
+      r.id === readingId ? { ...r, ...patch } : r,
+    ),
+  }
+}
+
+export function applyErtGasTestUpdate(
+  bundle: WorkPermissionsBundle,
+  kind: WorkPermissionKind,
+  readingId: string,
+  patch: Partial<GasTestReading>,
+  ertUser: DemoUser,
+): WorkPermissionsBundle {
+  return {
+    ...bundle,
+    updatedAtIso: new Date().toISOString(),
+    documents: bundle.documents.map((doc) => {
+      if (doc.kind !== kind) return doc
+      return mergeGasTestReading(doc, readingId, {
+        ...patch,
+        testerUid: ertUser.id,
+        testerName: ertUser.displayName,
+      })
+    }),
+  }
+}
+
+export function validateWorkPermissionsBundle(
+  bundle: WorkPermissionsBundle | undefined,
+  draft: PermitDraft,
+  code?: LanguageCode,
+): string | null {
+  if (!requiresWorkPermissions(draft)) return null
+  const v = localeMessages(code).validation
+  if (!bundle?.documents?.length) {
+    return v.generatePermissions
+  }
+  const enriched = enrichWorkPermissionsBundle(draft, bundle)
+  const kinds = requiredPermissionKinds(draft)
+  for (const kind of kinds) {
+    const doc = enriched.documents.find((d) => d.kind === kind)
+    const kindLabel = workPermissionKindLabel(kind, code)
+    if (!doc) {
+      return fillTemplate(v.missingDoc, { kind: kindLabel })
+    }
+    const form = doc.form
+    if (!form.workDescription.trim() || form.workDescription.trim().length < 3) {
+      return fillTemplate(v.workDescriptionMin, { kind: kindLabel })
+    }
+    if (!isWorkPermissionPdfReady(doc)) {
+      return fillTemplate(v.generatePermission, { kind: kindLabel })
+    }
+  }
+  return null
+}
+
+export function isWorkPermissionPdfReady(doc: WorkPermissionDocument): boolean {
+  return Boolean(doc.generatedAtIso?.trim() || doc.pdfBase64?.trim())
+}
+
+function workPermissionPdfNeedsRefresh(doc: WorkPermissionDocument): boolean {
+  if (!isWorkPermissionPdfReady(doc)) return true
+  return !doc.form.permissionRefNo?.trim() || !doc.form.pprRef.trim()
+}
+
+export async function ensureWorkPermissionsPdfsReady(
+  draft: PermitDraft,
+  bundle: WorkPermissionsBundle,
+  ppr?: PprForm,
+  existingPermits: Permit[] = [],
+): Promise<WorkPermissionsBundle> {
+  const synced = initializeWorkPermissionsBundle(
+    { ...draft, workPermissions: bundle },
+    ppr,
+    existingPermits,
+  )
+  const enriched = enrichWorkPermissionsBundle(draft, synced, existingPermits)
+  const kinds = new Set(requiredPermissionKinds(draft))
+  const documents = await Promise.all(
+    enriched.documents.map(async (doc) => {
+      if (!kinds.has(doc.kind) || !workPermissionPdfNeedsRefresh(doc)) return doc
+      return renderSingleWorkPermission(doc)
+    }),
+  )
+  return {
+    documents,
+    updatedAtIso: new Date().toISOString(),
+  }
+}
+
+export function workPermissionsFromPermit(permit: Permit): WorkPermissionsBundle | undefined {
+  return permit.workPermissions
+}
+
+export function enrichWorkPermissionsBundle(
+  source: PermitDraft | Permit,
+  bundle: WorkPermissionsBundle,
+  existingPermits: Permit[] = [],
+): WorkPermissionsBundle {
+  const ppr = 'ppr' in source ? source.ppr : undefined
+  const kinds = bundle.documents.map((d) => d.kind)
+  const ndRef = resolveNdprRefForWorkPermission(source, existingPermits)
+  return {
+    ...bundle,
+    updatedAtIso: bundle.updatedAtIso || new Date().toISOString(),
+    documents: bundle.documents.map((doc) => {
+      let form = { ...doc.form }
+      if (!form.siteObject.trim()) {
+        form.siteObject = source.siteName.trim() || ppr?.siteName?.trim() || ''
+      }
+      if (!form.workDescription.trim()) {
+        form.workDescription =
+          workStagesTitlesText(
+            source.workStages?.trim() ||
+              source.workDescription.trim() ||
+              ppr?.workStagesText?.trim() ||
+              '',
+          ) ||
+          source.title.trim() ||
+          ppr?.workTitle?.trim() ||
+          ''
+      }
+      if (!form.equipmentAndDocs.trim()) {
+        form.equipmentAndDocs = source.toolsAndEquipment.trim()
+      }
+      if (doc.kind === 'open_flame_fire' && !form.fireCategory) {
+        form.fireCategory = source.category === 1 ? '1' : '2'
+      }
+      form = applyWorkPermissionRefs(form, doc.kind, kinds, ndRef)
+      return { ...doc, form }
+    }),
+  }
+}
+
+export function activitiesRequiringPermissionsLabel(): string {
+  return WORK_ACTIVITIES_REQUIRING_PERMISSIONS.join(', ')
+}

@@ -1,0 +1,179 @@
+/* Уведомления об отклонении согласования — читаемый заголовок и текст причины */
+
+.rejected-permits-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.rejected-permits-panel__badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 12px;
+  background: #c62828;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(198, 40, 40, 0.28);
+}
+
+.rejected-permits-panel__title {
+  color: #7f1d1d !important;
+  margin: 0 0 0.35rem !important;
+  font-size: 1.28rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.01em;
+}
+
+.rejected-permits-panel__lead {
+  color: #3d1515 !important;
+  margin: 0 !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  line-height: 1.55 !important;
+  max-width: 52rem;
+  opacity: 1;
+}
+
+.rejected-permits-panel__item {
+  padding: 1rem 1.05rem !important;
+}
+
+.rejected-permits-panel__item-meta .strong {
+  color: var(--text-h);
+  font-size: 1rem;
+}
+
+.permit-rejection-card {
+  margin-top: 0.75rem !important;
+  padding: 1rem 1.1rem !important;
+}
+
+.permit-rejection-card__badge {
+  margin-bottom: 0.65rem !important;
+  padding: 0.3rem 0.7rem !important;
+  font-size: 0.78rem !important;
+}
+
+.permit-rejection-card__who {
+  margin-bottom: 0.75rem !important;
+}
+
+.permit-rejection-card__who-label {
+  font-size: 0.72rem !important;
+}
+
+.permit-rejection-card__who-name {
+  font-size: 1.05rem !important;
+}
+
+.permit-rejection-card__who-role {
+  font-size: 0.85rem !important;
+}
+
+.permit-rejection-card__comment-wrap {
+  background: #fff;
+  border: 1px solid #f0c8c8;
+  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+}
+
+.permit-rejection-card__comment-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #b71c1c;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.permit-rejection-card__comment {
+  color: #3d1515 !important;
+  margin: 0 !important;
+  font-size: 1rem !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.permit-rejection-card__meta {
+  margin-top: 0.65rem !important;
+  font-size: 0.8rem !important;
+}
+
+.permit-rejection-notice {
+  padding: 1rem 1.1rem !important;
+}
+
+.permit-rejection-notice__eyebrow {
+  font-size: 0.74rem !important;
+}
+
+.permit-rejection-notice__name {
+  font-size: 1.05rem !important;
+}
+
+.permit-rejection-notice__comment {
+  color: #3d1515 !important;
+  margin: 0.65rem 0 0 !important;
+  padding: 0.8rem 0.9rem;
+  background: #fff;
+  border: 1px solid #f0c8c8;
+  border-radius: 10px;
+  font-size: 0.98rem !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.permit-rejection-notice__meta {
+  margin-top: 0.55rem !important;
+  font-size: 0.8rem !important;
+}
+
+.permit-rejection-strip {
+  padding: 0.75rem 0.85rem !important;
+}
+
+.permit-rejection-strip__reason,
+.permit-rejection-strip__comment {
+  color: #3d1515 !important;
+  font-size: 0.92rem !important;
+  line-height: 1.55 !important;
+}
+
+.rejected-permits-panel--single {
+  padding: 1.1rem 1.15rem !important;
+}
+
+.rejected-permits-panel--single .rejected-permits-panel__actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.permit-approval-summary__rejection {
+  margin-bottom: 1rem !important;
+}
+
+@media (max-width: 767px) {
+  .rejected-permits-panel__title {
+    font-size: 1.15rem !important;
+  }
+
+  .rejected-permits-panel__lead {
+    font-size: 0.9rem !important;
+  }
+
+  .permit-rejection-card__comment {
+    font-size: 0.95rem !important;
+  }
+}

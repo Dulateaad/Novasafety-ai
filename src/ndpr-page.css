@@ -1,0 +1,125 @@
+.ndpr-workers-fieldset {
+  border: 2px dashed var(--border, #d4e3f2);
+  border-radius: var(--radius, 14px);
+  padding: 1rem 1rem 1.15rem;
+  margin: 1.25rem 0 0;
+}
+
+.ndpr-workers-fieldset > legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+  color: var(--text-h, #0b2147);
+}
+
+.ndpr-workers-fieldset__add {
+  margin-top: 0.85rem;
+  margin-bottom: 0;
+}
+
+.ndpr-worker-row {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-elevated, #f5f9fd);
+  border: 1px solid var(--border, #d4e3f2);
+  border-radius: var(--radius-sm, 10px);
+}
+
+.ndpr-worker-row:last-child {
+  margin-bottom: 0;
+}
+
+.ndpr-worker-row label {
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.ndpr-worker-row label:last-of-type {
+  margin-bottom: 0;
+}
+
+.ndpr-worker-row select,
+.ndpr-worker-row input[type='date'] {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.ndpr-worker-row__remove {
+  margin-top: 0.85rem;
+}
+
+.work-perm-prework-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.25rem;
+}
+
+.work-perm-prework-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.work-perm-prework-table th,
+.work-perm-prework-table td {
+  border: 1px solid var(--border, #c8d6e4);
+  padding: 0.35rem 0.45rem;
+  vertical-align: top;
+}
+
+.work-perm-prework-table th {
+  background: var(--bg-elevated, #eef4fa);
+  font-weight: 600;
+  text-align: center;
+}
+
+.work-perm-prework-table th:first-child,
+.work-perm-prework-table td:first-child,
+.work-perm-prework-table th:nth-child(4),
+.work-perm-prework-table td:nth-child(4) {
+  text-align: left;
+  width: 34%;
+}
+
+.work-perm-prework-table__mark {
+  width: 9%;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.work-perm-prework-table__check {
+  display: inline-flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.work-perm-prework-table__mark--editable {
+  background: color-mix(in srgb, var(--accent, #1a6fb5) 8%, transparent);
+}
+
+.work-perm-prework-table__check--readonly {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.work-perm-prework-table__check--readonly input {
+  pointer-events: none;
+}
+
+.work-perm-prework-table__footer td {
+  font-weight: 600;
+  background: var(--bg-elevated, #f5f9fd);
+}
+
+.work-activities-field__option.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.work-activities-field__option.is-disabled:hover,
+.work-activities-field__option.is-disabled:focus-within {
+  background: transparent;
+}
+
+.work-activities-field__option.is-disabled .work-activities-field__checkbox {
+  cursor: not-allowed;
+}

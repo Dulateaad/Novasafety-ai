@@ -1,0 +1,54 @@
+/* Центральные уведомления об успешном сохранении */
+.toast-stack {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  width: min(24rem, calc(100vw - 2rem));
+  z-index: 1200;
+}
+
+.toast {
+  position: relative;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem 2.5rem 1rem 1.15rem;
+  opacity: 1 !important;
+}
+
+.toast--info {
+  background: #ffffff !important;
+  border: 1px solid #b8cfe8 !important;
+  color: var(--text-h) !important;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.22) !important;
+}
+
+.toast--success {
+  background: #f0faf5 !important;
+  border: 1px solid var(--success) !important;
+  color: var(--text-h) !important;
+}
+
+.toast--error {
+  background: #fff5f5 !important;
+  border: 1px solid var(--danger) !important;
+  color: var(--text-h) !important;
+}
+
+.toast__message {
+  flex: 1;
+  text-align: center;
+  color: var(--text-h);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.5;
+  opacity: 1;
+}
+
+.toast__close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  opacity: 0.75;
+}
